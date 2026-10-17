@@ -25,6 +25,8 @@
     "db:status": "supabase status",
     "db:env": "tsx scripts/write-local-env.ts",
     "db:reset": "tsx scripts/guard-local-db.ts && supabase db reset --local",
+    "admin:create": "tsx scripts/create-admin.ts",
+    "settings:generate": "tsx scripts/generate-settings-migration.ts",
     "db:types": "supabase gen types typescript --local --schema public > lib/supabase/database.types.ts"
   },
   "dependencies": {

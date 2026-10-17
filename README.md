@@ -55,6 +55,8 @@ pnpm dev             # http://localhost:3000
 | `pnpm test:db` | Tests de base de données (pgTAP, `supabase/tests/`) |
 | `pnpm test:e2e` | Parcours (Playwright, desktop et 400 px) |
 | `pnpm db:types` | Types TypeScript générés depuis la base locale |
+| `pnpm settings:generate` | Régénère la migration des paramètres initiaux depuis `specs/parametres_contractuels.json` |
+| `pnpm admin:create` | Compte administrateur initial (`ADMIN_EMAIL`), idempotent — local par défaut |
 
 **Production** (`hzgkhtaefpbqztwagwph`) : jamais de `db reset`, de seed ni de tests. Les clés de production se saisissent
 uniquement dans l’hébergeur — pas dans `.env.local`. Garde-fous : l’application refuse de démarrer sur l’URL de
@@ -63,3 +65,18 @@ une variable ou un fichier `.env*` pointe vers la production.
 
 Structure : `app/` (Next.js App Router), `lib/` (règles pures, montants, clients Supabase), `supabase/` (migrations,
 seed fictif, tests pgTAP), `scripts/`, `tests/` (unitaires, e2e), `.github/workflows/ci.yml` (CI).
+
+### Comptes de démonstration (local)
+
+Après `pnpm db:reset` : `admin@exemple.test`, `ops@exemple.test`, `compta@exemple.test`, `direction@exemple.test`,
+`client@exemple.test` — mot de passe `DemoUsaCars2026`. Admin et comptabilité configurent la double authentification
+(TOTP) à la première connexion. Les e-mails d’invitation locaux arrivent dans Mailpit (http://127.0.0.1:54324).
+
+### Authentification en production (à faire dans le tableau de bord Supabase, avant la mise en service)
+
+- Authentication → URL Configuration : `Site URL` = URL de l’application ; ajouter `<URL>/auth/confirm` aux redirections.
+- Authentication → Email Templates : reprendre `supabase/templates/invitation.html` et `reinitialisation.html`.
+- Authentication → Providers → Email : inscriptions publiques désactivées ; mot de passe 12 caractères minimum.
+- Authentication → Multi-Factor : TOTP activé.
+- SMTP personnalisé (fournisseur d’e-mail, question E2) : le service d’envoi intégré de Supabase est limité et
+  réservé aux membres de l’équipe du projet.
