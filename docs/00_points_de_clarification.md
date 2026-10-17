@@ -31,6 +31,9 @@ Format pour ajouter une décision : `ID — date — décision`.
 | A2 | Hébergement | USA CARS indique **GitHub** (voir interprétation I5 sur l’hébergement de l’application elle-même). |
 | A3-bis | Compte administrateur initial | `abdou.ndiaye@icloud.com` (variable `ADMIN_EMAIL`). |
 | E1 / E2 / E3 | Connexion client et notifications | **Dès la première version** : le client reçoit son lien de connexion **par WhatsApp et par e-mail** ; les notifications partent **par e-mail et par WhatsApp** via des services d’envoi réels. |
+| A4 | Double authentification | **17/10/2026** : TOTP (application d’authentification) **obligatoire pour admin et comptabilité** ; non imposé à la direction ni aux agents opérations. Liste des rôles paramétrable (`auth.mfa_required_roles`). |
+| B3 | Numérotation | **17/10/2026** : référence dossier `UC-AAAA-####` ; compteurs **annuels**, continus et sans trou, pour les dossiers et les documents DV, FA, FS. |
+| X7 | Date d’effet des paramètres | **17/10/2026** : chaque dossier conserve la date d’effet des paramètres en vigueur à son ouverture ; une modification de paramètre ne s’applique qu’aux nouveaux dossiers (cahier des charges §6). |
 
 ---
 
@@ -52,11 +55,9 @@ I1 et I2 ont été confirmées le 17/10/2026 (voir section 1). Restent I3, I4 et
 
 | # | Question | Bloque | Hypothèse par défaut |
 |---|---|---|---|
-| A4 | Double authentification des utilisateurs internes (application TOTP, e-mail) ? | Phase 1 | TOTP obligatoire pour admin et comptabilité. |
 | A5 | Langue de l’interface. | — | Français uniquement. |
 | A6 | Volume attendu (dossiers/mois, clients, utilisateurs internes). | — | 50 dossiers/mois, 200 clients, 10 internes. |
 | A7 | Dossiers en cours à reprendre (Excel, papier) ? | Phase 2 | Pas de reprise ; saisie manuelle. |
-| B3 | Format de la référence dossier ; remise à zéro annuelle des numéros DV/FA/FS ? | Phase 1 | `UC-AAAA-####`, compteurs annuels. |
 | B4 | Un véhicule peut-il changer de conteneur ? | Phase 2 | Oui, avec historique. |
 | B5 | USA CARS enchérit-il toujours pour le client ? | Phase 2 | Oui, sur ordre d’achat. |
 | C5 | Frais de retard : plafond ? Ajout automatique ou après validation ? | Phase 3 | Pas de plafond ; ajout après validation de la comptabilité. |

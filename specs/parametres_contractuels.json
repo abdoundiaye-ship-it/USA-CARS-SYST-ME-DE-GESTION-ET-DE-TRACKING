@@ -1,6 +1,6 @@
 {
   "_description": "Paramètres contractuels initiaux (contrat de prestation révisé, cahier des charges v1.1 section 6). Chargés dans la table settings. status: confirme = valeur du contrat ; a_confirmer = valeur provisoire surlignée dans le contrat ou hypothèse par défaut.",
-  "_version": "2026-10-17 (décisions intégrées)",
+  "_version": "2026-10-17 (décisions A4, B3 intégrées)",
   "settings": [
     {
       "key": "currency.reference",
@@ -296,7 +296,7 @@
     {
       "key": "refund.business_days",
       "value": 5,
-      "type": "string",
+      "type": "integer",
       "status": "a_confirmer",
       "source": "Question C9"
     },
@@ -351,6 +351,65 @@
       "type": "string[]",
       "status": "confirme",
       "source": "Décision E1/E3 — dès la première version"
+    },
+    {
+      "key": "numbering.dossier",
+      "value": "UC-{YYYY}-{####}",
+      "type": "string",
+      "status": "confirme",
+      "source": "Décision B3 du 17/10/2026"
+    },
+    {
+      "key": "numbering.quote",
+      "value": "DV-{YYYY}-{####}",
+      "type": "string",
+      "status": "confirme",
+      "source": "Décision B3 du 17/10/2026"
+    },
+    {
+      "key": "numbering.deposit_invoice",
+      "value": "FA-{YYYY}-{####}",
+      "type": "string",
+      "status": "confirme",
+      "source": "Décision B3 du 17/10/2026"
+    },
+    {
+      "key": "numbering.balance_invoice",
+      "value": "FS-{YYYY}-{####}",
+      "type": "string",
+      "status": "confirme",
+      "source": "Décision B3 du 17/10/2026"
+    },
+    {
+      "key": "numbering.cash_receipt",
+      "value": "RC-{YYYY}-{####}",
+      "type": "string",
+      "status": "a_confirmer",
+      "source": "Question C7 (hypothèse par défaut)"
+    },
+    {
+      "key": "numbering.refund_note",
+      "value": "RB-{YYYY}-{####}",
+      "type": "string",
+      "status": "a_confirmer",
+      "source": "Question C7 (hypothèse par défaut)"
+    },
+    {
+      "key": "numbering.reset",
+      "value": "annual",
+      "type": "enum:annual",
+      "status": "confirme",
+      "source": "Décision B3 du 17/10/2026"
+    },
+    {
+      "key": "auth.mfa_required_roles",
+      "value": [
+        "admin",
+        "accounting"
+      ],
+      "type": "string[]",
+      "status": "confirme",
+      "source": "Décision A4 du 17/10/2026"
     }
   ],
   "carriers": [
@@ -379,15 +438,5 @@
       "api_status": "non_etudie",
       "note": "Service tiers TrackingMCP — remplacer par le lien officiel dès qu'il est connu (clarification F1)."
     }
-  ],
-  "document_numbering": {
-    "dossier": "UC-{YYYY}-{####}",
-    "quote": "DV-{YYYY}-{####}",
-    "deposit_invoice": "FA-{YYYY}-{####}",
-    "balance_invoice": "FS-{YYYY}-{####}",
-    "cash_receipt": "RC-{YYYY}-{####}",
-    "reset": "annual",
-    "status": "a_confirmer",
-    "refund": "RB-{YYYY}-{####}"
-  }
+  ]
 }
