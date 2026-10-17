@@ -12,3 +12,5 @@ lib/supabase/database.types.ts
 supabase/.temp/
 README.md
 AGENTS.md
+.open-next/
+.wrangler/

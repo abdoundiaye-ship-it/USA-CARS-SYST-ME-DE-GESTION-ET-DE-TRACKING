@@ -69,6 +69,39 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  cloudflare:
+    name: Build Cloudflare (OpenNext) et essai dans workerd
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build pour Cloudflare Workers (valeurs factices, aucun secret)
+        env:
+          NEXT_PUBLIC_APP_ENV: local
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: cle-factice
+        run: pnpm cf:build
+      - name: Démarrer l’application dans le moteur Cloudflare local (workerd)
+        run: |
+          printf 'NEXT_PUBLIC_APP_ENV=local\nSUPABASE_SERVICE_ROLE_KEY=cle-factice\n' > .dev.vars
+          pnpm exec wrangler dev --port 8787 --var NEXT_PUBLIC_APP_ENV:local > wrangler.log 2>&1 &
+          for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:8787/connexion && break; sleep 2; done
+      - name: Vérifier la page de connexion et la redirection du proxy
+        run: |
+          set -e
+          curl -s http://localhost:8787/connexion | grep -q "Connexion"
+          headers=$(curl -s -o /dev/null -D - http://localhost:8787/parametres)
+          echo "$headers" | grep -E "^HTTP/.* 30[37]"
+          echo "$headers" | grep -i "^location: .*/connexion?suite=%2Fparametres"
+      - if: failure()
+        run: cat wrangler.log || true
+
   secrets:
     name: Détection de secrets
     runs-on: ubuntu-latest

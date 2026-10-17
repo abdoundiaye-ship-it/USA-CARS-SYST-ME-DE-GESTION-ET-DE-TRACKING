@@ -31,3 +31,9 @@ Thumbs.db
 *.log
 .vercel/
 ~$*
+
+# Cloudflare (OpenNext / Wrangler)
+.open-next/
+.wrangler/
+.dev.vars*
+!.dev.vars.example
