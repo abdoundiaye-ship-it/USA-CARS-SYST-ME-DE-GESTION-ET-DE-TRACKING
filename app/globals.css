@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f7f5;
+  --foreground: #1b1d21;
+  --muted: #5d636e;
+  --card: #ffffff;
+  --border: #e2e3e6;
+  --primary: #12355b;
+  --primary-foreground: #ffffff;
+  --success: #1f7a4d;
+  --warning: #9a5b00;
+  --danger: #b42318;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #121417;
+    --foreground: #eceef1;
+    --muted: #a3a9b4;
+    --card: #1b1e23;
+    --border: #2c3038;
+    --primary: #8db4e2;
+    --primary-foreground: #0d1b2a;
+    --success: #5cc493;
+    --warning: #e0a443;
+    --danger: #f1867c;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Montants alignés (docs/14_ecrans_ux.md) */
+.amount {
+  font-variant-numeric: tabular-nums;
+}
