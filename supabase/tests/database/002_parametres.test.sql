@@ -5,13 +5,13 @@ create extension if not exists pgtap with schema extensions;
 select plan(17);
 
 insert into auth.users (id, email) values
-  ('11111111-1111-1111-1111-111111111111', 'admin@exemple.test'),
-  ('22222222-2222-2222-2222-222222222222', 'ops@exemple.test'),
-  ('55555555-5555-5555-5555-555555555555', 'client@exemple.test');
+  ('11111111-1111-1111-1111-111111111111', 'pgtap.admin@exemple.test'),
+  ('22222222-2222-2222-2222-222222222222', 'pgtap.ops@exemple.test'),
+  ('55555555-5555-5555-5555-555555555555', 'pgtap.client@exemple.test');
 insert into public.profiles (id, email, full_name, role) values
-  ('11111111-1111-1111-1111-111111111111', 'admin@exemple.test', 'Admin Démo', 'admin'),
-  ('22222222-2222-2222-2222-222222222222', 'ops@exemple.test', 'Agent Opérations', 'ops'),
-  ('55555555-5555-5555-5555-555555555555', 'client@exemple.test', 'Client Démo', 'client');
+  ('11111111-1111-1111-1111-111111111111', 'pgtap.admin@exemple.test', 'Admin Démo', 'admin'),
+  ('22222222-2222-2222-2222-222222222222', 'pgtap.ops@exemple.test', 'Agent Opérations', 'ops'),
+  ('55555555-5555-5555-5555-555555555555', 'pgtap.client@exemple.test', 'Client Démo', 'client');
 
 -- Chargement initial (specs/parametres_contractuels.json)
 select ok((select count(*) from public.settings_current) >= 50, 'Les paramètres initiaux sont chargés');

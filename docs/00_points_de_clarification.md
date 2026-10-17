@@ -35,6 +35,7 @@ Format pour ajouter une décision : `ID — date — décision`.
 | B3 | Numérotation | **17/10/2026** : référence dossier `UC-AAAA-####` ; compteurs **annuels**, continus et sans trou, pour les dossiers et les documents DV, FA, FS. |
 | X7 | Date d’effet des paramètres | **17/10/2026** : chaque dossier conserve la date d’effet des paramètres en vigueur à son ouverture ; une modification de paramètre ne s’applique qu’aux nouveaux dossiers (cahier des charges §6). |
 | E2 | Fournisseur d’e-mail | **17/10/2026** : **Brevo, offre gratuite** (300 e-mails/jour), choisi par Claude Code à la demande de USA CARS. Sert au SMTP de Supabase Auth (invitations, réinitialisations) et, en phase 4, aux notifications via l’adaptateur e-mail. **Reste à fournir** : le domaine d’envoi (ex. `usacars.sn`) à vérifier chez Brevo (SPF, DKIM, DMARC) et l’adresse d’expédition (ex. `no-reply@<domaine>`). |
+| I5 | Hébergement | **17/10/2026** : phase de test sur **Cloudflare Workers + adaptateur OpenNext** (offre gratuite, adresse `*.workers.dev`), code sur GitHub, base sur Supabase. Cloudflare Pages écarté (outil Next.js obsolète, incompatible avec Next.js 16). Nom de domaine acheté quand l’application sera prête. Voir `docs/18_deploiement_cloudflare.md`. |
 
 ---
 

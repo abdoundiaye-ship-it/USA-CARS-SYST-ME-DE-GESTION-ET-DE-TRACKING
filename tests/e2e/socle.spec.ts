@@ -8,8 +8,10 @@ test.beforeEach(async ({ request }, testInfo) => {
 });
 
 test("mot de passe incorrect : message explicite", async ({ page }) => {
-  await signIn(page, "ops@exemple.test", "MauvaisMotDePasse1");
-  await expect(page.getByRole("alert")).toHaveText("E-mail ou mot de passe incorrect.");
+  await signIn(page, "ops@exemple.test", "MauvaisMotDePasse1", { expectRedirect: false });
+  // Next.js ajoute sa propre zone role="alert" (annonceur de navigation) : on cible le message.
+  await expect(page.getByRole("alert").filter({ hasText: "E-mail ou mot de passe incorrect." })).toBeVisible();
+  await expect(page).toHaveURL(/\/connexion$/);
 });
 
 test("agent opérations : pas d’accès à l’audit ni à la gestion des utilisateurs", async ({ page }) => {
@@ -68,7 +70,7 @@ test.describe("administrateur", () => {
     await page.getByLabel("Nom complet").fill("Agent Parcours (démo)");
     await page.getByLabel("Adresse e-mail").fill(email);
     await page.getByLabel("Rôle", { exact: true }).selectOption("ops");
-    await page.getByRole("button", { name: "Envoyer l’invitation" }).click();
+    await page.getByRole("button", { name: "Envoyer l’invitation", exact: true }).click();
     await expect(page.getByText(`Invitation envoyée à ${email}.`)).toBeVisible();
     const row = page.getByRole("row").filter({ hasText: email });
     await expect(row.getByText("Invitation envoyée")).toBeVisible();

@@ -22,11 +22,13 @@ export function totp(secretBase32: string, at = Date.now()): string {
   return code.toString().padStart(6, "0");
 }
 
-export async function signIn(page: Page, email: string, password = DEMO_PASSWORD) {
+/** Connexion ; attend la redirection (sauf `expectRedirect: false`, ex. mot de passe incorrect). */
+export async function signIn(page: Page, email: string, password = DEMO_PASSWORD, { expectRedirect = true } = {}) {
   await page.goto("/connexion");
   await page.getByLabel("Adresse e-mail").fill(email);
   await page.getByLabel("Mot de passe").fill(password);
   await page.getByRole("button", { name: "Se connecter" }).click();
+  if (expectRedirect) await page.waitForURL((url) => url.pathname !== "/connexion");
 }
 
 /** Les parcours authentifiés exigent Supabase local démarré (toujours le cas en CI). */

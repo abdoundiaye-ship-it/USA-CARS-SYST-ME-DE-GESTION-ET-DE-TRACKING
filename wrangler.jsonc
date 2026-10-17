@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Décision I5 (17/10/2026) : Cloudflare Workers + OpenNext, offre gratuite, adresse de test *.workers.dev.
+  "name": "usa-cars",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "observability": { "enabled": true },
+  // Variables non secrètes ; les clés (anon, service_role) sont saisies dans Cloudflare, jamais ici.
+  "vars": {
+    "NEXT_PUBLIC_APP_ENV": "production",
+    "NOTIFICATIONS_MODE": "simulated",
+  },
+}
