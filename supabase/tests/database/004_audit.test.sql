@@ -5,15 +5,15 @@ create extension if not exists pgtap with schema extensions;
 select plan(17);
 
 insert into auth.users (id, email) values
-  ('11111111-1111-1111-1111-111111111111', 'admin@exemple.test'),
-  ('22222222-2222-2222-2222-222222222222', 'ops@exemple.test'),
-  ('44444444-4444-4444-4444-444444444444', 'direction@exemple.test'),
-  ('55555555-5555-5555-5555-555555555555', 'client@exemple.test');
+  ('11111111-1111-1111-1111-111111111111', 'pgtap.admin@exemple.test'),
+  ('22222222-2222-2222-2222-222222222222', 'pgtap.ops@exemple.test'),
+  ('44444444-4444-4444-4444-444444444444', 'pgtap.direction@exemple.test'),
+  ('55555555-5555-5555-5555-555555555555', 'pgtap.client@exemple.test');
 insert into public.profiles (id, email, full_name, role) values
-  ('11111111-1111-1111-1111-111111111111', 'admin@exemple.test', 'Admin Démo', 'admin'),
-  ('22222222-2222-2222-2222-222222222222', 'ops@exemple.test', 'Agent Opérations', 'ops'),
-  ('44444444-4444-4444-4444-444444444444', 'direction@exemple.test', 'Direction Démo', 'management'),
-  ('55555555-5555-5555-5555-555555555555', 'client@exemple.test', 'Client Démo', 'client');
+  ('11111111-1111-1111-1111-111111111111', 'pgtap.admin@exemple.test', 'Admin Démo', 'admin'),
+  ('22222222-2222-2222-2222-222222222222', 'pgtap.ops@exemple.test', 'Agent Opérations', 'ops'),
+  ('44444444-4444-4444-4444-444444444444', 'pgtap.direction@exemple.test', 'Direction Démo', 'management'),
+  ('55555555-5555-5555-5555-555555555555', 'pgtap.client@exemple.test', 'Client Démo', 'client');
 
 -- Changement de rôle par l'administrateur
 select set_config('request.jwt.claims', '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated","aal":"aal2"}', true);

@@ -6,21 +6,21 @@ select plan(26);
 
 -- Jeu d'essai fictif (@exemple.test)
 insert into auth.users (id, email) values
-  ('11111111-1111-1111-1111-111111111111', 'admin@exemple.test'),
-  ('22222222-2222-2222-2222-222222222222', 'ops@exemple.test'),
-  ('33333333-3333-3333-3333-333333333333', 'compta@exemple.test'),
-  ('44444444-4444-4444-4444-444444444444', 'direction@exemple.test'),
-  ('55555555-5555-5555-5555-555555555555', 'client@exemple.test'),
-  ('66666666-6666-6666-6666-666666666666', 'ops.inactif@exemple.test'),
-  ('77777777-7777-7777-7777-777777777777', 'nouveau@exemple.test');
+  ('11111111-1111-1111-1111-111111111111', 'pgtap.admin@exemple.test'),
+  ('22222222-2222-2222-2222-222222222222', 'pgtap.ops@exemple.test'),
+  ('33333333-3333-3333-3333-333333333333', 'pgtap.compta@exemple.test'),
+  ('44444444-4444-4444-4444-444444444444', 'pgtap.direction@exemple.test'),
+  ('55555555-5555-5555-5555-555555555555', 'pgtap.client@exemple.test'),
+  ('66666666-6666-6666-6666-666666666666', 'pgtap.ops.inactif@exemple.test'),
+  ('77777777-7777-7777-7777-777777777777', 'pgtap.nouveau@exemple.test');
 
 insert into public.profiles (id, email, full_name, role, active) values
-  ('11111111-1111-1111-1111-111111111111', 'admin@exemple.test', 'Admin Démo', 'admin', true),
-  ('22222222-2222-2222-2222-222222222222', 'ops@exemple.test', 'Agent Opérations', 'ops', true),
-  ('33333333-3333-3333-3333-333333333333', 'compta@exemple.test', 'Comptable Démo', 'accounting', true),
-  ('44444444-4444-4444-4444-444444444444', 'direction@exemple.test', 'Direction Démo', 'management', true),
-  ('55555555-5555-5555-5555-555555555555', 'client@exemple.test', 'Client Démo', 'client', true),
-  ('66666666-6666-6666-6666-666666666666', 'ops.inactif@exemple.test', 'Agent Inactif', 'ops', false);
+  ('11111111-1111-1111-1111-111111111111', 'pgtap.admin@exemple.test', 'Admin Démo', 'admin', true),
+  ('22222222-2222-2222-2222-222222222222', 'pgtap.ops@exemple.test', 'Agent Opérations', 'ops', true),
+  ('33333333-3333-3333-3333-333333333333', 'pgtap.compta@exemple.test', 'Comptable Démo', 'accounting', true),
+  ('44444444-4444-4444-4444-444444444444', 'pgtap.direction@exemple.test', 'Direction Démo', 'management', true),
+  ('55555555-5555-5555-5555-555555555555', 'pgtap.client@exemple.test', 'Client Démo', 'client', true),
+  ('66666666-6666-6666-6666-666666666666', 'pgtap.ops.inactif@exemple.test', 'Agent Inactif', 'ops', false);
 
 -- Isolation vis-à-vis du seed de démonstration (identifiants d0000000-…) : ses comptes sont désactivés
 -- le temps du test, et les comptages ne portent que sur les profils du test.
@@ -66,7 +66,7 @@ select is(public.current_role_app(), 'ops'::public.app_role, 'Agent sans MFA : r
 select is((select count(*) from public.profiles), 1::bigint, 'Agent : ne lit que son propre profil');
 update public.profiles set role = 'admin' where id = '22222222-2222-2222-2222-222222222222';
 select throws_ok(
-  $$ insert into public.profiles (id, email, full_name, role) values ('77777777-7777-7777-7777-777777777777', 'nouveau@exemple.test', 'Nouveau', 'ops') $$,
+  $$ insert into public.profiles (id, email, full_name, role) values ('77777777-7777-7777-7777-777777777777', 'pgtap.nouveau@exemple.test', 'Nouveau', 'ops') $$,
   '42501', null, 'Accès refusé : un agent ne peut pas créer d’utilisateur'
 );
 reset role;
@@ -100,7 +100,7 @@ select is((select full_name from public.profiles where id = '22222222-2222-2222-
 select set_config('request.jwt.claims', '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated","aal":"aal2"}', true);
 set local role authenticated;
 select lives_ok(
-  $$ insert into public.profiles (id, email, full_name, role) values ('77777777-7777-7777-7777-777777777777', 'nouveau@exemple.test', 'Nouveau', 'ops') $$,
+  $$ insert into public.profiles (id, email, full_name, role) values ('77777777-7777-7777-7777-777777777777', 'pgtap.nouveau@exemple.test', 'Nouveau', 'ops') $$,
   'L’administrateur crée un utilisateur'
 );
 select lives_ok(
