@@ -34,6 +34,7 @@ Format pour ajouter une décision : `ID — date — décision`.
 | A4 | Double authentification | **17/10/2026** : TOTP (application d’authentification) **obligatoire pour admin et comptabilité** ; non imposé à la direction ni aux agents opérations. Liste des rôles paramétrable (`auth.mfa_required_roles`). |
 | B3 | Numérotation | **17/10/2026** : référence dossier `UC-AAAA-####` ; compteurs **annuels**, continus et sans trou, pour les dossiers et les documents DV, FA, FS. |
 | X7 | Date d’effet des paramètres | **17/10/2026** : chaque dossier conserve la date d’effet des paramètres en vigueur à son ouverture ; une modification de paramètre ne s’applique qu’aux nouveaux dossiers (cahier des charges §6). |
+| E2 | Fournisseur d’e-mail | **17/10/2026** : **Brevo, offre gratuite** (300 e-mails/jour), choisi par Claude Code à la demande de USA CARS. Sert au SMTP de Supabase Auth (invitations, réinitialisations) et, en phase 4, aux notifications via l’adaptateur e-mail. **Reste à fournir** : le domaine d’envoi (ex. `usacars.sn`) à vérifier chez Brevo (SPF, DKIM, DMARC) et l’adresse d’expédition (ex. `no-reply@<domaine>`). |
 
 ---
 
@@ -66,7 +67,6 @@ I1 et I2 ont été confirmées le 17/10/2026 (voir section 1). Restent I3, I4 et
 | C9 | Mode et délai de **remboursement** du trop-perçu ou du dépôt (même canal que le paiement ? délai ?). | Phase 3 | Même mode que le paiement d’origine, sous 5 jours ouvrés, validé par un administrateur. |
 | D4 | Logo, couleurs, identité légale (forme, RCCM, NINEA, adresse). | Phase 3 | Mise en page des modèles actuels, sans logo. |
 | D5 | Documents remis au client en PDF seul, ou Word + PDF ? | Phase 3 | PDF au client, Word en interne. |
-| E2 | **Fournisseur d’e-mail** (Resend, Brevo, autre) et adresse d’expédition (domaine à vérifier). | Phase 4 | Resend, adresse `no-reply@<domaine>`. |
 | E3 | **Fournisseur WhatsApp** : API WhatsApp Business de Meta (en direct) ou intermédiaire (Twilio, 360dialog…) ? Numéro WhatsApp Business dédié ? Vérification de l’entreprise par Meta à lancer. | Phase 4 | API WhatsApp Business via Twilio ; modèles de messages soumis à approbation. |
 | E5 | Textes des notifications (lot remporté, devis, échéances, départ, ETA modifiée, arrivée, documents prêts, relances). | Phase 4 | Proposés par Claude Code, validés par USA CARS. |
 | F1 | Lien officiel de suivi Grimaldi. | — | Lien tiers TrackingMCP, signalé comme tel. |
