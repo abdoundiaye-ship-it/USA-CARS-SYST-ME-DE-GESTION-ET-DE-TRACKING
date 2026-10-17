@@ -1,21 +1,23 @@
 import { expect, test } from "@playwright/test";
+import { databaseAvailable, expectNoHorizontalScroll } from "./helpers";
 
-test("la page d’accueil s’affiche en français, sans défilement horizontal", async ({ page }) => {
+test("l’accueil renvoie vers la connexion, en français et sans défilement horizontal", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page).toHaveTitle(/USA CARS/);
+  await expect(page).toHaveURL(/\/connexion/);
+  await expect(page).toHaveTitle(/Connexion · USA CARS/);
   await expect(page.locator("html")).toHaveAttribute("lang", "fr");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Système de gestion et de suivi des dossiers");
-  await expect(page.getByRole("status")).toContainText("Connexion à la base de données");
-
-  const hasHorizontalScroll = await page.evaluate(
-    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-  );
-  expect(hasHorizontalScroll).toBe(false);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Connexion");
+  await expect(page.getByLabel("Adresse e-mail")).toBeVisible();
+  await expectNoHorizontalScroll(page);
 });
 
-test("la base de données locale répond (CI)", async ({ page }) => {
+test("une page interne sans session renvoie vers la connexion", async ({ page }) => {
+  await page.goto("/parametres");
+  await expect(page).toHaveURL(/\/connexion\?suite=%2Fparametres/);
+});
+
+test("la base de données locale répond (CI)", async ({ request }) => {
   test.skip(!process.env.CI, "Vérifié en CI, où Supabase local est démarré.");
-  await page.goto("/");
-  await expect(page.getByRole("status")).toHaveText("Connexion à la base de données : opérationnelle");
+  expect(await databaseAvailable(request)).toBe(true);
 });

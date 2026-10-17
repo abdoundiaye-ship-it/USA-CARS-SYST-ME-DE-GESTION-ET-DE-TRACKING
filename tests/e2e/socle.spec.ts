@@ -1,0 +1,88 @@
+import { expect, test } from "@playwright/test";
+import { databaseAvailable, expectNoHorizontalScroll, signIn, totp } from "./helpers";
+
+// Phase 1 — US-1.0 à US-1.4 sur les comptes du seed de démonstration (Supabase local).
+test.beforeEach(async ({ request }, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "Parcours avec état partagé : exécutés une seule fois (desktop).");
+  test.skip(!(await databaseAvailable(request)), "Supabase local non démarré.");
+});
+
+test("mot de passe incorrect : message explicite", async ({ page }) => {
+  await signIn(page, "ops@exemple.test", "MauvaisMotDePasse1");
+  await expect(page.getByRole("alert")).toHaveText("E-mail ou mot de passe incorrect.");
+});
+
+test("agent opérations : pas d’accès à l’audit ni à la gestion des utilisateurs", async ({ page }) => {
+  await signIn(page, "ops@exemple.test");
+  await expect(page).toHaveURL(/\/tableau-de-bord/);
+  const nav = page.getByRole("navigation", { name: "Navigation principale" });
+  await expect(nav.getByRole("link", { name: "Paramètres" })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "Journal d’audit" })).toHaveCount(0);
+
+  await page.goto("/audit");
+  await expect(page).toHaveURL(/\/acces-refuse/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Accès refusé");
+
+  await page.goto("/utilisateurs");
+  await expect(page).toHaveURL(/\/acces-refuse/);
+});
+
+test("agent opérations : paramètres en lecture seule, valeurs à confirmer signalées", async ({ page }) => {
+  await signIn(page, "ops@exemple.test");
+  await page.goto("/parametres");
+  await expect(page.getByText(/paramètres? .*encore à confirmer/)).toBeVisible();
+  await page.getByRole("link", { name: "Validité du devis (heures)" }).click();
+  await expect(page.getByText("Valeur en vigueur")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Enregistrer la nouvelle version" })).toHaveCount(0);
+});
+
+test("comptabilité : la double authentification est exigée (A4)", async ({ page }) => {
+  await signIn(page, "compta@exemple.test");
+  await expect(page).toHaveURL(/\/connexion\/mfa/);
+  await expect(page.getByRole("button", { name: "Configurer la double authentification" })).toBeVisible();
+
+  await page.goto("/tableau-de-bord");
+  await expect(page).toHaveURL(/\/connexion\/mfa/);
+});
+
+test.describe("administrateur", () => {
+  test.describe.configure({ retries: 0 }); // l’enrôlement MFA n’a lieu qu’une fois par base
+
+  test("configure sa MFA, crée un utilisateur et retrouve l’action dans l’audit", async ({ page }) => {
+    await signIn(page, "admin@exemple.test");
+    await expect(page).toHaveURL(/\/connexion\/mfa/);
+
+    await page.getByRole("button", { name: "Configurer la double authentification" }).click();
+    const secret = (await page.getByTestId("totp-secret").textContent())?.trim() ?? "";
+    expect(secret).not.toBe("");
+    await page.getByLabel("Code à 6 chiffres").fill(totp(secret));
+    await page.getByRole("button", { name: "Valider le code" }).click();
+    await expect(page).toHaveURL(/\/tableau-de-bord/);
+
+    // US-1.2 : invitation d'un utilisateur avec un rôle
+    const email = `agent.${Date.now()}@exemple.test`;
+    await page
+      .getByRole("navigation", { name: "Navigation principale" })
+      .getByRole("link", { name: "Utilisateurs" })
+      .click();
+    await page.getByLabel("Nom complet").fill("Agent Parcours (démo)");
+    await page.getByLabel("Adresse e-mail").fill(email);
+    await page.getByLabel("Rôle", { exact: true }).selectOption("ops");
+    await page.getByRole("button", { name: "Envoyer l’invitation" }).click();
+    await expect(page.getByText(`Invitation envoyée à ${email}.`)).toBeVisible();
+    const row = page.getByRole("row").filter({ hasText: email });
+    await expect(row.getByText("Invitation envoyée")).toBeVisible();
+
+    // Changement de rôle journalisé (avant / après)
+    await row.getByLabel("Rôle de Agent Parcours (démo)").selectOption("accounting");
+    await row.getByRole("button", { name: "Enregistrer le rôle" }).click();
+    await expect(row.getByText("Rôle enregistré.")).toBeVisible();
+
+    // US-1.4 : l'audit montre l'auteur et le changement
+    await page.goto("/audit?objet=profiles&action=update");
+    const entry = page.getByRole("row").filter({ hasText: "Agent Parcours (démo)" }).first();
+    await expect(entry).toContainText("Awa Admin (démo)");
+    await expect(entry).toContainText("Agent opérations → Comptabilité");
+    await expectNoHorizontalScroll(page);
+  });
+});
