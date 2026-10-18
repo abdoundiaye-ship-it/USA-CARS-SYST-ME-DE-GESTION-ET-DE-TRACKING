@@ -1,6 +1,6 @@
 # Déploiement — Cloudflare Workers (décision I5 du 17/10/2026)
 
-Hébergement de test : **Cloudflare Workers + adaptateur OpenNext**, offre gratuite, adresse `https://usa-cars.<sous-domaine-du-compte>.workers.dev`. Code sur GitHub, base sur Supabase (`hzgkhtaefpbqztwagwph`). Un nom de domaine sera acheté quand l’application sera prête ; il remplacera l’adresse `workers.dev` sans changement de code.
+Hébergement de test : **Cloudflare Workers + adaptateur OpenNext**, offre gratuite, adresse `https://usa-cars.usacarsusasen.workers.dev` (sous-domaine du compte : `usacarsusasen`, créé le 18/10/2026). Code sur GitHub, base sur Supabase (`hzgkhtaefpbqztwagwph`). Un nom de domaine sera acheté quand l’application sera prête ; il remplacera l’adresse `workers.dev` sans changement de code.
 
 > Aucun déploiement sans accord explicite de USA CARS. Les clés ne sont jamais écrites dans le dépôt ni envoyées par message.
 
@@ -12,7 +12,7 @@ Hébergement de test : **Cloudflare Workers + adaptateur OpenNext**, offre gratu
 
 ## Étapes (à faire par USA CARS, guidées par Claude Code)
 
-1. Créer un compte Cloudflare (gratuit) au nom de USA CARS.
+1. ✅ Compte Cloudflare créé (18/10/2026), sous-domaine `usacarsusasen.workers.dev`.
 2. Workers & Pages → Créer → Importer un dépôt Git → autoriser GitHub → choisir `USA-CARS-SYST-ME-DE-GESTION-ET-DE-TRACKING`.
 3. Paramètres du build :
    - Nom du Worker : `usa-cars` (identique à `wrangler.jsonc`)
@@ -26,7 +26,7 @@ Hébergement de test : **Cloudflare Workers + adaptateur OpenNext**, offre gratu
 5. **Variables et secrets d’exécution** (Worker → Paramètres → Variables et secrets) :
    - `SUPABASE_SERVICE_ROLE_KEY` → type **Secret**
    - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (mêmes valeurs qu’au build)
-   - `APP_URL` = adresse `workers.dev` attribuée
+   - `APP_URL` = `https://usa-cars.usacarsusasen.workers.dev`
    - `ADMIN_EMAIL` = `abdou.ndiaye@icloud.com`
 6. Désactiver les déploiements de prévisualisation des branches (ils utiliseraient la base de production — point X12).
 7. Supabase → Authentication → URL Configuration : `Site URL` = `APP_URL` ; ajouter `APP_URL/auth/confirm` aux redirections (voir README).
