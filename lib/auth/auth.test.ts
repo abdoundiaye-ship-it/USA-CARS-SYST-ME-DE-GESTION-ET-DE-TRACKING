@@ -67,6 +67,9 @@ describe("validation des formulaires (Zod)", () => {
     expect(inviteUserSchema.safeParse({ ...base, role: "ops" }).success).toBe(true);
     expect(inviteUserSchema.safeParse({ ...base, role: "client" }).success).toBe(false);
     expect(inviteUserSchema.safeParse({ ...base, fullName: "A", role: "ops" }).success).toBe(false);
+    const parsed = inviteUserSchema.safeParse({ ...base, role: "ops" });
+    expect(parsed.success && parsed.data.delivery).toBe("lien"); // pas d’e-mail par défaut (pas de domaine)
+    expect(inviteUserSchema.safeParse({ ...base, role: "ops", delivery: "sms" }).success).toBe(false);
   });
 
   it("changement de rôle et activation", () => {

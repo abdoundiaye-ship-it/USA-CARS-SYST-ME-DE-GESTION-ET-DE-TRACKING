@@ -13,6 +13,8 @@ export const inviteUserSchema = z.object({
     .max(120, "Le nom ne doit pas dépasser 120 caractères."),
   email: emailField(),
   role: roleSchema,
+  /** « lien » : lien d’accès à copier (WhatsApp…), sans e-mail ; « email » : invitation envoyée par Supabase. */
+  delivery: z.enum(["lien", "email"], "Choisissez le mode d’envoi.").default("lien"),
 });
 
 export const changeRoleSchema = z.object({
@@ -26,3 +28,5 @@ export const setActiveSchema = z.object({
 });
 
 export const resendInviteSchema = z.object({ userId: userIdSchema });
+
+export const accessLinkSchema = z.object({ userId: userIdSchema });

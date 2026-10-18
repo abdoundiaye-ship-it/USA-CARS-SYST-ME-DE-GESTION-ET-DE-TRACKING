@@ -50,7 +50,10 @@ test("comptabilité : la double authentification est exigée (A4)", async ({ pag
 test.describe("administrateur", () => {
   test.describe.configure({ retries: 0 }); // l’enrôlement MFA n’a lieu qu’une fois par base
 
-  test("configure sa MFA, crée un utilisateur et retrouve l’action dans l’audit", async ({ page }) => {
+  test("configure sa MFA, crée un utilisateur par lien d’accès et retrouve l’action dans l’audit", async ({
+    page,
+    browser,
+  }) => {
     await signIn(page, "admin@exemple.test");
     await expect(page).toHaveURL(/\/connexion\/mfa/);
 
@@ -70,10 +73,30 @@ test.describe("administrateur", () => {
     await page.getByLabel("Nom complet").fill("Agent Parcours (démo)");
     await page.getByLabel("Adresse e-mail").fill(email);
     await page.getByLabel("Rôle", { exact: true }).selectOption("ops");
-    await page.getByRole("button", { name: "Envoyer l’invitation", exact: true }).click();
-    await expect(page.getByText(`Invitation envoyée à ${email}.`)).toBeVisible();
+    await page.getByRole("button", { name: "Créer le compte", exact: true }).click();
+    await expect(page.getByText(`Compte créé pour ${email}.`)).toBeVisible();
+    const link = await page.getByLabel("Lien d’accès").inputValue();
+    expect(link).toContain("/auth/confirm?token_hash=");
     const row = page.getByRole("row").filter({ hasText: email });
     await expect(row.getByText("Invitation envoyée")).toBeVisible();
+
+    // La personne invitée ouvre le lien (autre navigateur) et choisit son mot de passe, sans aucun e-mail.
+    const invitee = await browser.newContext();
+    const inviteePage = await invitee.newPage();
+    await inviteePage.goto(link);
+    await expect(inviteePage).toHaveURL(/\/compte\/mot-de-passe/);
+    await inviteePage.getByLabel("Nouveau mot de passe").fill("AgentParcours2026");
+    await inviteePage.getByLabel("Confirmez le mot de passe").fill("AgentParcours2026");
+    await inviteePage.getByRole("button", { name: "Enregistrer le mot de passe" }).click();
+    await expect(inviteePage).toHaveURL(/\/tableau-de-bord/);
+    await invitee.close();
+
+    // Un lien déjà utilisé ne fonctionne plus.
+    const replay = await browser.newContext();
+    const replayPage = await replay.newPage();
+    await replayPage.goto(link);
+    await expect(replayPage).toHaveURL(/\/connexion\?erreur=lien/);
+    await replay.close();
 
     // Changement de rôle journalisé (avant / après)
     await row.getByLabel("Rôle de Agent Parcours (démo)").selectOption("accounting");

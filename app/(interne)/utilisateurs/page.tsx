@@ -6,7 +6,7 @@ import { isInternalRole, ROLE_LABELS, SCREEN_ROLES } from "@/lib/auth/roles";
 import { formatDateTime } from "@/lib/format";
 import { listAuthUsersSummary, type AuthUserSummary } from "@/lib/server/users";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { ActiveToggle, InviteUserForm, ResendInviteForm, RoleForm } from "./user-forms";
+import { AccessLinkForm, ActiveToggle, InviteUserForm, ResendInviteForm, RoleForm } from "./user-forms";
 
 export const metadata: Metadata = { title: "Utilisateurs" };
 
@@ -34,7 +34,7 @@ export default async function UtilisateursPage() {
 
       {isAdmin && (
         <Card className="mb-6">
-          <h2 className="mb-4 font-semibold">Inviter un utilisateur</h2>
+          <h2 className="mb-4 font-semibold">Créer un utilisateur</h2>
           <InviteUserForm />
         </Card>
       )}
@@ -98,6 +98,7 @@ export default async function UtilisateursPage() {
                             active={p.active}
                             name={p.full_name}
                           />
+                          {p.active && <AccessLinkForm userId={p.id} />}
                           {neverSignedIn && p.active && <ResendInviteForm userId={p.id} />}
                         </div>
                       )}

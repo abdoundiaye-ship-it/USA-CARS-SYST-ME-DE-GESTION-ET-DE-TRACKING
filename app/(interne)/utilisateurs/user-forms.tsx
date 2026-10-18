@@ -1,12 +1,42 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useId, useState } from "react";
 import { FormMessage } from "@/components/form-message";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
 import { INTERNAL_ROLES, ROLE_LABELS, type InternalRole } from "@/lib/auth/roles";
 import { initialFormState } from "@/lib/forms";
-import { changeRole, inviteUser, resendInvite, setUserActive } from "./actions";
+import { changeRole, generateAccessLink, inviteUser, resendInvite, setUserActive } from "./actions";
+
+/** Lien d’accès affiché une seule fois, avec copie dans le presse-papiers. */
+function AccessLink({ link }: { link: string }) {
+  const [copied, setCopied] = useState(false);
+  const id = useId();
+  return (
+    <div className="flex flex-col gap-2">
+      <label htmlFor={id} className="text-sm font-medium">
+        Lien d’accès
+      </label>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Input id={id} readOnly value={link} onFocus={(e) => e.currentTarget.select()} className="font-mono text-xs" />
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(link);
+              setCopied(true);
+            } catch {
+              setCopied(false);
+            }
+          }}
+        >
+          {copied ? "Lien copié" : "Copier le lien"}
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export function InviteUserForm() {
   const [state, action, pending] = useActionState(inviteUser, initialFormState);
@@ -32,11 +62,25 @@ export function InviteUserForm() {
           )}
         </Field>
       </div>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 text-sm font-medium">Mode d’envoi</legend>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="radio" name="delivery" value="lien" defaultChecked className="mt-1" />
+          <span>
+            Lien à copier et à envoyer moi-même (WhatsApp…) — recommandé tant que l’envoi d’e-mails n’est pas configuré
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="radio" name="delivery" value="email" className="mt-1" />
+          <span>Invitation par e-mail</span>
+        </label>
+      </fieldset>
       <div>
         <Button type="submit" pending={pending}>
-          {pending ? "Envoi…" : "Envoyer l’invitation"}
+          {pending ? "Création…" : "Créer le compte"}
         </Button>
       </div>
+      {state.status === "success" && state.data?.lien && <AccessLink key={state.data.lien} link={state.data.lien} />}
     </form>
   );
 }
@@ -118,9 +162,28 @@ export function ResendInviteForm({ userId }: { userId: string }) {
         pending={pending}
         className="text-primary px-0 underline underline-offset-2"
       >
-        Renvoyer l’invitation
+        Renvoyer l’invitation par e-mail
       </Button>
       <FormMessage state={state} />
+    </form>
+  );
+}
+
+export function AccessLinkForm({ userId }: { userId: string }) {
+  const [state, action, pending] = useActionState(generateAccessLink, initialFormState);
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <input type="hidden" name="userId" value={userId} />
+      <Button
+        type="submit"
+        variant="ghost"
+        pending={pending}
+        className="text-primary px-0 underline underline-offset-2"
+      >
+        Obtenir un lien d’accès
+      </Button>
+      <FormMessage state={state} />
+      {state.status === "success" && state.data?.lien && <AccessLink key={state.data.lien} link={state.data.lien} />}
     </form>
   );
 }

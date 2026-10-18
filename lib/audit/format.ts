@@ -6,6 +6,7 @@ export const ACTION_LABELS: Record<string, string> = {
   update: "Modification",
   delete: "Suppression",
   resend_invite: "Invitation renvoyée",
+  access_link: "Lien d’accès généré",
   mfa_enroll: "Double authentification activée",
   bootstrap_admin: "Création du compte administrateur initial",
 };
