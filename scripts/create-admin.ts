@@ -6,6 +6,9 @@
  *
  * Par défaut sur Supabase LOCAL (.env.local). Sur la production, uniquement après validation de USA CARS,
  * avec NEXT_PUBLIC_APP_ENV=production et l’option --production (commande annoncée avant exécution).
+ *
+ * Option --lien : affiche en plus un lien d’accès à usage unique (choix du mot de passe), sans e-mail.
+ * Utile tant que les modèles d’e-mail Supabase ne sont pas modifiables (offre gratuite sans SMTP personnalisé).
  */
 import { existsSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
@@ -95,6 +98,16 @@ async function main() {
         "Aucune modification : changez son rôle depuis l’écran Utilisateurs avec un autre administrateur.",
     );
     process.exitCode = 2;
+  }
+
+  if (process.argv.includes("--lien") && process.exitCode !== 2) {
+    // Même mécanisme que l’écran Utilisateurs : lien de récupération haché, vérifié par /auth/confirm.
+    const { data, error } = await admin.auth.admin.generateLink({ type: "recovery", email: env.ADMIN_EMAIL });
+    const tokenHash = data?.properties?.hashed_token;
+    if (error || !tokenHash) throw new Error(`Lien d’accès impossible : ${error?.message ?? "réponse vide"}`);
+    const params = new URLSearchParams({ token_hash: tokenHash, type: "recovery", next: "/compte/mot-de-passe" });
+    console.log("• Lien d’accès à usage unique (valable peu de temps, ne le transmettez à personne) :");
+    console.log(`  ${env.APP_URL}/auth/confirm?${params.toString()}`);
   }
 }
 
