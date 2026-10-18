@@ -1,14 +1,15 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { getServerEnv } from "@/lib/env";
+import { getPublicEnv } from "@/lib/env";
 import type { Database } from "./database.types";
 
 /** Client Supabase côté serveur, au nom de l’utilisateur connecté (clé anon + session, soumis à la RLS). */
 export async function createSupabaseServerClient() {
   // cookies() d’abord : rend la page dynamique avant toute lecture de configuration (pas de prérendu au build).
   const cookieStore = await cookies();
-  const env = getServerEnv();
+  // Configuration publique seulement : ce client n’a besoin ni de la clé service_role ni des variables serveur.
+  const env = getPublicEnv();
   return createServerClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
     cookies: {
       getAll: () => cookieStore.getAll(),
