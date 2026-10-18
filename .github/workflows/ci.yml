@@ -89,7 +89,8 @@ jobs:
         run: pnpm cf:build
       - name: Démarrer l’application dans le moteur Cloudflare local (workerd)
         run: |
-          printf 'NEXT_PUBLIC_APP_ENV=local\nSUPABASE_SERVICE_ROLE_KEY=cle-factice\n' > .dev.vars
+          # .dev.vars remplace les « vars » de production de wrangler.jsonc : aucune requête vers la production.
+          printf 'NEXT_PUBLIC_APP_ENV=local\nNEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321\nNEXT_PUBLIC_SUPABASE_ANON_KEY=cle-factice\nAPP_URL=http://localhost:8787\nSUPABASE_SERVICE_ROLE_KEY=cle-factice\n' > .dev.vars
           pnpm exec wrangler dev --port 8787 --var NEXT_PUBLIC_APP_ENV:local > wrangler.log 2>&1 &
           for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:8787/connexion && break; sleep 2; done
       - name: Vérifier la page de connexion et la redirection du proxy

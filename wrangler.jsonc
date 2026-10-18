@@ -10,9 +10,14 @@
     "binding": "ASSETS",
   },
   "observability": { "enabled": true },
-  // Variables non secrètes ; les clés (anon, service_role) sont saisies dans Cloudflare, jamais ici.
+  // Variables non secrètes. Chaque déploiement remplace les variables « texte » du tableau de bord par
+  // celles-ci : elles doivent donc toutes être ici. Les clés (anon, service_role) sont saisies dans
+  // Cloudflare en type « Secret » (conservées d’un déploiement à l’autre), jamais ici.
   "vars": {
     "NEXT_PUBLIC_APP_ENV": "production",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://hzgkhtaefpbqztwagwph.supabase.co",
+    "APP_URL": "https://usa-cars.usacarsusasen.workers.dev",
+    "ADMIN_EMAIL": "abdou.ndiaye@icloud.com",
     "NOTIFICATIONS_MODE": "simulated",
   },
 }

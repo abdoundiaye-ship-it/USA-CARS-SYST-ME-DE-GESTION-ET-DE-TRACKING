@@ -23,11 +23,14 @@ Hébergement de test : **Cloudflare Workers + adaptateur OpenNext**, offre gratu
    - `NEXT_PUBLIC_APP_ENV` = `production`
    - `NEXT_PUBLIC_SUPABASE_URL` = `https://hzgkhtaefpbqztwagwph.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = clé `anon` du projet (publique, soumise à la RLS)
-5. **Variables et secrets d’exécution** (Worker → Paramètres → Variables et secrets) :
-   - `SUPABASE_SERVICE_ROLE_KEY` → type **Secret**
-   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (mêmes valeurs qu’au build)
-   - `APP_URL` = `https://usa-cars.usacarsusasen.workers.dev`
-   - `ADMIN_EMAIL` = `abdou.ndiaye@icloud.com`
+5. **Secrets d’exécution** (Worker → Paramètres → Variables et secrets), tous deux en type **Secret** :
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (même valeur qu’au build)
+
+   Les variables non secrètes (`NEXT_PUBLIC_APP_ENV`, `NEXT_PUBLIC_SUPABASE_URL`, `APP_URL`, `ADMIN_EMAIL`,
+   `NOTIFICATIONS_MODE`) sont dans `wrangler.jsonc` : chaque déploiement **remplace** les variables de type
+   « texte » saisies dans le tableau de bord par celles du fichier (constaté le 18/10/2026 : erreur 500 sur
+   `/auth/confirm`). Seuls les secrets sont conservés d’un déploiement à l’autre.
 6. Désactiver les déploiements de prévisualisation des branches (ils utiliseraient la base de production — point X12).
 7. Supabase → Authentication → URL Configuration : `Site URL` = `APP_URL` ; ajouter `APP_URL/auth/confirm` aux redirections (voir README).
 8. Avant la première mise en ligne : migrations poussées en production (`supabase db push`, après sauvegarde et accord), puis `pnpm admin:create --production`.
