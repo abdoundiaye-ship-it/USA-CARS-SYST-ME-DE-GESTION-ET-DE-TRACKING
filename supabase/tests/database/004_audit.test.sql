@@ -21,7 +21,7 @@ set local role authenticated;
 update public.profiles set role = 'accounting' where id = '22222222-2222-2222-2222-222222222222';
 insert into public.settings (key, value, value_type, status, reason)
   values ('late_fee.period_days', '14', 'integer', 'confirme', 'Confirmation');
-select is((select count(*) from public.audit_log where object_type = 'profiles' and object_id not like 'd0000000%'), 5::bigint,
+select is((select count(*) from public.audit_log where object_type = 'profiles' and object_id in (select id::text from public.profiles where email like 'pgtap.%@exemple.test')), 5::bigint,
   'Admin avec MFA : lit le journal (4 créations + 1 modification)');
 select throws_ok(
   $$ insert into public.audit_log (action, object_type, object_id) values ('faux', 'x', '1') $$,

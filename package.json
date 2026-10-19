@@ -30,7 +30,8 @@
     "db:reset": "tsx scripts/guard-local-db.ts && supabase db reset --local",
     "admin:create": "tsx scripts/create-admin.ts",
     "settings:generate": "tsx scripts/generate-settings-migration.ts",
-    "db:types": "supabase gen types typescript --local --schema public > lib/supabase/database.types.ts"
+    "templates:generate": "tsx scripts/prepare-document-templates.ts",
+    "db:types": "supabase gen types typescript --local --schema public > supabase/.temp/database.generated.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -50,8 +51,10 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.2.0",
+    "docxtemplater": "^3.71.1",
     "eslint": "^9.39.0",
     "eslint-config-next": "16.4.2",
+    "pizzip": "^3.3.0",
     "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.7.0",
     "supabase": "^2.121.0",

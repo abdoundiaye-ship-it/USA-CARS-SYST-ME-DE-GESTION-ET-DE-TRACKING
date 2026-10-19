@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildSettingsMigrationSql, toInitialSetting, type SpecSetting } from "./initial";
+import { buildSettingsMigrationSql, SETTINGS_LOTS, settingsByLot, toInitialSetting, type SpecSetting } from "./initial";
 import { SETTING_LABELS } from "./labels";
 
 const spec = JSON.parse(readFileSync(resolve("specs/parametres_contractuels.json"), "utf8")) as {
@@ -18,9 +18,16 @@ describe("chargement initial des paramètres (CLAUDE.md règle 4)", () => {
     expect(toInitialSetting(lateFee).value).toBe(10_000);
   });
 
-  it("la migration générée est à jour avec specs/parametres_contractuels.json", () => {
-    const migration = readFileSync(resolve("supabase/migrations/20261017100300_parametres_initiaux.sql"), "utf8");
-    expect(migration.replace(/\r\n/g, "\n")).toBe(buildSettingsMigrationSql(spec.settings));
+  it("chaque migration générée est à jour avec specs/parametres_contractuels.json", () => {
+    for (const [name, specs] of Object.entries(settingsByLot(spec.settings))) {
+      const lot = SETTINGS_LOTS[name]!;
+      const migration = readFileSync(resolve(lot.migrationPath), "utf8");
+      expect(migration.replace(/\r\n/g, "\n"), name).toBe(buildSettingsMigrationSql(specs, lot));
+    }
+  });
+
+  it("refuse un lot inconnu", () => {
+    expect(() => settingsByLot([{ ...spec.settings[0]!, lot: "inconnu" }])).toThrow(/lot inconnu/);
   });
 
   it("refuse une clé en double", () => {

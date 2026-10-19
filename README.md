@@ -54,7 +54,7 @@ pnpm dev             # http://localhost:3000
 | `pnpm test` | Tests unitaires (Vitest) — règles métier dans `lib/` |
 | `pnpm test:db` | Tests de base de données (pgTAP, `supabase/tests/`) |
 | `pnpm test:e2e` | Parcours (Playwright, desktop et 400 px) |
-| `pnpm db:types` | Types TypeScript générés depuis la base locale |
+| `pnpm db:types` | Types générés depuis la base locale, dans `supabase/.temp/` : référence pour mettre à jour `lib/supabase/database.types.ts` (tenu à la main) |
 | `pnpm settings:generate` | Régénère la migration des paramètres initiaux depuis `specs/parametres_contractuels.json` |
 | `pnpm admin:create` | Compte administrateur initial (`ADMIN_EMAIL`), idempotent — local par défaut ; `--lien` affiche un lien d’accès à usage unique (sans e-mail) |
 

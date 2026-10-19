@@ -10,7 +10,9 @@ export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInp
 }
 
 export function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn(controlClass, "pr-8", className)} {...props} />;
+  // React ne met pas à jour la valeur par défaut d'une liste déjà affichée : après une erreur, la réinitialisation
+  // du formulaire la remettrait à vide. La clé recrée la liste quand sa valeur par défaut change (saisie conservée).
+  return <select key={String(props.defaultValue ?? "")} className={cn(controlClass, "pr-8", className)} {...props} />;
 }
 
 export function Textarea({ className, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {

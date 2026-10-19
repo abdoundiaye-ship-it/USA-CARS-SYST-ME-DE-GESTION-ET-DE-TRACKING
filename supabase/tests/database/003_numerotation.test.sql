@@ -13,6 +13,10 @@ insert into public.profiles (id, email, full_name, role) values
   ('22222222-2222-2222-2222-222222222222', 'pgtap.ops@exemple.test', 'Agent Opérations', 'ops'),
   ('55555555-5555-5555-5555-555555555555', 'pgtap.client@exemple.test', 'Client Démo', 'client');
 
+-- Isolation : compteurs remis à zéro le temps du test (transaction annulée à la fin), quel que soit
+-- le nombre de documents déjà numérotés dans la base locale (seed, parcours Playwright).
+delete from public.number_sequences;
+
 select is(public.format_document_number('UC-{YYYY}-{####}', 2026, 12345), 'UC-2026-12345',
   'Au-delà de 9999, le numéro n’est pas tronqué');
 

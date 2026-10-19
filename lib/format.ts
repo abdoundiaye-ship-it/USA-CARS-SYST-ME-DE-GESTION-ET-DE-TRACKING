@@ -34,6 +34,11 @@ export function formatUsd(cents: Cents): string {
   return `${groupWithNbsp(text)}${NBSP}$US`;
 }
 
+/** 48000 → « 48 000 » (séparateur : espace insécable). */
+export function formatInteger(value: number): string {
+  return groupWithNbsp(integerFormat.format(value));
+}
+
 /** 7302000 → « 7 302 000 FCFA ». */
 export function formatXof(xof: number): string {
   if (!Number.isSafeInteger(xof)) throw new RangeError(`Montant FCFA invalide : ${xof}.`);

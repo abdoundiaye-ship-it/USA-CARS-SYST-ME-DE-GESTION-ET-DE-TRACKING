@@ -36,6 +36,14 @@ Format pour ajouter une décision : `ID — date — décision`.
 | X7 | Date d’effet des paramètres | **17/10/2026** : chaque dossier conserve la date d’effet des paramètres en vigueur à son ouverture ; une modification de paramètre ne s’applique qu’aux nouveaux dossiers (cahier des charges §6). |
 | E2 | Fournisseur d’e-mail | **17/10/2026** : **Brevo, offre gratuite** (300 e-mails/jour), choisi par Claude Code à la demande de USA CARS. Sert au SMTP de Supabase Auth (invitations, réinitialisations) et, en phase 4, aux notifications via l’adaptateur e-mail. **Reste à fournir** : le domaine d’envoi (ex. `usacars.sn`) à vérifier chez Brevo (SPF, DKIM, DMARC) et l’adresse d’expédition (ex. `no-reply@<domaine>`). |
 | I5 | Hébergement | **17/10/2026** : phase de test sur **Cloudflare Workers + adaptateur OpenNext** (offre gratuite, adresse `*.workers.dev`), code sur GitHub, base sur Supabase. Cloudflare Pages écarté (outil Next.js obsolète, incompatible avec Next.js 16). Nom de domaine acheté quand l’application sera prête. Voir `docs/18_deploiement_cloudflare.md`. |
+| A7 | Reprise des dossiers en cours | **19/10/2026** : **pas de reprise automatique**. Les dossiers en cours (Excel, papier) sont saisis manuellement dans l’application. |
+| B4 | Changement de conteneur | **19/10/2026** : **oui**, un véhicule peut changer de conteneur ; chaque changement est conservé dans l’historique du dossier (ancien et nouveau conteneur, date, auteur). |
+| B5 | Type de service | **19/10/2026** : **deux cas à prévoir**. (1) **Achat + transport** (cas courant) : le véhicule est choisi par le client ou par USA CARS, mais c’est **toujours USA CARS qui enchérit et paie**, sur la base d’un **ordre d’achat signé par le client**. (2) **Transport seul** (occasionnel) : le client achète lui-même le véhicule et confie uniquement le transport à USA CARS — **exclu pour le moment (décision du 19/10/2026)**, à reprendre plus tard si nécessaire (questions T1 à T4 en attente, section 3). |
+| P1 | Conditions de passage relevant de la phase 3 | **19/10/2026** (plan de la phase 2 validé) : devis accepté, paiement 1 reçu, facture de solde, solde = 0 sont confirmés **manuellement** par l’agent (journalisé) en phase 2, puis vérifiés automatiquement en phase 3. |
+| P2 | Dépôt sur l’ordre d’achat | **19/10/2026** : l’agent saisit le **montant attendu** (forfait A estimé, I2) ; l’encaissement est enregistré en phase 3 avec les paiements. |
+| P3 | Comptes des clients | **19/10/2026** : phase 2 = fiches clients seulement ; comptes de connexion avec le portail (phase 4). |
+| P4 | Transporteurs | **19/10/2026** : créés par l’administrateur dans Paramètres → Transporteurs ; transporteurs fictifs dans le seed local. |
+| P5 | Âge du véhicule à l’importation | **19/10/2026** : âge = année en cours − année du modèle ; **bloquant si l’âge dépasse la limite** (limite 10 ans : un véhicule de 10 ans passe, un de 11 ans ou plus est bloqué). Dérogation possible par l’administrateur seulement, avec motif. |
 
 ---
 
@@ -59,9 +67,6 @@ I1 et I2 ont été confirmées le 17/10/2026 (voir section 1). Restent I3, I4 et
 |---|---|---|---|
 | A5 | Langue de l’interface. | — | Français uniquement. |
 | A6 | Volume attendu (dossiers/mois, clients, utilisateurs internes). | — | 50 dossiers/mois, 200 clients, 10 internes. |
-| A7 | Dossiers en cours à reprendre (Excel, papier) ? | Phase 2 | Pas de reprise ; saisie manuelle. |
-| B4 | Un véhicule peut-il changer de conteneur ? | Phase 2 | Oui, avec historique. |
-| B5 | USA CARS enchérit-il toujours pour le client ? | Phase 2 | Oui, sur ordre d’achat. |
 | C5 | Frais de retard : plafond ? Ajout automatique ou après validation ? | Phase 3 | Pas de plafond ; ajout après validation de la comptabilité. |
 | C7 | Numérotation des reçus espèces (`RC-AAAA-####`) et des remboursements (`RB-AAAA-####`) ? | Phase 3 | Oui. |
 | C8 | Comptes officiels (banque, Wave, Orange Money), numéro WhatsApp et e-mail officiels. | Phase 3 (données) | Valeurs fictives jusqu’à fourniture. |
@@ -78,3 +83,7 @@ I1 et I2 ont été confirmées le 17/10/2026 (voir section 1). Restent I3, I4 et
 | G2 | Durées de conservation après clôture. | Production | 10 ans (comptable), 5 ans (autres), à confirmer. |
 | G3 | Sauvegardes (fréquence, rétention), restauration. | Production | Quotidienne, 7 jours minimum. |
 | G4 | Publication au JO du décret sur la limite d’âge (10 / 15 ans). | — | 10 / 15 ans, paramétrables. |
+| T1 | Transport seul (B5) : quel contrat ? Le contrat actuel (40 articles) est construit autour de l’achat (ordre d’achat, enchère, forfait A). | Reporté (transport seul exclu le 19/10/2026) | Même contrat avec une variante « transport seul » sans les articles d’acquisition, marquée « PROJET » jusqu’à validation par l’avocat (D1). Pas d’ordre d’achat ; R14 devient : un dossier = un véhicule = un contrat. |
+| T2 | Transport seul : quels montants et quand les payer ? | Reporté (transport seul exclu le 19/10/2026) | Pas de forfait A ni de dépôt ; forfait B (logistique + maritime), option C et ajustements D inchangés. Paiement 1 = totalité du forfait B **avant l’enlèvement aux États-Unis** ; solde = ajustements éventuels, avant la remise des documents. |
+| T3 | Transport seul : quels documents le client doit-il fournir, et avant quand ? | Reporté (transport seul exclu le 19/10/2026) | Titre de propriété, facture d’achat (bill of sale), autorisation d’enlèvement (release / gate pass) et adresse d’enlèvement, **avant la planification du transport terrestre**. |
+| T4 | Transport seul : qui paie les frais de stockage ou de retard sur le lieu d’achat (parc COPART/IAA ou vendeur) ? | Reporté (transport seul exclu le 19/10/2026) | Le client, refacturés en ajustement D s’ils sont avancés par USA CARS. |

@@ -1,11 +1,13 @@
-/** Génère la migration de chargement initial des paramètres (pnpm settings:generate). */
+/** Génère les migrations de chargement des paramètres, une par lot (pnpm settings:generate). */
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { buildSettingsMigrationSql, type SpecSetting } from "../lib/settings/initial";
+import { buildSettingsMigrationSql, SETTINGS_LOTS, settingsByLot, type SpecSetting } from "../lib/settings/initial";
 
 export const SPEC_PATH = "specs/parametres_contractuels.json";
-export const MIGRATION_PATH = "supabase/migrations/20261017100300_parametres_initiaux.sql";
 
 const spec = JSON.parse(readFileSync(resolve(SPEC_PATH), "utf8")) as { settings: SpecSetting[] };
-writeFileSync(resolve(MIGRATION_PATH), buildSettingsMigrationSql(spec.settings), "utf8");
-console.log(`✅ ${spec.settings.length} paramètres écrits dans ${MIGRATION_PATH}`);
+for (const [name, specs] of Object.entries(settingsByLot(spec.settings))) {
+  const lot = SETTINGS_LOTS[name]!;
+  writeFileSync(resolve(lot.migrationPath), buildSettingsMigrationSql(specs, lot), "utf8");
+  console.log(`✅ ${specs.length} paramètres (lot ${name}) écrits dans ${lot.migrationPath}`);
+}

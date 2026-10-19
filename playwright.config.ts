@@ -9,6 +9,9 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: isCI ? 1 : 0,
   reporter: isCI ? [["github"], ["html", { open: "never" }]] : "list",
+  // Actions serveur (génération de documents, passages d’étape) : jusqu’à plusieurs secondes sur une machine chargée.
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
   use: {
     baseURL: `http://localhost:${PORT}`,
     locale: "fr-FR",

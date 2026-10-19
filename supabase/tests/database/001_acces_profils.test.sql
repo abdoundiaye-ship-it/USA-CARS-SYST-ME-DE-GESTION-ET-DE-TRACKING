@@ -39,7 +39,7 @@ reset role;
 select set_config('request.jwt.claims', '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated","aal":"aal2"}', true);
 set local role authenticated;
 select is(public.current_role_app(), 'admin'::public.app_role, 'Admin avec MFA : rôle admin');
-select is((select count(*) from public.profiles where id::text not like 'd0000000%'), 6::bigint, 'Admin : lit tous les profils');
+select is((select count(*) from public.profiles where email like 'pgtap.%@exemple.test'), 6::bigint, 'Admin : lit tous les profils');
 reset role;
 
 -- Comptabilité : MFA exigée (A4)
@@ -56,7 +56,7 @@ reset role;
 select set_config('request.jwt.claims', '{"sub":"44444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal1"}', true);
 set local role authenticated;
 select is(public.current_role_app(), 'management'::public.app_role, 'Direction sans MFA : rôle management (A4)');
-select is((select count(*) from public.profiles where id::text not like 'd0000000%'), 6::bigint, 'Direction : lit tous les profils');
+select is((select count(*) from public.profiles where email like 'pgtap.%@exemple.test'), 6::bigint, 'Direction : lit tous les profils');
 reset role;
 
 -- Agent opérations : MFA non imposée, ne lit que son profil

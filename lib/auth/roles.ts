@@ -19,7 +19,7 @@ export function isInternalRole(role: AppRole | null | undefined): role is Intern
   return role != null && (INTERNAL_ROLES as readonly AppRole[]).includes(role);
 }
 
-/** Droits d’accès aux écrans du socle (docs/12_roles_permissions.md). */
+/** Droits d’accès aux écrans (docs/12_roles_permissions.md). */
 export const SCREEN_ROLES = {
   dashboard: INTERNAL_ROLES,
   users: ["admin", "management"],
@@ -27,6 +27,14 @@ export const SCREEN_ROLES = {
   settings: INTERNAL_ROLES,
   settingsWrite: ["admin"],
   audit: ["admin", "management"],
+  // Phase 2 — opérations (docs/12_roles_permissions.md) : internes L, admin et agent opérations E.
+  clients: INTERNAL_ROLES,
+  dossiers: INTERNAL_ROLES,
+  operationsWrite: ["admin", "ops"],
+  containers: INTERNAL_ROLES,
+  documents: INTERNAL_ROLES,
+  // Documents : admin, agent et comptabilité ajoutent et règlent la visibilité client (docs/12).
+  documentsWrite: ["admin", "ops", "accounting"],
 } as const satisfies Record<string, readonly AppRole[]>;
 
 export function canAccess(role: AppRole | null | undefined, allowed: readonly AppRole[]): boolean {
