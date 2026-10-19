@@ -109,3 +109,29 @@ insert into public.dossiers (
 update public.containers
   set status = 'at_sea', departed_on = current_date - 10, eta = current_date + 12
   where id = 'f1000000-0000-4000-8000-000000000002';
+
+-- ---------------------------------------------------------------------------
+-- Phase 3, lot 3a — taux, comptes officiels FICTIFS (décision C8), forfaits et coûts internes de démonstration.
+-- Comptes activés selon la double validation (Q1) : créés par l'administrateur, approuvés par la direction.
+-- ---------------------------------------------------------------------------
+insert into public.fx_rates (rate, source, captured_at, created_by) values
+  (586.52, 'XE.com — taux moyen du marché (valeur de démonstration)', now() - interval '1 day', 'd0000000-0000-4000-8000-000000000003'),
+  (587.10, 'XE.com — taux moyen du marché (valeur de démonstration)', now() - interval '1 hour', 'd0000000-0000-4000-8000-000000000003');
+
+insert into public.official_accounts (id, kind, label, holder_name, bank_name, account_number, iban, phone, instructions,
+                                      status, created_by, approved_by, approved_at) values
+  ('a0000000-0000-4000-8000-000000000001', 'bank', 'Compte bancaire Démo (fictif)', 'USA CARS (démo)', 'Banque Démo',
+   'DEMO-0000-0001', 'SN00 DEMO 0000 0000 0000 0001', null, 'Indiquez la référence du dossier en libellé.', 'active',
+   'd0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000004', now()),
+  ('a0000000-0000-4000-8000-000000000002', 'wave', 'Wave Démo (fictif)', 'USA CARS (démo)', null, null, null,
+   '+221770000900', 'Envoyez une capture du transfert au WhatsApp officiel.', 'active',
+   'd0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000004', now());
+
+insert into public.dossier_forfaits (dossier_id, forfait_a_cents, forfait_b_cents, insurance_cents, updated_by) values
+  ('e0000000-0000-4000-8000-000000000003', 1150000, 320000, 25000, 'd0000000-0000-4000-8000-000000000002');
+
+insert into public.internal_costs (dossier_id, section, category, label, amount_cents, status, created_by) values
+  ('e0000000-0000-4000-8000-000000000003', 'A', 'hammer_price', 'Prix d’adjudication', 950000, 'final', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000003', 'A', 'auction_fees', 'Frais COPART', 95000, 'final', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000003', 'B', 'inland_transport', 'Transport vers Houston', 45000, 'estimated', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000003', 'B', 'ocean_freight', 'Fret maritime (quote-part)', 180000, 'estimated', 'd0000000-0000-4000-8000-000000000002');
