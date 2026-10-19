@@ -10,7 +10,7 @@
 --   admin@exemple.test       Administrateur (MFA à configurer à la première connexion)
 --   ops@exemple.test         Agent opérations
 --   compta@exemple.test      Comptabilité (MFA à configurer à la première connexion)
---   direction@exemple.test   Direction
+--   direction@exemple.test   Direction (MFA déjà configurée : secret de démonstration ci-dessous, décision A4-bis)
 --   client@exemple.test      Client (portail en phase 4)
 
 select set_config('app.actor_label', 'seed:demo', false);
@@ -135,3 +135,13 @@ insert into public.internal_costs (dossier_id, section, category, label, amount_
   ('e0000000-0000-4000-8000-000000000003', 'A', 'auction_fees', 'Frais COPART', 95000, 'final', 'd0000000-0000-4000-8000-000000000002'),
   ('e0000000-0000-4000-8000-000000000003', 'B', 'inland_transport', 'Transport vers Houston', 45000, 'estimated', 'd0000000-0000-4000-8000-000000000002'),
   ('e0000000-0000-4000-8000-000000000003', 'B', 'ocean_freight', 'Fret maritime (quote-part)', 180000, 'estimated', 'd0000000-0000-4000-8000-000000000002');
+
+-- ---------------------------------------------------------------------------
+-- Décision A4-bis : la direction est soumise à la double authentification. Pour les essais LOCAUX et les tests,
+-- son compte de démonstration a déjà un facteur TOTP vérifié, de secret connu (à saisir dans une application
+-- d'authentification) : JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP. L'administrateur et la comptabilité, eux, configurent
+-- leur double authentification à la première connexion (parcours testé).
+-- ---------------------------------------------------------------------------
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+values ('d1000000-0000-4000-8000-000000000004', 'd0000000-0000-4000-8000-000000000004', 'Démonstration', 'totp',
+        'verified', now(), now(), 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP');

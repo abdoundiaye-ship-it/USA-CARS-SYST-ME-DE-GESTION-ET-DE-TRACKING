@@ -17,7 +17,7 @@ insert into public.profiles (id, email, full_name, role) values
 select ok((select count(*) from public.settings_current) >= 50, 'Les paramètres initiaux sont chargés');
 select is(public.setting_value('quote.validity_hours'), '48'::jsonb, 'Validité du devis : 48 h');
 select is(public.setting_value('late_fee.amount_usd'), '10000'::jsonb, 'Montants stockés en centimes (100 $US = 10000)');
-select is(public.setting_value('auth.mfa_required_roles'), '["admin","accounting"]'::jsonb, 'Rôles soumis à la MFA (A4)');
+select is(public.setting_value('auth.mfa_required_roles'), '["admin","accounting","management"]'::jsonb, 'Rôles soumis à la MFA (A4, A4-bis)');
 select is((select status from public.settings_current where key = 'quote.validity_hours'), 'a_confirmer',
   'Le statut « à confirmer » est conservé');
 

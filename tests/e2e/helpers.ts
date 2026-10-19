@@ -1,5 +1,7 @@
 import { createHmac } from "node:crypto";
-import { expect, type APIRequestContext, type Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { expect, type APIRequestContext, type Cookie, type Page } from "@playwright/test";
 
 /** Mot de passe commun des comptes du seed de démonstration (local uniquement, supabase/seed.sql). */
 export const DEMO_PASSWORD = "DemoUsaCars2026";
@@ -32,8 +34,28 @@ export async function freshTotp(secretBase32: string): Promise<string> {
   return totp(secretBase32);
 }
 
-/** Connexion ; attend la redirection (sauf `expectRedirect: false`, ex. mot de passe incorrect). */
+/** Comptes du seed dont le facteur TOTP est déjà vérifié (secret de démonstration, décision A4-bis). */
+export const DEMO_TOTP_SECRETS: Record<string, string> = {
+  "direction@exemple.test": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
+};
+
+/** Session enregistrée par `global-setup.ts` pour un compte à facteur TOTP de démonstration. */
+export function demoSessionPath(email: string): string {
+  return path.join("playwright", ".auth", `${email}.json`);
+}
+
+/**
+ * Connexion ; attend la redirection (sauf `expectRedirect: false`, ex. mot de passe incorrect). Un compte à
+ * facteur TOTP de démonstration reprend la session ouverte une fois pour toutes par `global-setup.ts`.
+ */
 export async function signIn(page: Page, email: string, password = DEMO_PASSWORD, { expectRedirect = true } = {}) {
+  if (DEMO_TOTP_SECRETS[email]) {
+    const state = JSON.parse(readFileSync(demoSessionPath(email), "utf8")) as { cookies: Cookie[] };
+    await page.context().addCookies(state.cookies);
+    await page.goto("/");
+    await page.waitForURL((url) => !url.pathname.startsWith("/connexion") && url.pathname !== "/");
+    return;
+  }
   await page.goto("/connexion");
   await page.getByLabel("Adresse e-mail").fill(email);
   await page.getByLabel("Mot de passe").fill(password);

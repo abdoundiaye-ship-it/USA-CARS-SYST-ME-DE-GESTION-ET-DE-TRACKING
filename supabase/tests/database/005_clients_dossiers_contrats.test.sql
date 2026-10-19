@@ -222,7 +222,7 @@ reset role;
 -- ---------------------------------------------------------------------------
 -- Direction : lecture seule.
 -- ---------------------------------------------------------------------------
-select set_config('request.jwt.claims', '{"sub":"a4444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal1"}', true);
+select set_config('request.jwt.claims', '{"sub":"a4444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal2"}', true);
 set local role authenticated;
 select is((select count(*) from public.clients where id in (select id from t)), 2::bigint, 'Direction : lit les clients');
 update public.clients set name = 'Modifié' where id = (select id from t where name = 'client_a');

@@ -62,7 +62,7 @@ export const forfaitsSchema = z.object({
   insurance: usd("Saisissez la prime d’assurance.", { optional: true, allowZero: true }),
 });
 
-const SECTIONS = ["A", "B"] as const;
+type Section = "A" | "B";
 const CATEGORIES = [
   "hammer_price",
   "auction_fees",
@@ -87,7 +87,7 @@ export const internalCostSchema = z.object({
 });
 
 /** Section déduite du poste (la base contrôle aussi la cohérence). */
-export function sectionOf(category: (typeof CATEGORIES)[number]): (typeof SECTIONS)[number] {
+export function sectionOf(category: (typeof CATEGORIES)[number]): Section {
   return ["hammer_price", "auction_fees", "us_taxes", "acquisition_other"].includes(category) ? "A" : "B";
 }
 

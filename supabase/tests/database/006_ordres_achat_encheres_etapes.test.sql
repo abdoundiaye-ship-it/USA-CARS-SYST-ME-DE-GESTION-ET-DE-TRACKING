@@ -166,7 +166,7 @@ select throws_ok(
   '42501', null, 'Accès refusé : la comptabilité ne change pas l’étape d’un dossier'
 );
 reset role;
-select set_config('request.jwt.claims', '{"sub":"b4444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal1"}', true);
+select set_config('request.jwt.claims', '{"sub":"b4444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal2"}', true);
 set local role authenticated;
 select throws_ok(
   $$ insert into public.dossier_confirmations (dossier_id, code) values ((select id from t where name = 'dossier'), 'quote_accepted') $$,

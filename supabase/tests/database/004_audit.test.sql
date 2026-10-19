@@ -55,7 +55,7 @@ select throws_ok($$ update public.audit_log set action = 'x' $$, '42501', null, 
 select throws_ok($$ delete from public.audit_log $$, '42501', null, 'Le journal ne peut pas être supprimé');
 
 -- Lecture : direction oui ; agent, client et admin sans MFA non
-select set_config('request.jwt.claims', '{"sub":"44444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal1"}', true);
+select set_config('request.jwt.claims', '{"sub":"44444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal2"}', true);
 set local role authenticated;
 select ok((select count(*) from public.audit_log) > 0, 'Direction : lit le journal');
 reset role;

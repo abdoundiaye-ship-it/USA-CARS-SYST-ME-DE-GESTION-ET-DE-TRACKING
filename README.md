@@ -70,7 +70,8 @@ seed fictif, tests pgTAP), `scripts/`, `tests/` (unitaires, e2e), `.github/workf
 
 Après `pnpm db:reset` : `admin@exemple.test`, `ops@exemple.test`, `compta@exemple.test`, `direction@exemple.test`,
 `client@exemple.test` — mot de passe `DemoUsaCars2026`. Admin et comptabilité configurent la double authentification
-(TOTP) à la première connexion. Les e-mails d’invitation locaux arrivent dans Mailpit (http://127.0.0.1:54324).
+(TOTP) à la première connexion. La direction (MFA exigée, décision A4-bis) a déjà un facteur de démonstration :
+ajoutez le secret `JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP` à une application d’authentification. Les e-mails d’invitation locaux arrivent dans Mailpit (http://127.0.0.1:54324).
 
 ### Authentification en production (à faire dans le tableau de bord Supabase, avant la mise en service)
 

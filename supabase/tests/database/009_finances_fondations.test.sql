@@ -83,7 +83,7 @@ select throws_ok(
   '42501', null, 'Accès refusé : un agent n’approuve pas un compte officiel'
 );
 reset role;
-select set_config('request.jwt.claims', '{"sub":"f4444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal1"}', true);
+select set_config('request.jwt.claims', '{"sub":"f4444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal2"}', true);
 set local role authenticated;
 select lives_ok(
   $$ select public.approve_official_account((select id from t where name = 'account')) $$,

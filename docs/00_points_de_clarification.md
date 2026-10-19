@@ -55,6 +55,7 @@ Format pour ajouter une décision : `ID — date — décision`.
 | X2 | Validité du devis et paiement 1 | **19/10/2026** : la validité du devis est **alignée sur l’échéance du paiement 1** (le devis expire en même temps que le délai de paiement) ; les deux valeurs restent des paramètres. |
 | Q1 | Double validation des comptes officiels | **19/10/2026** : un administrateur crée ou modifie le compte ; l’activation est approuvée par **un administrateur ou la direction**, toujours une autre personne que le créateur. |
 | Q2 | Montants sur le tableau de bord | **19/10/2026** : les agents opérations voient les montants de leurs dossiers (forfaits, soldes) ; la marge consolidée reste réservée à la direction et à l’administrateur. |
+| A4-bis | Double authentification de la direction | **19/10/2026** : la direction approuvant les comptes de paiement (Q1), la double authentification est **exigée aussi pour la direction** (administrateur, comptabilité, direction). Nouvelle version du paramètre `auth.mfa_required_roles`. |
 
 ---
 
