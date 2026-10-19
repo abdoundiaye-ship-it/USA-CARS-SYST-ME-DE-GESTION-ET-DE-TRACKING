@@ -91,3 +91,21 @@ insert into public.containers (id, number, carrier_id, bl_number, vessel, voyage
    'Navire Démo', 'DEMO-001', 'Houston', '2026-11-02', '2026-11-20', 'd0000000-0000-4000-8000-000000000002'),
   ('f1000000-0000-4000-8000-000000000002', 'DEMU7654322', 'f0000000-0000-4000-8000-000000000002', null,
    null, null, 'Baltimore', null, null, 'd0000000-0000-4000-8000-000000000002');
+
+-- ---------------------------------------------------------------------------
+-- Phase 2, lot 2d — de quoi alimenter le tableau de bord (dates relatives au moment du chargement) :
+-- un paiement 1 en retard, un dossier sans mise à jour récente, un conteneur en mer jamais vérifié.
+-- ---------------------------------------------------------------------------
+insert into public.dossiers (
+  id, reference, client_id, owner_id, created_by, stage, status, platform, lot_number, vin, make, model, model_year,
+  vehicle_category, auction_result, hammer_price_cents, lot_won_notified_at, payment1_due_at, created_at, updated_at
+) values (
+  'e0000000-0000-4000-8000-000000000003', 'DEMO-2026-0003', 'c0000000-0000-4000-8000-000000000002',
+  'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'purchase', 'payment1_pending',
+  'copart', 'DEMO-LOT-1003', '1DEMXXX0000000003', 'Honda', 'CR-V', 2021, 'passenger', 'won', 950000,
+  now() - interval '3 days', now() - interval '2 days', now() - interval '12 days', now() - interval '9 days'
+);
+
+update public.containers
+  set status = 'at_sea', departed_on = current_date - 10, eta = current_date + 12
+  where id = 'f1000000-0000-4000-8000-000000000002';
