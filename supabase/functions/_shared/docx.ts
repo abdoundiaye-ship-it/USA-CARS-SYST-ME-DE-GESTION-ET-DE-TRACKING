@@ -71,7 +71,7 @@ function base64ToBytes(base64: string): Uint8Array {
 }
 
 /** Remplit un modèle ; une balise sans valeur fait échouer la génération (jamais de « undefined » imprimé). */
-export function renderTemplate(templateBase64: string, data: Record<string, string | boolean>): Uint8Array {
+export function renderTemplate(templateBase64: string, data: Record<string, unknown>): Uint8Array {
   const doc = new Docxtemplater(new PizZip(base64ToBytes(templateBase64)), {
     paragraphLoop: true,
     linebreaks: true,

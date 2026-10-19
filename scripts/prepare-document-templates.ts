@@ -6,7 +6,9 @@
  *   - templates/contrat_prestation.docx : le contrat (en-tête, blocs « USA CARS » et « LE CLIENT », article 3,
  *     signatures balisés) ;
  *   - templates/ordre_achat.docx : l'annexe B seule (ordre d'achat et mandat d'enchère), document signé à part ;
- *   - supabase/functions/_shared/document-templates.generated.ts : les deux fichiers en base64, embarqués dans la
+ *   - templates/devis_facture.docx : devis DV et factures FA / FS (modèle « Devis / Facture » révisé), avec le logo
+ *     en en-tête (décision D4) et les valeurs contractuelles reprises des paramètres (CLAUDE.md règle 4) ;
+ *   - supabase/functions/_shared/document-templates.generated.ts : les fichiers en base64, embarqués dans la
  *     fonction Supabase generate-document (sans accès au disque).
  *
  * Les valeurs contractuelles surlignées restent celles du modèle jusqu'à la validation juridique (décision D1) ;
@@ -19,8 +21,11 @@ import { dirname, resolve } from "node:path";
 import PizZip from "pizzip";
 
 const SOURCE = "reference/templates/USA_CARS_Contrat_Prestation_Services_Senegal_-_Revise.docx";
+const FINANCIAL_SOURCE = "reference/templates/USA_CARS_Devis_Facture_Client_-_Revise.docx";
+const LOGO = "public/logo-usa-cars.png";
 const OUTPUT_CONTRACT = "templates/contrat_prestation.docx";
 const OUTPUT_PURCHASE_ORDER = "templates/ordre_achat.docx";
+const OUTPUT_FINANCIAL = "templates/devis_facture.docx";
 const OUTPUT_MODULE = "supabase/functions/_shared/document-templates.generated.ts";
 
 /** Remplace le texte d'un élément <w:t> (texte exact) ; `occurrence` : 1 = première, 2 = deuxième… */
@@ -166,12 +171,19 @@ interface BuiltTemplate {
 }
 
 /** Applique les balises, écrit le .docx et calcule une version stable (sur le contenu balisé, pas sur le zip). */
-function build(prefix: string, output: string, tagBody: (xml: string) => string, tagHead: (xml: string) => string) {
-  const zip = new PizZip(readFileSync(resolve(SOURCE)));
+function build(
+  prefix: string,
+  output: string,
+  tagBody: (xml: string) => string,
+  tagHead: (xml: string) => string,
+  { source = SOURCE, extra }: { source?: string; extra?: (zip: PizZip) => void } = {},
+) {
+  const zip = new PizZip(readFileSync(resolve(source)));
   const documentXml = tagBody(zip.file("word/document.xml")!.asText());
   const headerXml = tagHead(zip.file("word/header1.xml")!.asText());
   zip.file("word/document.xml", documentXml);
   zip.file("word/header1.xml", headerXml);
+  extra?.(zip);
   const bytes = zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
   mkdirSync(dirname(resolve(output)), { recursive: true });
   writeFileSync(resolve(output), bytes);
@@ -180,8 +192,274 @@ function build(prefix: string, output: string, tagBody: (xml: string) => string,
   return { bytes, version } satisfies BuiltTemplate;
 }
 
+// ---------------------------------------------------------------------------
+// Devis / facture : le modèle est fait de tableaux dont les espaces réservés se répètent (« ________ ») ;
+// on balise donc par paragraphe (texte complet) et par cellule (celle qui suit un libellé), ligne par ligne.
+// ---------------------------------------------------------------------------
+const PARAGRAPH = /<w:p[ >][\s\S]*?<\/w:p>/g;
+const ROW = /<w:tr[ >][\s\S]*?<\/w:tr>/g;
+const CELL = /<w:tc>[\s\S]*?<\/w:tc>/g;
+
+const paragraphText = (p: string) => [...p.matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/g)].map((m) => m[1]).join("");
+const paragraphsOf = (xml: string) => xml.match(PARAGRAPH) ?? [];
+
+/** Remplace le contenu d'un paragraphe par un seul segment (mise en forme du premier, sans surlignage). */
+function setParagraphText(p: string, value: string): string {
+  const open = p.match(/^<w:p[^>]*>/)![0];
+  const pPr = p.match(/<w:pPr>[\s\S]*?<\/w:pPr>/)?.[0] ?? "";
+  const rPr = (p.match(/<w:r>(<w:rPr>[\s\S]*?<\/w:rPr>)/)?.[1] ?? '<w:rPr><w:sz w:val="18"/></w:rPr>').replace(
+    /<w:highlight [^>]*\/>/g,
+    "",
+  );
+  return `${open}${pPr}<w:r>${rPr}<w:t xml:space="preserve">${value}</w:t></w:r></w:p>`;
+}
+
+/** Remplace le n-ième paragraphe dont le texte complet vaut `text` (ou commence par `text` si `prefix`). */
+function replaceParagraph(xml: string, text: string, value: string, { occurrence = 1, prefix = false } = {}): string {
+  let seen = 0;
+  let done = false;
+  const out = xml.replace(PARAGRAPH, (p) => {
+    const t = paragraphText(p);
+    if (done || !(prefix ? t.startsWith(text) : t === text)) return p;
+    seen += 1;
+    if (seen !== occurrence) return p;
+    done = true;
+    return setParagraphText(p, value);
+  });
+  if (!done) throw new Error(`Paragraphe introuvable dans le modèle : « ${text} » (occurrence ${occurrence})`);
+  return out;
+}
+
+/** Remplace, dans un fragment, le premier paragraphe dont le texte vérifie `match`. */
+function replaceIn(fragment: string, match: (text: string) => boolean, value: string): string {
+  const p = paragraphsOf(fragment).find((x) => match(paragraphText(x)));
+  if (!p) throw new Error(`Paragraphe introuvable dans la ligne : ${match.toString()}`);
+  return fragment.replace(p, setParagraphText(p, value));
+}
+
+/** Modifie la n-ième ligne de tableau contenant un paragraphe de texte `text`. */
+function editRow(xml: string, text: string, edit: (row: string) => string, occurrence = 1): string {
+  let seen = 0;
+  let done = false;
+  const out = xml.replace(ROW, (row) => {
+    if (done || !paragraphsOf(row).some((p) => paragraphText(p) === text)) return row;
+    seen += 1;
+    if (seen !== occurrence) return row;
+    done = true;
+    return edit(row);
+  });
+  if (!done) throw new Error(`Ligne introuvable dans le modèle : « ${text} » (occurrence ${occurrence})`);
+  return out;
+}
+
+/** Dans une ligne : premier paragraphe de la cellule qui suit celle du libellé. */
+function setCellAfter(row: string, label: string, value: string): string {
+  const cells = row.match(CELL) ?? [];
+  const index = cells.findIndex((c) => paragraphsOf(c).some((p) => paragraphText(p) === label));
+  if (index < 0 || index + 1 >= cells.length) throw new Error(`Cellule introuvable après « ${label} »`);
+  const target = cells[index + 1]!;
+  const first = paragraphsOf(target)[0]!;
+  return row.replace(target, target.replace(first, setParagraphText(first, value)));
+}
+
+/** Libellé → valeur dans la cellule suivante, pour la n-ième ligne qui contient ce libellé. */
+function fillAfter(xml: string, label: string, value: string, occurrence = 1): string {
+  return editRow(xml, label, (row) => setCellAfter(row, label, value), occurrence);
+}
+
+/** Paiements reçus : la première ligne devient une boucle docxtemplater, les deux autres sont supprimées. */
+function tagPaymentRows(xml: string): string {
+  const rows = xml.match(ROW) ?? [];
+  const header = rows.findIndex((r) => r.includes(">Référence / justificatif<"));
+  if (header < 0) throw new Error("Tableau des paiements reçus introuvable.");
+  const [first, second, third] = rows.slice(header + 1, header + 4);
+  const values = ["{#paiements}{date}", "{mode}", "{reference}", "{montant}{/paiements}"];
+  let cellIndex = 0;
+  const loopRow = first!.replace(CELL, (cell) => {
+    const p = paragraphsOf(cell)[0]!;
+    return cell.replace(p, setParagraphText(p, values[cellIndex++]!));
+  });
+  return xml.replace(first!, loopRow).replace(second!, "").replace(third!, "");
+}
+
+function tagFinancialDocument(xml: string): string {
+  let out = replaceParagraph(xml, "DEVIS / FACTURE CLIENT", "{titre_document}");
+  out = replaceParagraph(
+    out,
+    "USA CARS – [forme juridique]",
+    "USA CARS – {usa_forme_juridique} – RCCM : {usa_rccm} – NINEA : {usa_ninea} – {usa_bureau} – Tél. : {usa_telephone} – E-mail : {usa_email}",
+    { prefix: true },
+  );
+  out = editRow(out, "Type de document", (row) => {
+    let r = replaceIn(row, (t) => t === "☐ Devis (valable 48 h)", "{case_devis} Devis");
+    r = replaceIn(r, (t) => t === "☐ Facture d’acompte (Paiement 1)", "{case_fa} Facture d’acompte (Paiement 1)");
+    return replaceIn(r, (t) => t === "☐ Facture de solde", "{case_fs} Facture de solde");
+  });
+  for (const [label, tag] of [
+    ["N° document", "numero"],
+    ["Date", "date_document"],
+    ["N° contrat", "contrat_reference"],
+    ["Référence dossier", "dossier_reference"],
+    ["Client", "client_nom"],
+    ["Téléphone / WhatsApp", "client_telephone"],
+    ["Pièce d’identité / NINEA", "client_piece"],
+    ["E-mail", "client_email"],
+    ["Marque", "marque"],
+    ["Modèle", "modele"],
+    ["Année", "annee"],
+    ["VIN", "vin"],
+    ["Plateforme", "plateforme_cases"],
+    ["N° lot", "lot"],
+    ["Lieu d’achat", "lieu_achat"],
+    ["Port de départ", "port_depart"],
+    ["Transporteur", "transporteur"],
+    ["Conteneur", "conteneur"],
+    ["Navire / voyage", "navire"],
+    ["B/L", "bl"],
+    ["ETA Dakar (indicative)", "eta"],
+    ["Lien de suivi", "lien_suivi"],
+    // Section 2 — colonne « Montant USD »
+    ["Coût total d’acquisition du véhicule – forfait", "montant_a"],
+    ["Logistique et transport maritime vers Dakar – forfait", "montant_b"],
+    ["Assurance transport maritime – option à confirmer par le Client", "montant_c"],
+    ["Ajustements (facture de solde uniquement)", "montant_d"],
+    ["TVA (si applicable) – à confirmer avec l’expert-comptable", "montant_tva"],
+  ] as const) {
+    out = fillAfter(out, label, `{${tag}}`);
+  }
+  out = replaceParagraph(out, "TVA (si applicable) – à confirmer avec l’expert-comptable", "{tva_libelle}");
+  out = replaceParagraph(
+    out,
+    "☐ Acceptée – montant ci-contre ajouté au solde      ☐ Refusée – montant : 0 USD",
+    "{case_c_acceptee} Acceptée – montant ci-contre ajouté au solde      {case_c_refusee} Refusée – montant : 0 USD",
+  );
+  out = replaceParagraph(
+    out,
+    "Frais supplémentaires hors forfait justifiés (article 26 du contrat) ;",
+    "Frais supplémentaires hors forfait justifiés (article 26 du contrat) ; frais de retard : {frais_retard} par période de {frais_retard_jours} jours commencée ; remise éventuelle.",
+    { prefix: true },
+  );
+  // Sections 3 et 4 — paiements reçus, récapitulatif, taux de référence (R1)
+  out = tagPaymentRows(out);
+  out = fillAfter(out, "TOTAL GÉNÉRAL (USD)", "{total_general}", 1);
+  out = fillAfter(out, "TOTAL DÉJÀ PAYÉ (USD)", "{total_paye}", 1);
+  out = fillAfter(out, "TOTAL GÉNÉRAL (USD)", "{total_general}", 2);
+  out = fillAfter(out, "TOTAL DÉJÀ PAYÉ (USD)", "{total_paye}", 2);
+  out = fillAfter(out, "SOLDE À PAYER (USD) – montant qui fait foi", "{solde_usd}");
+  out = fillAfter(out, "SOLDE À PAYER (FCFA) – indicatif", "{solde_fcfa}");
+  out = replaceParagraph(
+    out,
+    "Taux de change – XE.com, taux moyen du marché",
+    "Taux de change de référence – {taux_source}",
+  );
+  out = replaceParagraph(out, "1 USD = ____________ XOF", "1 USD = {taux} XOF");
+  out = replaceParagraph(out, "relevé le ___ / ___ / ______ à ___h___ (UTC)", "relevé le {taux_releve} (UTC)");
+  // Section 5 — échéancier (R4)
+  out = editRow(out, "Paiement 1 – Section A (forfait acquisition)", (row) => {
+    let r = setCellAfter(row, "Paiement 1 – Section A (forfait acquisition)", "{p1_montant}");
+    r = replaceIn(r, (t) => t === "____ / ____ / ______", "{p1_echeance}");
+    r = replaceIn(
+      r,
+      (t) => t.startsWith("au plus tard"),
+      "au plus tard {p1_heures} h après la notification du lot remporté",
+    );
+    return replaceIn(r, (t) => t === "☐ Payé", "{p1_statut}");
+  });
+  out = editRow(out, "Solde – B + C (si acceptée) + D", (row) => {
+    let r = setCellAfter(row, "Solde – B + C (si acceptée) + D", "{solde_montant}");
+    r = replaceIn(r, (t) => t === "____ / ____ / ______", "{solde_echeance}");
+    r = replaceIn(
+      r,
+      (t) => t.startsWith("48 h avant l’ETA"),
+      "{solde_heures} h avant l’ETA du {solde_eta} indiquée en section 1 (règlement recommandé {solde_jours} jours avant)",
+    );
+    return replaceIn(r, (t) => t === "☐ Payé", "{solde_statut}");
+  });
+  // Section 6 — comptes officiels actifs (annexe D)
+  out = fillAfter(out, "Virement bancaire", "{compte_banque}");
+  out = fillAfter(out, "Wave", "{compte_wave}");
+  out = fillAfter(out, "Orange Money", "{compte_orange_money}");
+  out = fillAfter(out, "Référence à indiquer", "N° de dossier : {dossier_reference}");
+  // Section 7 — conditions (valeurs des paramètres)
+  out = replaceParagraph(
+    out,
+    "Devis valable 48 heures, en raison des délais de paiement imposés par les plateformes d’enchères.",
+    "{conditions_validite}",
+  );
+  out = replaceParagraph(
+    out,
+    "Frais de retard : 100 USD par période de 14 jours commencée",
+    "Frais de retard : {frais_retard} par période de {frais_retard_jours} jours commencée à compter du lendemain de l’échéance, sans préjudice des frais de tiers (stockage, port, stationnement).",
+    { prefix: true },
+  );
+  out = replaceParagraph(
+    out,
+    "La propriété du véhicule est transférée au Client au paiement intégral",
+    "La propriété du véhicule est transférée au Client au paiement intégral ; les documents (B/L, titre, factures) sont remis sous {remise_heures} heures ouvrées après ce paiement, au Client ou à son mandataire muni d’une procuration et d’une pièce d’identité.",
+    { prefix: true },
+  );
+  // Section 8 — signataires (dates et signatures restent manuscrites)
+  out = replaceParagraph(out, "Nom : ______________________________", "Nom : {usa_representant}");
+  out = replaceParagraph(out, "Nom : ______________________________", "Nom : {client_nom}");
+  const leftovers = paragraphsOf(out)
+    .map(paragraphText)
+    .filter(
+      (t) => /_{4,}/.test(t) && !/^(Date : |Initiales du Client|_+$)/.test(t) && !t.includes("Initiales du Client"),
+    );
+  if (leftovers.length > 0) throw new Error(`Espaces réservés non balisés : ${leftovers.join(" | ")}`);
+  return out;
+}
+
+// Logo en en-tête (décision D4) : 3,8 cm de large, proportions de public/logo-usa-cars.png (512 × 201).
+const LOGO_WIDTH_EMU = 1_371_600;
+const LOGO_HEIGHT_EMU = Math.round((LOGO_WIDTH_EMU * 201) / 512);
+const LOGO_RUN =
+  '<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">' +
+  `<wp:extent cx="${LOGO_WIDTH_EMU}" cy="${LOGO_HEIGHT_EMU}"/><wp:docPr id="1001" name="Logo" descr="USA CARS"/>` +
+  '<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>' +
+  '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+  '<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="logo-usa-cars.png"/><pic:cNvPicPr/></pic:nvPicPr>' +
+  '<pic:blipFill><a:blip r:embed="rIdLogoUsaCars"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>' +
+  `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${LOGO_WIDTH_EMU}" cy="${LOGO_HEIGHT_EMU}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
+  "</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>";
+
+/** En-tête du devis : le nom « USA CARS » laisse place au logo, suivi du type de document. */
+function tagFinancialHeader(xml: string): string {
+  const usa = xml.indexOf('<w:t xml:space="preserve">USA </w:t></w:r>');
+  const carsEnd = xml.indexOf("<w:t>CARS</w:t></w:r>") + "<w:t>CARS</w:t></w:r>".length;
+  if (usa < 0 || carsEnd < usa) throw new Error("Nom « USA CARS » introuvable dans l’en-tête du devis.");
+  const start = xml.lastIndexOf("<w:r", usa);
+  let out = `${xml.slice(0, start)}${LOGO_RUN}${xml.slice(carsEnd)}`;
+  out = replaceText(out, " | DEVIS", " | {titre_entete}");
+  out = out.replace('<w:t xml:space="preserve"> / FACTURE CLIENT</w:t>', '<w:t xml:space="preserve"></w:t>');
+  return tagHeader(out);
+}
+
+/** Image du logo, sa relation depuis l'en-tête et son type de contenu. */
+function addLogo(zip: PizZip) {
+  zip.file("word/media/logo-usa-cars.png", readFileSync(resolve(LOGO)));
+  zip.file(
+    "word/_rels/header1.xml.rels",
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' +
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      '<Relationship Id="rIdLogoUsaCars" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo-usa-cars.png"/>' +
+      "</Relationships>",
+  );
+  const types = zip.file("[Content_Types].xml")!.asText();
+  if (!types.includes('Extension="png"')) {
+    zip.file(
+      "[Content_Types].xml",
+      types.replace("<Default ", '<Default Extension="png" ContentType="image/png"/><Default '),
+    );
+  }
+}
+
 const contract = build("contrat-revise", OUTPUT_CONTRACT, tagDocument, tagHeader);
 const purchaseOrder = build("ordre-achat-revise", OUTPUT_PURCHASE_ORDER, tagPurchaseOrder, tagPurchaseOrderHeader);
+const financial = build("devis-facture-revise", OUTPUT_FINANCIAL, tagFinancialDocument, tagFinancialHeader, {
+  source: FINANCIAL_SOURCE,
+  extra: addLogo,
+});
 
 mkdirSync(dirname(resolve(OUTPUT_MODULE)), { recursive: true });
 writeFileSync(
@@ -193,6 +471,8 @@ writeFileSync(
     `export const CONTRACT_TEMPLATE_BASE64 =\n  "${contract.bytes.toString("base64")}";`,
     `export const PURCHASE_ORDER_TEMPLATE_VERSION = "${purchaseOrder.version}";`,
     `export const PURCHASE_ORDER_TEMPLATE_BASE64 =\n  "${purchaseOrder.bytes.toString("base64")}";`,
+    `export const FINANCIAL_TEMPLATE_VERSION = "${financial.version}";`,
+    `export const FINANCIAL_TEMPLATE_BASE64 =\n  "${financial.bytes.toString("base64")}";`,
     "",
   ].join("\n"),
   "utf8",
