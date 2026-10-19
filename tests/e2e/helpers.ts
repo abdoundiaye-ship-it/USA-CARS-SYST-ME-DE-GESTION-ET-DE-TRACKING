@@ -22,6 +22,16 @@ export function totp(secretBase32: string, at = Date.now()): string {
   return code.toString().padStart(6, "0");
 }
 
+/**
+ * Code TOTP utilisable sans risque : s'il ne reste que quelques secondes dans la fenêtre de 30 s, attend la
+ * suivante (sinon le code peut expirer entre sa génération et sa vérification — test instable).
+ */
+export async function freshTotp(secretBase32: string): Promise<string> {
+  const secondsInWindow = (Date.now() / 1000) % 30;
+  if (secondsInWindow > 25) await new Promise((resolve) => setTimeout(resolve, (30 - secondsInWindow) * 1000 + 500));
+  return totp(secretBase32);
+}
+
 /** Connexion ; attend la redirection (sauf `expectRedirect: false`, ex. mot de passe incorrect). */
 export async function signIn(page: Page, email: string, password = DEMO_PASSWORD, { expectRedirect = true } = {}) {
   await page.goto("/connexion");

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { databaseAvailable, expectNoHorizontalScroll, signIn, totp } from "./helpers";
+import { databaseAvailable, expectNoHorizontalScroll, freshTotp, signIn } from "./helpers";
 
 // Phase 1 — US-1.0 à US-1.4 sur les comptes du seed de démonstration (Supabase local).
 test.beforeEach(async ({ request }, testInfo) => {
@@ -60,7 +60,7 @@ test.describe("administrateur", () => {
     await page.getByRole("button", { name: "Configurer la double authentification" }).click();
     const secret = (await page.getByTestId("totp-secret").textContent())?.trim() ?? "";
     expect(secret).not.toBe("");
-    await page.getByLabel("Code à 6 chiffres").fill(totp(secret));
+    await page.getByLabel("Code à 6 chiffres").fill(await freshTotp(secret));
     await page.getByRole("button", { name: "Valider le code" }).click();
     await expect(page).toHaveURL(/\/tableau-de-bord/);
 
