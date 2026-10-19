@@ -45,6 +45,13 @@ export function getPublicEnv(): PublicEnv {
   return env;
 }
 
+/** Noms des variables serveur absentes ou invalides (jamais leurs valeurs) : diagnostic de /api/sante. */
+export function serverEnvIssues(): string[] {
+  const result = serverSchema.safeParse(process.env);
+  if (result.success) return [];
+  return [...new Set(result.error.issues.map((issue) => String(issue.path[0] ?? "?")))].sort();
+}
+
 export function getServerEnv(): ServerEnv {
   const env = serverSchema.parse(process.env);
   assertNotProductionOutsideProd(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_APP_ENV);
