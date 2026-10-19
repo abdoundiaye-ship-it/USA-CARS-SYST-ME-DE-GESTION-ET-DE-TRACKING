@@ -474,6 +474,22 @@
       "status": "a_confirmer",
       "source": "Contrat, en-tête « USA CARS » — à saisir par l’administrateur (phase 2)",
       "lot": "phase2"
+    },
+    {
+      "key": "dashboard.stale_dossier_days",
+      "value": 7,
+      "type": "integer",
+      "status": "confirme",
+      "source": "Cahier des écrans — tableau de bord : « dossier sans mise à jour > 7 j » (docs/14)",
+      "lot": "phase2d"
+    },
+    {
+      "key": "dashboard.recent_eta_change_days",
+      "value": 3,
+      "type": "integer",
+      "status": "a_confirmer",
+      "source": "Hypothèse de Claude Code (lot 2d) : une ETA modifiée reste signalée pendant ce nombre de jours",
+      "lot": "phase2d"
     }
   ],
   "carriers": [

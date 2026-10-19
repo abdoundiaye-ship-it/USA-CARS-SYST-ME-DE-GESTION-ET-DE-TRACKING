@@ -57,6 +57,15 @@ export const SETTINGS_LOTS: Record<string, SettingsLot> = {
       "-- ne pas modifier à la main. Valeurs saisies ensuite par l’administrateur dans l’écran Paramètres.",
     ],
   },
+  phase2d: {
+    migrationPath: "supabase/migrations/20261019100500_parametres_tableau_de_bord.sql",
+    effectiveFrom: "2026-10-19T00:00:00Z",
+    header: [
+      "-- Phase 2, lot 2d — seuils de la liste « À traiter » du tableau de bord.",
+      "-- GÉNÉRÉ par `pnpm settings:generate` depuis specs/parametres_contractuels.json (lot « phase2d ») :",
+      "-- ne pas modifier à la main. Valeurs modifiables ensuite dans l’écran Paramètres.",
+    ],
+  },
 };
 
 /** Paramètres du JSON regroupés par lot. */

@@ -28,6 +28,7 @@ export const GROUP_LABELS: Record<string, string> = {
   numbering: "Numérotation",
   auth: "Sécurité des comptes",
   company: "Identité de USA CARS",
+  dashboard: "Tableau de bord",
 };
 
 export const SETTING_LABELS: Record<string, string> = {
@@ -95,6 +96,8 @@ export const SETTING_LABELS: Record<string, string> = {
   "company.email": "E-mail officiel",
   "company.representative_name": "Représentant légal (nom)",
   "company.representative_title": "Fonction du représentant",
+  "dashboard.stale_dossier_days": "Dossier sans mise à jour signalé après (jours)",
+  "dashboard.recent_eta_change_days": "ETA modifiée signalée pendant (jours)",
 };
 
 export function settingLabel(key: string): string {
