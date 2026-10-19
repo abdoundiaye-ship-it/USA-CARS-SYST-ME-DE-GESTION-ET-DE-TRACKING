@@ -53,6 +53,8 @@ Format pour ajouter une décision : `ID — date — décision`.
 | D5 | Format des documents remis | **19/10/2026** : phase 3 = documents **Word** ; la conversion PDF (service supplémentaire, éventuellement payant) est traitée à part, après choix de l’outil par USA CARS. |
 | X1 | Moment du choix de l’assurance | **19/10/2026** : le client choisit l’assurance **à l’acceptation du devis** ; la facture de solde reprend ce choix. |
 | X2 | Validité du devis et paiement 1 | **19/10/2026** : la validité du devis est **alignée sur l’échéance du paiement 1** (le devis expire en même temps que le délai de paiement) ; les deux valeurs restent des paramètres. |
+| Q1 | Double validation des comptes officiels | **19/10/2026** : un administrateur crée ou modifie le compte ; l’activation est approuvée par **un administrateur ou la direction**, toujours une autre personne que le créateur. |
+| Q2 | Montants sur le tableau de bord | **19/10/2026** : les agents opérations voient les montants de leurs dossiers (forfaits, soldes) ; la marge consolidée reste réservée à la direction et à l’administrateur. |
 
 ---
 
