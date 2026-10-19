@@ -8,6 +8,8 @@ export default async function InternalLayout({ children }: { children: React.Rea
 
   const items: NavItem[] = [
     { href: "/tableau-de-bord", label: "Tableau de bord" },
+    { href: "/dossiers", label: "Dossiers" },
+    { href: "/clients", label: "Clients" },
     ...(canAccess(access.role, SCREEN_ROLES.users) ? [{ href: "/utilisateurs" as const, label: "Utilisateurs" }] : []),
     { href: "/parametres", label: "Paramètres" },
     ...(canAccess(access.role, SCREEN_ROLES.audit) ? [{ href: "/audit" as const, label: "Journal d’audit" }] : []),

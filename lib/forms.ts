@@ -41,3 +41,8 @@ export function formObject(formData: FormData): Record<string, string> {
   }
   return result;
 }
+
+/** Renvoie aussi les valeurs saisies : React vide le formulaire après l'envoi, elles sont réaffichées en cas d'erreur. */
+export function withValues(state: FormState, formData: FormData): FormState {
+  return state.status === "error" ? { ...state, data: { ...formObject(formData), ...state.data } } : state;
+}
