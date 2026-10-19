@@ -1,6 +1,16 @@
 import PizZip from "pizzip";
 import { describe, expect, it } from "vitest";
-import { BLANK, buildContractData, platformBoxes, renderContract, sha256Hex, type ContractInput } from "./contract";
+import { ID_DOCUMENT_LABELS as APP_ID_LABELS } from "@/lib/dossiers/labels";
+import { sha256Hex as appSha256Hex } from "@/lib/hash";
+import {
+  BLANK,
+  buildContractData,
+  ID_DOCUMENT_LABELS,
+  platformBoxes,
+  renderContract,
+  sha256Hex,
+  type ContractInput,
+} from "@/supabase/functions/_shared/contract.ts";
 
 const input: ContractInput = {
   reference: "UC-2026-0042",
@@ -51,7 +61,7 @@ function textOf(bytes: Uint8Array): string {
   return (xml.match(/<w:t[^>]*>[^<]*<\/w:t>/g) ?? []).map((t) => t.replace(/<[^>]+>/g, "")).join("");
 }
 
-describe("contrat de prestation (US-2.2, R14)", () => {
+describe("contrat de prestation — fonction generate-contract (US-2.2, R14)", () => {
   it("coche la plateforme choisie", () => {
     expect(platformBoxes("iaa")).toBe("☐ COPART   ☒ IAA   ☐ Autre");
     expect(platformBoxes(null)).toBe("☐ COPART   ☐ IAA   ☐ Autre");
@@ -102,9 +112,14 @@ describe("contrat de prestation (US-2.2, R14)", () => {
     expect(textOf(renderContract({ ...input, legalValidated: true }))).not.toContain("PROJET");
   });
 
-  it("calcule l'empreinte SHA-256 (version figée, R15)", async () => {
-    expect(await sha256Hex(new TextEncoder().encode("abc"))).toBe(
-      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-    );
+  it("calcule l'empreinte SHA-256 (version figée, R15), identique dans la fonction et l'application", async () => {
+    const abc = new TextEncoder().encode("abc");
+    const expected = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+    expect(await sha256Hex(abc)).toBe(expected);
+    expect(await appSha256Hex(abc)).toBe(expected);
+  });
+
+  it("les libellés des pièces d'identité de la fonction sont ceux de l'application", () => {
+    expect(ID_DOCUMENT_LABELS).toEqual(APP_ID_LABELS);
   });
 });

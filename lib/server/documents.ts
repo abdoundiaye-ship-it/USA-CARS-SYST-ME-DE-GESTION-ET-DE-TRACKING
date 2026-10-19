@@ -1,5 +1,5 @@
 import "server-only";
-import { sha256Hex } from "@/lib/documents/contract";
+import { sha256Hex } from "@/lib/hash";
 import type { DocumentKind } from "@/lib/supabase/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 

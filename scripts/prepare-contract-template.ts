@@ -3,8 +3,8 @@
  *
  * Source : reference/templates/USA_CARS_Contrat_Prestation_Services_Senegal_-_Revise.docx (jamais modifié).
  * Sorties : templates/contrat_prestation.docx (copie balisée, syntaxe docxtemplater `{champ}`) et
- *           lib/documents/contract-template.generated.ts (même fichier en base64, embarqué dans l'application :
- *           Cloudflare Workers n'a pas de système de fichiers).
+ *           supabase/functions/_shared/contract-template.generated.ts (même fichier en base64, embarqué dans la
+ *           fonction Supabase generate-contract, sans accès au disque).
  *
  * Seuls l'en-tête, les blocs « USA CARS » et « LE CLIENT », l'identification du véhicule (article 3) et les
  * signatures sont balisés. Les valeurs contractuelles surlignées restent celles du modèle jusqu'à la
@@ -17,7 +17,7 @@ import PizZip from "pizzip";
 
 const SOURCE = "reference/templates/USA_CARS_Contrat_Prestation_Services_Senegal_-_Revise.docx";
 const OUTPUT_DOCX = "templates/contrat_prestation.docx";
-const OUTPUT_MODULE = "lib/documents/contract-template.generated.ts";
+const OUTPUT_MODULE = "supabase/functions/_shared/contract-template.generated.ts";
 
 /** Remplace le texte d'un élément <w:t> (texte exact) ; `occurrence` : 1 = première, 2 = deuxième… */
 function replaceText(xml: string, from: string, to: string, occurrence = 1): string {

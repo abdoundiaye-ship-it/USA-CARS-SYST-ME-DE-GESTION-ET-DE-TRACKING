@@ -393,7 +393,8 @@ deno_version = 2
 # secret_key = "env(SECRET_VALUE)"
 
 [analytics]
-enabled = true
+# Désactivé : journaux locaux non utilisés, et service trop gourmand en mémoire pour Docker sur le poste (19/10/2026).
+enabled = false
 port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
@@ -418,3 +419,10 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# Génération du contrat Word (phase 2, lot 2a) : appelée par l'application avec le jeton de l'utilisateur.
+# verify_jwt : refuse tout appel sans jeton valide ; la fonction n'utilise jamais la clé service_role.
+[functions.generate-contract]
+enabled = true
+verify_jwt = true
+import_map = "./functions/generate-contract/deno.json"
