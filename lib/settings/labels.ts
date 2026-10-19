@@ -27,6 +27,7 @@ export const GROUP_LABELS: Record<string, string> = {
   notifications: "Notifications",
   numbering: "Numérotation",
   auth: "Sécurité des comptes",
+  company: "Identité de USA CARS",
 };
 
 export const SETTING_LABELS: Record<string, string> = {
@@ -86,6 +87,14 @@ export const SETTING_LABELS: Record<string, string> = {
   "numbering.refund_note": "Format — note de remboursement",
   "numbering.reset": "Remise à zéro des compteurs",
   "auth.mfa_required_roles": "Rôles soumis à la double authentification",
+  "company.legal_form": "Forme juridique",
+  "company.rccm": "RCCM",
+  "company.ninea": "NINEA",
+  "company.office_address": "Bureau au Sénégal (adresse)",
+  "company.phone": "Téléphone officiel",
+  "company.email": "E-mail officiel",
+  "company.representative_name": "Représentant légal (nom)",
+  "company.representative_title": "Fonction du représentant",
 };
 
 export function settingLabel(key: string): string {

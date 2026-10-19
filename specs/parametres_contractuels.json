@@ -1,6 +1,6 @@
 {
   "_description": "Paramètres contractuels initiaux (contrat de prestation révisé, cahier des charges v1.1 section 6). Chargés dans la table settings. status: confirme = valeur du contrat ; a_confirmer = valeur provisoire surlignée dans le contrat ou hypothèse par défaut.",
-  "_version": "2026-10-17 (décisions A4, B3 intégrées)",
+  "_version": "2026-10-19 (décisions A4, B3 ; identité légale de USA CARS ajoutée en phase 2)",
   "settings": [
     {
       "key": "currency.reference",
@@ -410,6 +410,70 @@
       "type": "string[]",
       "status": "confirme",
       "source": "Décision A4 du 17/10/2026"
+    },
+    {
+      "key": "company.legal_form",
+      "value": "À compléter",
+      "type": "string",
+      "status": "a_confirmer",
+      "source": "Contrat, en-tête « USA CARS » — à saisir par l’administrateur (phase 2)",
+      "lot": "phase2"
+    },
+    {
+      "key": "company.rccm",
+      "value": "À compléter",
+      "type": "string",
+      "status": "a_confirmer",
+      "source": "Contrat, en-tête « USA CARS » — à saisir par l’administrateur (phase 2)",
+      "lot": "phase2"
+    },
+    {
+      "key": "company.ninea",
+      "value": "À compléter",
+      "type": "string",
+      "status": "a_confirmer",
+      "source": "Contrat, en-tête « USA CARS » — à saisir par l’administrateur (phase 2)",
+      "lot": "phase2"
+    },
+    {
+      "key": "company.office_address",
+      "value": "À compléter",
+      "type": "string",
+      "status": "a_confirmer",
+      "source": "Contrat, en-tête « USA CARS » — à saisir par l’administrateur (phase 2)",
+      "lot": "phase2"
+    },
+    {
+      "key": "company.phone",
+      "value": "À compléter",
+      "type": "string",
+      "status": "a_confirmer",
+      "source": "Contrat, en-tête « USA CARS » — à saisir par l’administrateur (phase 2)",
+      "lot": "phase2"
+    },
+    {
+      "key": "company.email",
+      "value": "À compléter",
+      "type": "string",
+      "status": "a_confirmer",
+      "source": "Contrat, en-tête « USA CARS » — à saisir par l’administrateur (phase 2)",
+      "lot": "phase2"
+    },
+    {
+      "key": "company.representative_name",
+      "value": "À compléter",
+      "type": "string",
+      "status": "a_confirmer",
+      "source": "Contrat, en-tête « USA CARS » — à saisir par l’administrateur (phase 2)",
+      "lot": "phase2"
+    },
+    {
+      "key": "company.representative_title",
+      "value": "À compléter",
+      "type": "string",
+      "status": "a_confirmer",
+      "source": "Contrat, en-tête « USA CARS » — à saisir par l’administrateur (phase 2)",
+      "lot": "phase2"
     }
   ],
   "carriers": [

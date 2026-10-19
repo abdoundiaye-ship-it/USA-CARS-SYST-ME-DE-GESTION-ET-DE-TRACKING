@@ -12,6 +12,8 @@ export interface SpecSetting {
   type: string;
   status: "confirme" | "a_confirmer";
   source?: string;
+  /** Lot de chargement (absent : chargement initial de la phase 1). Voir SETTINGS_LOTS. */
+  lot?: string;
 }
 
 export interface InitialSetting {
@@ -24,6 +26,49 @@ export interface InitialSetting {
 
 /** Date d’effet du chargement initial : fixe, pour que la migration soit déterministe et rejouable. */
 export const INITIAL_EFFECTIVE_FROM = "2026-10-17T00:00:00Z";
+
+/** Lot de paramètres : une migration par lot, jamais réécrite une fois appliquée en production. */
+export interface SettingsLot {
+  migrationPath: string;
+  effectiveFrom: string;
+  header: string[];
+}
+
+export const INITIAL_LOT = "initial";
+
+/** Paramètres ajoutés après la phase 1 : nouveau lot (champ `lot` du JSON), nouvelle migration additive. */
+export const SETTINGS_LOTS: Record<string, SettingsLot> = {
+  [INITIAL_LOT]: {
+    migrationPath: "supabase/migrations/20261017100300_parametres_initiaux.sql",
+    effectiveFrom: INITIAL_EFFECTIVE_FROM,
+    header: [
+      "-- Phase 1 — chargement initial des paramètres contractuels.",
+      "-- GÉNÉRÉ par `pnpm settings:generate` depuis specs/parametres_contractuels.json : ne pas modifier à la main.",
+      "-- Montants (type money) en centimes USD. Les modifications ultérieures passent par l’écran Paramètres",
+      "-- (nouvelle version datée), jamais par la modification de cette migration une fois appliquée en production.",
+    ],
+  },
+  phase2: {
+    migrationPath: "supabase/migrations/20261019100000_parametres_phase2.sql",
+    effectiveFrom: "2026-10-19T00:00:00Z",
+    header: [
+      "-- Phase 2 — paramètres ajoutés (identité légale de USA CARS pour le contrat).",
+      "-- GÉNÉRÉ par `pnpm settings:generate` depuis specs/parametres_contractuels.json (lot « phase2 ») :",
+      "-- ne pas modifier à la main. Valeurs saisies ensuite par l’administrateur dans l’écran Paramètres.",
+    ],
+  },
+};
+
+/** Paramètres du JSON regroupés par lot. */
+export function settingsByLot(specs: SpecSetting[]): Record<string, SpecSetting[]> {
+  const result: Record<string, SpecSetting[]> = {};
+  for (const spec of specs) {
+    const lot = spec.lot ?? INITIAL_LOT;
+    if (!SETTINGS_LOTS[lot]) throw new Error(`Paramètre ${spec.key} : lot inconnu « ${lot} ».`);
+    (result[lot] ??= []).push(spec);
+  }
+  return result;
+}
 
 /** Normalise une entrée du JSON : `money` y est exprimé en dollars, stocké en centimes. */
 export function toInitialSetting(spec: SpecSetting): InitialSetting {
@@ -44,7 +89,10 @@ export function toInitialSetting(spec: SpecSetting): InitialSetting {
 
 const sqlString = (text: string) => `'${text.replace(/'/g, "''")}'`;
 
-export function buildSettingsMigrationSql(specs: SpecSetting[]): string {
+export function buildSettingsMigrationSql(
+  specs: SpecSetting[],
+  lot: SettingsLot = SETTINGS_LOTS[INITIAL_LOT]!,
+): string {
   const keys = new Set<string>();
   const rows = specs.map((spec) => {
     if (keys.has(spec.key)) throw new Error(`Paramètre en double : ${spec.key}.`);
@@ -56,15 +104,12 @@ export function buildSettingsMigrationSql(specs: SpecSetting[]): string {
       sqlString(s.valueType),
       sqlString(s.status),
       s.source === null ? "null" : sqlString(s.source),
-      `${sqlString(INITIAL_EFFECTIVE_FROM)}::timestamptz`,
+      `${sqlString(lot.effectiveFrom)}::timestamptz`,
     ].join(", ")})`;
   });
 
   return [
-    "-- Phase 1 — chargement initial des paramètres contractuels.",
-    "-- GÉNÉRÉ par `pnpm settings:generate` depuis specs/parametres_contractuels.json : ne pas modifier à la main.",
-    "-- Montants (type money) en centimes USD. Les modifications ultérieures passent par l’écran Paramètres",
-    "-- (nouvelle version datée), jamais par la modification de cette migration une fois appliquée en production.",
+    ...lot.header,
     "",
     "insert into public.settings (key, value, value_type, status, source, effective_from) values",
     `${rows.join(",\n")}`,
