@@ -39,6 +39,10 @@ Format pour ajouter une décision : `ID — date — décision`.
 | A7 | Reprise des dossiers en cours | **19/10/2026** : **pas de reprise automatique**. Les dossiers en cours (Excel, papier) sont saisis manuellement dans l’application. |
 | B4 | Changement de conteneur | **19/10/2026** : **oui**, un véhicule peut changer de conteneur ; chaque changement est conservé dans l’historique du dossier (ancien et nouveau conteneur, date, auteur). |
 | B5 | Type de service | **19/10/2026** : **deux cas à prévoir**. (1) **Achat + transport** (cas courant) : le véhicule est choisi par le client ou par USA CARS, mais c’est **toujours USA CARS qui enchérit et paie**, sur la base d’un **ordre d’achat signé par le client**. (2) **Transport seul** (occasionnel) : le client achète lui-même le véhicule et confie uniquement le transport à USA CARS — **exclu pour le moment (décision du 19/10/2026)**, à reprendre plus tard si nécessaire (questions T1 à T4 en attente, section 3). |
+| P1 | Conditions de passage relevant de la phase 3 | **19/10/2026** (plan de la phase 2 validé) : devis accepté, paiement 1 reçu, facture de solde, solde = 0 sont confirmés **manuellement** par l’agent (journalisé) en phase 2, puis vérifiés automatiquement en phase 3. |
+| P2 | Dépôt sur l’ordre d’achat | **19/10/2026** : l’agent saisit le **montant attendu** (forfait A estimé, I2) ; l’encaissement est enregistré en phase 3 avec les paiements. |
+| P3 | Comptes des clients | **19/10/2026** : phase 2 = fiches clients seulement ; comptes de connexion avec le portail (phase 4). |
+| P4 | Transporteurs | **19/10/2026** : créés par l’administrateur dans Paramètres → Transporteurs ; transporteurs fictifs dans le seed local. |
 
 ---
 
