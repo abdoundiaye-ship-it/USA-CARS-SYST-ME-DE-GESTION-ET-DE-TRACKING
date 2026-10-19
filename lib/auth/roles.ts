@@ -35,6 +35,12 @@ export const SCREEN_ROLES = {
   documents: INTERNAL_ROLES,
   // Documents : admin, agent et comptabilité ajoutent et règlent la visibilité client (docs/12).
   documentsWrite: ["admin", "ops", "accounting"],
+  // Phase 3 — finances (docs/12, décisions I4 et Q1).
+  finances: ["admin", "accounting", "management"],
+  fxWrite: ["admin", "accounting"],
+  forfaitsWrite: ["admin", "ops", "accounting"],
+  accountsWrite: ["admin"],
+  accountsApprove: ["admin", "management"],
 } as const satisfies Record<string, readonly AppRole[]>;
 
 export function canAccess(role: AppRole | null | undefined, allowed: readonly AppRole[]): boolean {

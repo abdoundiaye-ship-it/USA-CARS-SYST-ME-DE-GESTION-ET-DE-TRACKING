@@ -9,6 +9,7 @@ import { CONTRACT_STATUS_LABELS, PLATFORM_LABELS, STAGE_LABELS, VEHICLE_CATEGORY
 import { formatDate, formatDateTime, formatInteger } from "@/lib/format";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { missingClientInformation } from "@/lib/validation/operations";
+import { FinanceSection } from "./finance-section";
 import { DuplicateDossierForm, AcceptanceForm, RegenerateContractForm, VehicleForm } from "../dossier-forms";
 import {
   AcceptanceSummary,
@@ -70,6 +71,8 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     { data: documents },
     { data: containerAssignments },
     { data: openContainers },
+    { data: forfaits },
+    { data: costs },
   ] = await Promise.all([
     supabase.from("clients").select("*").eq("id", dossier.client_id).maybeSingle(),
     supabase
@@ -101,6 +104,8 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
       .eq("dossier_id", id)
       .order("assigned_at", { ascending: false }),
     supabase.from("containers").select("id, number, eta").is("ata", null).order("number"),
+    supabase.from("dossier_forfaits").select("*").eq("dossier_id", id).maybeSingle(),
+    supabase.from("internal_costs").select("*").eq("dossier_id", id).order("created_at"),
   ]);
   const contractAcceptance = acceptances?.find((a) => a.subject === "contract") ?? null;
   const orderAcceptance = acceptances?.find((a) => a.subject === "purchase_order") ?? null;
@@ -232,6 +237,13 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
           assignments={containerAssignments ?? []}
           options={openContainers ?? []}
           canWrite={canWrite}
+        />
+
+        <FinanceSection
+          dossierId={dossier.id}
+          forfaits={forfaits}
+          costs={costs ?? []}
+          canEdit={canAccess(access.role, SCREEN_ROLES.forfaitsWrite)}
         />
 
         <ConfirmationsSection

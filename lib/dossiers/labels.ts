@@ -74,6 +74,7 @@ export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
   power_of_attorney: "Procuration",
   release_receipt: "Décharge de remise",
   photos: "Photos",
+  cost_receipt: "Justificatif de coût (interne)",
   other: "Autre document",
 };
 

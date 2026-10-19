@@ -24,6 +24,7 @@ export type DocumentKind =
   | "power_of_attorney"
   | "release_receipt"
   | "photos"
+  | "cost_receipt"
   | "other";
 export type ContractStatus = "pending" | "accepted" | "refused";
 export type AcceptanceSubject = "contract" | "purchase_order" | "quote" | "extra_cost";
@@ -298,6 +299,80 @@ export type DossierContainerRow = {
   removal_reason: string | null;
 };
 
+export type FxRateRow = {
+  id: string;
+  /** numeric(12,4) : renvoyé en nombre par PostgREST ; manipulé en chaîne exacte pour les calculs (lib/money/fx). */
+  rate: number;
+  source: string;
+  captured_at: string;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type OfficialAccountKind = "bank" | "wave" | "orange_money" | "cash_office";
+export type OfficialAccountRow = {
+  id: string;
+  kind: OfficialAccountKind;
+  label: string;
+  holder_name: string;
+  bank_name: string | null;
+  account_number: string | null;
+  iban: string | null;
+  swift: string | null;
+  phone: string | null;
+  instructions: string | null;
+  status: "pending_approval" | "active" | "inactive";
+  replaces_id: string | null;
+  created_by: string;
+  created_at: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  deactivated_by: string | null;
+  deactivated_at: string | null;
+  deactivation_reason: string | null;
+};
+
+export type CostSection = "A" | "B";
+export type CostCategory =
+  | "hammer_price"
+  | "auction_fees"
+  | "us_taxes"
+  | "acquisition_other"
+  | "inland_transport"
+  | "loading"
+  | "ocean_freight"
+  | "port_fees"
+  | "documentation"
+  | "logistics_other";
+export type InternalCostRow = {
+  id: string;
+  dossier_id: string;
+  section: CostSection;
+  category: CostCategory;
+  label: string | null;
+  amount_cents: number;
+  status: "estimated" | "final";
+  document_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DossierForfaitsRow = {
+  dossier_id: string;
+  forfait_a_cents: number | null;
+  forfait_b_cents: number | null;
+  insurance_cents: number | null;
+  mode: "manual" | "proposed_with_approval";
+  proposed_a_cents: number | null;
+  proposed_b_cents: number | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type DossierConfirmationRow = {
   dossier_id: string;
   code: ConfirmationCode;
@@ -557,6 +632,30 @@ export type Database = {
           },
         ];
       };
+      fx_rates: {
+        Row: FxRateRow;
+        Insert: InsertOf<FxRateRow, "rate" | "source" | "captured_at">;
+        Update: never;
+        Relationships: [];
+      };
+      official_accounts: {
+        Row: OfficialAccountRow;
+        Insert: never; // via create_official_account
+        Update: never; // via approve_official_account / deactivate_official_account
+        Relationships: [];
+      };
+      internal_costs: {
+        Row: InternalCostRow;
+        Insert: InsertOf<InternalCostRow, "dossier_id" | "section" | "category" | "amount_cents">;
+        Update: Partial<Pick<InternalCostRow, "label" | "amount_cents" | "status" | "document_id">>;
+        Relationships: [];
+      };
+      dossier_forfaits: {
+        Row: DossierForfaitsRow;
+        Insert: InsertOf<DossierForfaitsRow, "dossier_id">;
+        Update: Partial<Pick<DossierForfaitsRow, "forfait_a_cents" | "forfait_b_cents" | "insurance_cents">>;
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -661,6 +760,28 @@ export type Database = {
       record_container_departure: { Args: { p_container_id: string; p_departed_on: string }; Returns: undefined };
       record_container_arrival: { Args: { p_container_id: string; p_ata: string }; Returns: undefined };
       mark_container_checked: { Args: { p_container_id: string }; Returns: undefined };
+      fx_rate_as_of: {
+        Args: { p_at: string };
+        Returns: { id: string; rate: number; source: string; captured_at: string }[];
+      };
+      fx_rate_exists_on: { Args: { p_day: string }; Returns: boolean };
+      create_official_account: {
+        Args: {
+          p_kind: OfficialAccountKind;
+          p_label: string;
+          p_holder_name: string;
+          p_bank_name?: string;
+          p_account_number?: string;
+          p_iban?: string;
+          p_swift?: string;
+          p_phone?: string;
+          p_instructions?: string;
+          p_replaces_id?: string;
+        };
+        Returns: string;
+      };
+      approve_official_account: { Args: { p_account_id: string }; Returns: undefined };
+      deactivate_official_account: { Args: { p_account_id: string; p_reason: string }; Returns: undefined };
       log_audit: {
         Args: {
           p_action: string;
