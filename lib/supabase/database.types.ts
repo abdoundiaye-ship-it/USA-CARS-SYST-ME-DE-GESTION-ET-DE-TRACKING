@@ -17,6 +17,7 @@ export type DocumentKind =
   | "acceptance_proof"
   | "purchase_order"
   | "auction_invoice"
+  | "pickup_proof"
   | "title"
   | "bill_of_lading"
   | "payment_proof"
@@ -32,9 +33,16 @@ export type DossierEventKind =
   | "status_changed"
   | "stage_changed"
   | "contract_generated"
+  | "purchase_order_generated"
   | "acceptance_recorded"
+  | "auction_result"
+  | "confirmation"
+  | "stage_exception"
+  | "cancelled"
   | "document_added"
   | "note";
+export type PurchaseOrderStatus = "draft" | "pending" | "accepted" | "refused";
+export type ConfirmationCode = "quote_accepted" | "payment1_received" | "balance_invoice_issued" | "balance_paid";
 
 /** Insertion : colonnes obligatoires `Required`, les autres facultatives (valeurs par défaut de la base). */
 type InsertOf<Row, Required extends keyof Row> = Pick<Row, Required> & Partial<Omit<Row, Required>>;
@@ -83,15 +91,40 @@ export type DossierRow = {
   notes: string | null;
   params_as_of: string;
   duplicated_from: string | null;
+  auction_result: "won" | "lost" | null;
+  hammer_price_cents: number | null;
+  lot_won_notified_at: string | null;
+  payment1_due_at: string | null;
+  price_override_reason: string | null;
+  price_override_by: string | null;
+  cancelled_reason: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
 };
 
-/** Colonnes modifiables d’un dossier (référence, client et date d’ouverture sont figés par la base). */
+/**
+ * Colonnes modifiables directement d’un dossier. Figées par la base : référence, client, date d’ouverture ;
+ * écrites par les fonctions métier seulement : étape, résultat d’enchère, annulation.
+ */
 type DossierEditable = Omit<
   DossierRow,
-  "id" | "reference" | "client_id" | "params_as_of" | "created_by" | "created_at" | "updated_at" | "duplicated_from"
+  | "id"
+  | "reference"
+  | "client_id"
+  | "params_as_of"
+  | "created_by"
+  | "created_at"
+  | "updated_at"
+  | "duplicated_from"
+  | "stage"
+  | "auction_result"
+  | "hammer_price_cents"
+  | "lot_won_notified_at"
+  | "payment1_due_at"
+  | "price_override_reason"
+  | "price_override_by"
+  | "cancelled_reason"
 >;
 
 export type DocumentRow = {
@@ -149,9 +182,44 @@ export type AcceptanceRow = {
   whatsapp_from: string | null;
   portal_ip: string | null;
   portal_session: string | null;
+  acknowledgements: Json | null;
   notes: string | null;
   recorded_by: string | null;
   recorded_at: string;
+};
+
+export type PurchaseOrderRow = {
+  id: string;
+  dossier_id: string;
+  auction_at: string | null;
+  max_bid_cents: number;
+  deposit_cents: number;
+  status: PurchaseOrderStatus;
+  document_id: string | null;
+  document_sha256: string | null;
+  template_version: string | null;
+  platform: AuctionPlatform | null;
+  lot_number: string | null;
+  vin: string | null;
+  decided_at: string | null;
+  ack_vehicle_info: boolean;
+  ack_import_age: boolean;
+  ack_binding_win: boolean;
+  ack_duties_excluded: boolean;
+  age_override_reason: string | null;
+  age_override_by: string | null;
+  age_override_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DossierConfirmationRow = {
+  dossier_id: string;
+  code: ConfirmationCode;
+  note: string | null;
+  confirmed_by: string | null;
+  confirmed_at: string;
 };
 
 export type WorkflowStatusRow = {
@@ -326,6 +394,19 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      purchase_orders: {
+        Row: PurchaseOrderRow;
+        Insert: InsertOf<PurchaseOrderRow, "dossier_id" | "max_bid_cents">;
+        // Document, statut et décision : écrits par les fonctions métier.
+        Update: Partial<Pick<PurchaseOrderRow, "auction_at" | "max_bid_cents" | "deposit_cents" | "age_override_reason">>;
+        Relationships: [];
+      };
+      dossier_confirmations: {
+        Row: DossierConfirmationRow;
+        Insert: InsertOf<DossierConfirmationRow, "dossier_id" | "code">;
+        Update: never;
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -387,6 +468,37 @@ export type Database = {
         Returns: string;
       };
       duplicate_dossier: { Args: { p_dossier_id: string }; Returns: string };
+      vehicle_age_check: {
+        Args: { p_dossier_id: string };
+        Returns: { status: "ok" | "too_old" | "unknown"; age: number | null; max_age: number | null }[];
+      };
+      register_purchase_order_document: {
+        Args: {
+          p_dossier_id: string;
+          p_storage_path: string;
+          p_file_name: string;
+          p_size_bytes: number;
+          p_sha256: string;
+          p_template_version: string;
+        };
+        Returns: string;
+      };
+      record_auction_result: {
+        Args: {
+          p_dossier_id: string;
+          p_result: "won" | "lost";
+          p_hammer_price_cents?: number;
+          p_notified_at?: string;
+          p_override_reason?: string;
+        };
+        Returns: undefined;
+      };
+      stage_conditions: {
+        Args: { p_dossier_id: string };
+        Returns: { code: string; label: string; met: boolean }[];
+      };
+      advance_stage: { Args: { p_dossier_id: string; p_override_reason?: string }; Returns: DossierStage };
+      cancel_dossier: { Args: { p_dossier_id: string; p_reason: string }; Returns: undefined };
       log_audit: {
         Args: {
           p_action: string;
