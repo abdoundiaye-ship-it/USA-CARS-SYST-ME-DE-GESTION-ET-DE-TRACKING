@@ -1,14 +1,15 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { FormMessage } from "@/components/form-message";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { CONFIRMATION_LABELS, DOCUMENT_KIND_LABELS } from "@/lib/dossiers/labels";
-import { initialFormState } from "@/lib/forms";
 import type { ConfirmationCode, PurchaseOrderRow } from "@/lib/supabase/database.types";
+import { useFormAction } from "@/lib/use-form-action";
 import {
   advanceStage,
+  assignContainer,
   cancelDossier,
   changeStatus,
   confirmManually,
@@ -27,10 +28,10 @@ const dateTimeInput = (iso: string | null | undefined) => (iso ? iso.slice(0, 16
 
 /** US-2.3 : conditions de l'ordre d'achat, puis génération du document à signer. */
 export function PurchaseOrderForm({ dossierId, order }: { dossierId: string; order: PurchaseOrderRow | null }) {
-  const [state, action, pending] = useActionState(savePurchaseOrder, initialFormState);
+  const { state, pending, formProps } = useFormAction(savePurchaseOrder);
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="flex flex-col gap-4" noValidate>
+    <form {...formProps} className="flex flex-col gap-4" noValidate>
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossierId} />
       <div className="grid gap-4 sm:grid-cols-3">
@@ -82,9 +83,9 @@ export function PurchaseOrderForm({ dossierId, order }: { dossierId: string; ord
 
 /** Dérogation au contrôle de l'âge (administrateur seulement, motif journalisé). */
 export function AgeOverrideForm({ dossierId }: { dossierId: string }) {
-  const [state, action, pending] = useActionState(overrideImportAge, initialFormState);
+  const { state, pending, formProps } = useFormAction(overrideImportAge);
   return (
-    <form action={action} className="flex flex-col gap-3" noValidate>
+    <form {...formProps} className="flex flex-col gap-3" noValidate>
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossierId} />
       <Field id="age-reason" label="Motif de la dérogation" error={state.fieldErrors?.reason}>
@@ -101,11 +102,11 @@ export function AgeOverrideForm({ dossierId }: { dossierId: string }) {
 
 /** US-2.4 : lot remporté (prix, notification) ou non remporté. */
 export function AuctionResultForm({ dossierId, isAdmin }: { dossierId: string; isAdmin: boolean }) {
-  const [state, action, pending] = useActionState(recordAuctionResult, initialFormState);
+  const { state, pending, formProps } = useFormAction(recordAuctionResult);
   const [result, setResult] = useState(state.data?.result ?? "won");
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="flex flex-col gap-4" noValidate>
+    <form {...formProps} className="flex flex-col gap-4" noValidate>
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossierId} />
       <fieldset className="flex flex-wrap gap-4">
@@ -166,9 +167,9 @@ export function AuctionResultForm({ dossierId, isAdmin }: { dossierId: string; i
 
 /** Hypothèse P1 : confirmation manuelle d'un élément financier (journalisée). */
 export function ConfirmForm({ dossierId, code }: { dossierId: string; code: ConfirmationCode }) {
-  const [state, action, pending] = useActionState(confirmManually, initialFormState);
+  const { state, pending, formProps } = useFormAction(confirmManually);
   return (
-    <form action={action} className="flex flex-col gap-2">
+    <form {...formProps} className="flex flex-col gap-2">
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossierId} />
       <input type="hidden" name="code" value={code} />
@@ -193,9 +194,9 @@ export function AdvanceStageForm({
   isAdmin: boolean;
   nextLabel: string;
 }) {
-  const [state, action, pending] = useActionState(advanceStage, initialFormState);
+  const { state, pending, formProps } = useFormAction(advanceStage);
   return (
-    <form action={action} className="flex flex-col gap-3" noValidate>
+    <form {...formProps} className="flex flex-col gap-3" noValidate>
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossierId} />
       {!ready && isAdmin && (
@@ -231,9 +232,9 @@ export function StatusForm({
   current: string;
   options: { code: string; label: string }[];
 }) {
-  const [state, action, pending] = useActionState(changeStatus, initialFormState);
+  const { state, pending, formProps } = useFormAction(changeStatus);
   return (
-    <form action={action} className="flex flex-col gap-2">
+    <form {...formProps} className="flex flex-col gap-2">
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossierId} />
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -258,9 +259,9 @@ export function StatusForm({
 
 /** Annulation (Ouverture ou Achat), motif obligatoire. */
 export function CancelDossierForm({ dossierId }: { dossierId: string }) {
-  const [state, action, pending] = useActionState(cancelDossier, initialFormState);
+  const { state, pending, formProps } = useFormAction(cancelDossier);
   return (
-    <form action={action} className="flex flex-col gap-3" noValidate>
+    <form {...formProps} className="flex flex-col gap-3" noValidate>
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossierId} />
       <Field id="cancel-reason" label="Motif de l’annulation" error={state.fieldErrors?.reason}>
@@ -275,14 +276,59 @@ export function CancelDossierForm({ dossierId }: { dossierId: string }) {
   );
 }
 
+/** US-2.6 / B4 : associer le véhicule à un conteneur ou le changer de conteneur (motif obligatoire). */
+export function AssignContainerForm({
+  dossierId,
+  options,
+  changing,
+}: {
+  dossierId: string;
+  options: { id: string; number: string; eta: string | null }[];
+  changing: boolean;
+}) {
+  const { state, pending, formProps } = useFormAction(assignContainer);
+  const e = state.fieldErrors ?? {};
+  if (options.length === 0) {
+    return <p className="text-muted text-sm">Aucun autre conteneur en cours : créez-le dans l’écran Conteneurs.</p>;
+  }
+  return (
+    <form {...formProps} className="flex flex-col gap-3" noValidate>
+      <FormMessage state={state} />
+      <input type="hidden" name="dossierId" value={dossierId} />
+      <Field id="assign-container" label={changing ? "Nouveau conteneur" : "Conteneur"} error={e.containerId}>
+        {(aria) => (
+          <Select {...aria} name="containerId" defaultValue={state.data?.containerId ?? ""}>
+            <option value="">— Choisir —</option>
+            {options.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.number}
+              </option>
+            ))}
+          </Select>
+        )}
+      </Field>
+      {changing && (
+        <Field id="assign-reason" label="Motif du changement" error={e.reason}>
+          {(aria) => <Input {...aria} name="reason" defaultValue={state.data?.reason ?? ""} />}
+        </Field>
+      )}
+      <div>
+        <Button type="submit" variant="secondary" pending={pending}>
+          {changing ? "Changer de conteneur" : "Associer au conteneur"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 const UPLOAD_KINDS = ["auction_invoice", "pickup_proof", "title", "photos", "other"] as const;
 
 /** Ajout d'un document au dossier (facture d'enchère, preuve de prise en charge…). */
 export function UploadDocumentForm({ dossierId }: { dossierId: string }) {
-  const [state, action, pending] = useActionState(uploadDossierDocument, initialFormState);
+  const { state, pending, formProps } = useFormAction(uploadDossierDocument, { resetOnSuccess: true });
   const e = state.fieldErrors ?? {};
   return (
-    <form action={action} className="flex flex-col gap-3" noValidate>
+    <form {...formProps} className="flex flex-col gap-3" noValidate>
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossierId} />
       <div className="grid gap-4 sm:grid-cols-2">

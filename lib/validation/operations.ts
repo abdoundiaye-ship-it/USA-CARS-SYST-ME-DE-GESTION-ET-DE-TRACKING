@@ -327,7 +327,10 @@ export const statusSchema = z.object({
 
 export const confirmationSchema = z.object({
   dossierId: z.uuid("Dossier inconnu."),
-  code: z.enum(["quote_accepted", "payment1_received"], "Confirmation inconnue."),
+  code: z.enum(
+    ["quote_accepted", "payment1_received", "balance_invoice_issued", "balance_paid"],
+    "Confirmation inconnue.",
+  ),
   note: optionalText(500, "500 caractères au maximum."),
 });
 

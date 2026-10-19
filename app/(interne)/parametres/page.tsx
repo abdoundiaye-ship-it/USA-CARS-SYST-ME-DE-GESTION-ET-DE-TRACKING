@@ -34,7 +34,11 @@ export default async function ParametresPage() {
             ? "Valeurs appliquées par l’application (délais, montants, seuils). Une modification crée une nouvelle version datée, appliquée aux dossiers ouverts à partir de sa date d’effet."
             : "Valeurs appliquées par l’application (consultation)."
         }
-      />
+      >
+        <Link href="/parametres/transporteurs" className="text-primary text-sm font-medium underline">
+          Transporteurs et liens de suivi →
+        </Link>
+      </PageHeader>
 
       {toConfirm > 0 && (
         <Alert tone="warning" className="mb-6">

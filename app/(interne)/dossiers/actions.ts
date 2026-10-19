@@ -25,6 +25,7 @@ import {
   vehicleSchema,
   type VehicleInput,
 } from "@/lib/validation/operations";
+import { assignContainerSchema } from "@/lib/validation/shipping";
 
 const WRITERS_ONLY = "Action réservée à l’administrateur et aux agents opérations.";
 
@@ -405,4 +406,21 @@ export async function duplicateDossier(_previous: FormState, formData: FormData)
   const contract = await generateContract(newId);
   revalidatePath("/dossiers");
   redirect(`${dossierPath(newId)}?${contract.ok ? "duplique=1" : "contrat=erreur"}` as Route);
+}
+
+/** US-2.6 / B4 : associer le véhicule à un conteneur, ou le changer de conteneur (motif, historique). */
+export async function assignContainer(_previous: FormState, formData: FormData): Promise<FormState> {
+  if (!(await getInternalAccess(SCREEN_ROLES.operationsWrite))) return failure(WRITERS_ONLY);
+  const parsed = assignContainerSchema.safeParse(formObject(formData));
+  if (!parsed.success) return withValues(invalid(parsed.error), formData);
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("assign_container", {
+    p_dossier_id: parsed.data.dossierId,
+    p_container_id: parsed.data.containerId,
+    ...(parsed.data.reason ? { p_reason: parsed.data.reason } : {}),
+  });
+  if (error) return withValues(failure(ruleMessage(error, "Le conteneur n’a pas pu être associé.")), formData);
+  revalidatePath(dossierPath(parsed.data.dossierId));
+  return success("Conteneur associé au véhicule.");
 }

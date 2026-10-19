@@ -4,6 +4,7 @@ import { Table, Td, Th } from "@/components/ui/table";
 import {
   ACCEPTANCE_METHOD_LABELS,
   CONFIRMATION_LABELS,
+  CONTAINER_STATUS_LABELS,
   DOCUMENT_KIND_LABELS,
   PURCHASE_ORDER_ACKNOWLEDGEMENTS,
   PURCHASE_ORDER_STATUS_LABELS,
@@ -11,9 +12,11 @@ import {
   STAGES,
 } from "@/lib/dossiers/labels";
 import { formatDate, formatDateTime, formatUsd } from "@/lib/format";
+import { arrivalLabel } from "@/lib/tracking";
 import type {
   AcceptanceRow,
   ConfirmationCode,
+  ContainerStatus,
   DocumentRow,
   DossierConfirmationRow,
   DossierRow,
@@ -23,6 +26,7 @@ import { AcceptanceForm } from "../dossier-forms";
 import {
   AdvanceStageForm,
   AgeOverrideForm,
+  AssignContainerForm,
   AuctionResultForm,
   CancelDossierForm,
   ConfirmForm,
@@ -314,7 +318,18 @@ export function AuctionSection({
   );
 }
 
-const MANUAL_CONFIRMATIONS: ConfirmationCode[] = ["quote_accepted", "payment1_received"];
+/** Éléments financiers confirmés à la main à chaque étape, en attendant la phase 3 (hypothèse P1). */
+const MANUAL_CONFIRMATIONS: Partial<Record<DossierRow["stage"], ConfirmationCode[]>> = {
+  purchase: ["quote_accepted", "payment1_received"],
+  container: ["balance_invoice_issued"],
+  dakar: ["balance_paid"],
+};
+const ALL_CONFIRMATIONS: ConfirmationCode[] = [
+  "quote_accepted",
+  "payment1_received",
+  "balance_invoice_issued",
+  "balance_paid",
+];
 
 /** Hypothèse P1 : éléments financiers confirmés à la main en attendant la phase 3. */
 export function ConfirmationsSection({
@@ -328,17 +343,21 @@ export function ConfirmationsSection({
   canConfirm: boolean;
   staffName: StaffName;
 }) {
-  if (dossier.stage !== "purchase" && confirmations.length === 0) return null;
+  const expected = MANUAL_CONFIRMATIONS[dossier.stage] ?? [];
+  const shown = ALL_CONFIRMATIONS.filter(
+    (code) => expected.includes(code) || confirmations.some((c) => c.code === code),
+  );
+  if (shown.length === 0) return null;
   return (
     <Card className="flex flex-col gap-4">
       <div>
-        <h2 className="font-semibold">Devis et paiement 1</h2>
+        <h2 className="font-semibold">Devis, factures et paiements</h2>
         <p className="text-muted text-sm">
           Confirmations manuelles, journalisées, en attendant les devis et paiements de la phase 3.
         </p>
       </div>
       <ul className="flex flex-col gap-3 text-sm">
-        {MANUAL_CONFIRMATIONS.map((code) => {
+        {shown.map((code) => {
           const done = confirmations.find((c) => c.code === code);
           return (
             <li key={code} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -351,13 +370,74 @@ export function ConfirmationsSection({
                   </span>
                 )}
               </span>
-              {!done && canConfirm && dossier.stage === "purchase" && (
-                <ConfirmForm dossierId={dossier.id} code={code} />
-              )}
+              {!done && canConfirm && expected.includes(code) && <ConfirmForm dossierId={dossier.id} code={code} />}
             </li>
           );
         })}
       </ul>
+    </Card>
+  );
+}
+
+export interface ContainerAssignment {
+  container_id: string;
+  assigned_at: string;
+  removed_at: string | null;
+  removal_reason: string | null;
+  containers: { number: string; eta: string | null; ata: string | null; status: ContainerStatus } | null;
+}
+
+/** US-2.6 / B4 : conteneur du véhicule, changement avec motif et historique. */
+export function ContainerSection({
+  dossier,
+  assignments,
+  options,
+  canWrite,
+}: {
+  dossier: DossierRow;
+  assignments: ContainerAssignment[];
+  options: { id: string; number: string; eta: string | null }[];
+  canWrite: boolean;
+}) {
+  const relevant = ["us_transport", "container", "ocean", "dakar", "closing"].includes(dossier.stage);
+  if (!relevant && assignments.length === 0) return null;
+  const current = assignments.find((a) => !a.removed_at) ?? null;
+  const history = assignments.filter((a) => a.removed_at);
+  const canAssign = canWrite && ["us_transport", "container", "ocean"].includes(dossier.stage);
+  return (
+    <Card className="flex flex-col gap-4">
+      <h2 className="font-semibold">Conteneur</h2>
+      {current?.containers ? (
+        <p className="text-sm">
+          <a href={`/conteneurs/${current.container_id}`} className="text-primary font-mono font-medium underline">
+            {current.containers.number}
+          </a>{" "}
+          ·{" "}
+          <Badge tone={current.containers.ata ? "success" : "info"}>
+            {CONTAINER_STATUS_LABELS[current.containers.status]}
+          </Badge>{" "}
+          · {arrivalLabel(current.containers)}
+        </p>
+      ) : (
+        <EmptyState title="Véhicule non associé à un conteneur" />
+      )}
+      {history.length > 0 && (
+        <ul className="text-muted flex flex-col gap-1 text-xs">
+          {history.map((h) => (
+            <li key={h.assigned_at}>
+              Auparavant : {h.containers?.number ?? "—"} (du {formatDate(h.assigned_at)} au {formatDate(h.removed_at!)}
+              {h.removal_reason ? ` — ${h.removal_reason}` : ""})
+            </li>
+          ))}
+        </ul>
+      )}
+      {canAssign && (
+        <AssignContainerForm
+          dossierId={dossier.id}
+          options={options.filter((o) => o.id !== current?.container_id)}
+          changing={Boolean(current)}
+        />
+      )}
     </Card>
   );
 }

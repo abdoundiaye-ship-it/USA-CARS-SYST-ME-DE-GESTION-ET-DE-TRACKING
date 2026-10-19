@@ -1,24 +1,24 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { FormMessage } from "@/components/form-message";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { CLIENT_KIND_LABELS, ID_DOCUMENT_LABELS } from "@/lib/dossiers/labels";
-import { initialFormState } from "@/lib/forms";
 import type { ClientKind, ClientRow } from "@/lib/supabase/database.types";
+import { useFormAction } from "@/lib/use-form-action";
 import { createClient, updateClient } from "./actions";
 
 /** Formulaire de fiche client (création ou modification). */
 export function ClientForm({ client }: { client?: ClientRow }) {
-  const [state, action, pending] = useActionState(client ? updateClient : createClient, initialFormState);
+  const { state, pending, formProps } = useFormAction(client ? updateClient : createClient);
   const [kind, setKind] = useState<ClientKind>(client?.kind ?? "person");
   const errors = state.fieldErrors ?? {};
   // Valeur affichée : saisie précédente (après une erreur), sinon valeur enregistrée.
   const v = (name: string, saved: string | null | undefined) => state.data?.[name] ?? saved ?? "";
 
   return (
-    <form action={action} className="flex flex-col gap-4" noValidate>
+    <form {...formProps} className="flex flex-col gap-4" noValidate>
       <FormMessage state={state} />
       {client && <input type="hidden" name="clientId" value={client.id} />}
 

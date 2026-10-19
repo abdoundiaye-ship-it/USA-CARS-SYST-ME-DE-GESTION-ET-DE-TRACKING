@@ -14,6 +14,7 @@ import {
   AcceptanceSummary,
   AuctionSection,
   ConfirmationsSection,
+  ContainerSection,
   DocumentsSection,
   downloadHref,
   PurchaseOrderSection,
@@ -67,6 +68,8 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     { data: ageRows },
     { data: confirmations },
     { data: documents },
+    { data: containerAssignments },
+    { data: openContainers },
   ] = await Promise.all([
     supabase.from("clients").select("*").eq("id", dossier.client_id).maybeSingle(),
     supabase
@@ -92,6 +95,12 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     supabase.rpc("vehicle_age_check", { p_dossier_id: id }),
     supabase.from("dossier_confirmations").select("*").eq("dossier_id", id),
     supabase.from("documents").select("*").eq("dossier_id", id).order("uploaded_at", { ascending: false }),
+    supabase
+      .from("dossier_containers")
+      .select("container_id, assigned_at, removed_at, removal_reason, containers(number, eta, ata, status)")
+      .eq("dossier_id", id)
+      .order("assigned_at", { ascending: false }),
+    supabase.from("containers").select("id, number, eta").is("ata", null).order("number"),
   ]);
   const contractAcceptance = acceptances?.find((a) => a.subject === "contract") ?? null;
   const orderAcceptance = acceptances?.find((a) => a.subject === "purchase_order") ?? null;
@@ -217,6 +226,13 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
         />
 
         <AuctionSection dossier={dossier} order={order} canWrite={canWrite} isAdmin={isAdmin} staffName={staffName} />
+
+        <ContainerSection
+          dossier={dossier}
+          assignments={containerAssignments ?? []}
+          options={openContainers ?? []}
+          canWrite={canWrite}
+        />
 
         <ConfirmationsSection
           dossier={dossier}

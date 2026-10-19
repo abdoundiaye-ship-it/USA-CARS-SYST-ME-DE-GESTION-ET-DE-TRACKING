@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { FormMessage } from "@/components/form-message";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
@@ -10,8 +10,9 @@ import {
   PURCHASE_ORDER_ACKNOWLEDGEMENTS,
   VEHICLE_CATEGORY_LABELS,
 } from "@/lib/dossiers/labels";
-import { initialFormState, type FormState } from "@/lib/forms";
+import type { FormState } from "@/lib/forms";
 import type { DossierRow } from "@/lib/supabase/database.types";
+import { useFormAction } from "@/lib/use-form-action";
 import { createDossier, duplicateDossier, recordAcceptance, regenerateContract, updateVehicle } from "./actions";
 
 type Values = (name: string, saved: string | number | null | undefined) => string;
@@ -118,9 +119,9 @@ export interface ClientOption {
 
 /** Ouverture d'un dossier : client + véhicule (tout est complétable plus tard, sauf le client). */
 export function NewDossierForm({ clients, clientId }: { clients: ClientOption[]; clientId?: string }) {
-  const [state, action, pending] = useActionState(createDossier, initialFormState);
+  const { state, pending, formProps } = useFormAction(createDossier);
   return (
-    <form action={action} className="flex flex-col gap-6" noValidate>
+    <form {...formProps} className="flex flex-col gap-6" noValidate>
       <FormMessage state={state} />
       <Field id="clientId" label="Client" error={state.fieldErrors?.clientId}>
         {(aria) => (
@@ -151,9 +152,9 @@ export function NewDossierForm({ clients, clientId }: { clients: ClientOption[];
 }
 
 export function VehicleForm({ dossier }: { dossier: DossierRow }) {
-  const [state, action, pending] = useActionState(updateVehicle, initialFormState);
+  const { state, pending, formProps } = useFormAction(updateVehicle);
   return (
-    <form action={action} className="flex flex-col gap-4" noValidate>
+    <form {...formProps} className="flex flex-col gap-4" noValidate>
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossier.id} />
       <VehicleFields state={state} dossier={dossier} />
@@ -167,9 +168,9 @@ export function VehicleForm({ dossier }: { dossier: DossierRow }) {
 }
 
 export function RegenerateContractForm({ dossierId, label }: { dossierId: string; label: string }) {
-  const [state, action, pending] = useActionState(regenerateContract, initialFormState);
+  const { state, pending, formProps } = useFormAction(regenerateContract);
   return (
-    <form action={action} className="flex flex-col gap-2">
+    <form {...formProps} className="flex flex-col gap-2">
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossierId} />
       <div>
@@ -193,14 +194,14 @@ export function AcceptanceForm({
   subjectId: string;
   today: string;
 }) {
-  const [state, action, pending] = useActionState(recordAcceptance, initialFormState);
+  const { state, pending, formProps } = useFormAction(recordAcceptance);
   const [method, setMethod] = useState(state.data?.method ?? "scanned_paper");
   const e = state.fieldErrors ?? {};
   const isOrder = subject === "purchase_order";
   const noun = isOrder ? "l’ordre d’achat" : "le contrat";
   const id = (name: string) => `${subject}-${name}`; // deux formulaires peuvent coexister sur la fiche
   return (
-    <form action={action} className="flex flex-col gap-4" noValidate>
+    <form {...formProps} className="flex flex-col gap-4" noValidate>
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossierId} />
       <input type="hidden" name="subject" value={subject} />
@@ -320,9 +321,9 @@ export function AcceptanceForm({
 }
 
 export function DuplicateDossierForm({ dossierId }: { dossierId: string }) {
-  const [state, action, pending] = useActionState(duplicateDossier, initialFormState);
+  const { state, pending, formProps } = useFormAction(duplicateDossier);
   return (
-    <form action={action} className="flex flex-col gap-2">
+    <form {...formProps} className="flex flex-col gap-2">
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossierId} />
       <div>

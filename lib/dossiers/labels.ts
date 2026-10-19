@@ -1,6 +1,9 @@
 import type {
   AcceptanceMethod,
   ConfirmationCode,
+  ContainerStatus,
+  EtaSource,
+  TrackingEventKind,
   PurchaseOrderStatus,
   AuctionPlatform,
   ClientKind,
@@ -108,3 +111,28 @@ export const PURCHASE_ORDER_ACKNOWLEDGEMENTS = [
   ["binding_win", "sait que le lot remporté l’engage et que le paiement 1 est dû dans le délai de l’article 9.1"],
   ["duties_excluded", "sait que les droits et taxes au Sénégal ne sont pas inclus, sauf mention au devis"],
 ] as const;
+
+/** Statuts du conteneur (mêmes codes que l’étape Maritime du dossier). */
+export const CONTAINER_STATUS_LABELS: Record<ContainerStatus, string> = {
+  booking_confirmed: "Réservation confirmée",
+  departure_planned: "Départ prévu",
+  at_sea: "En transit",
+  transshipment: "Transbordement",
+  arrival_estimated: "Arrivée estimée",
+  arrived: "Arrivé",
+};
+
+export const ETA_SOURCE_LABELS: Record<EtaSource, string> = {
+  carrier_site: "Site de suivi du transporteur",
+  carrier_notice: "Avis du transporteur (e-mail, courrier)",
+  manual: "Estimation de l’agent",
+};
+
+export const TRACKING_EVENT_LABELS: Record<TrackingEventKind, string> = {
+  departure: "Départ",
+  transshipment: "Transbordement",
+  arrival: "Arrivée",
+  eta_changed: "ETA modifiée",
+  delay: "Retard",
+  note: "Information",
+};

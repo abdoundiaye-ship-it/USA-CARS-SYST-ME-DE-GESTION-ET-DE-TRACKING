@@ -31,6 +31,7 @@ export const SCREEN_ROLES = {
   clients: INTERNAL_ROLES,
   dossiers: INTERNAL_ROLES,
   operationsWrite: ["admin", "ops"],
+  containers: INTERNAL_ROLES,
 } as const satisfies Record<string, readonly AppRole[]>;
 
 export function canAccess(role: AppRole | null | undefined, allowed: readonly AppRole[]): boolean {
