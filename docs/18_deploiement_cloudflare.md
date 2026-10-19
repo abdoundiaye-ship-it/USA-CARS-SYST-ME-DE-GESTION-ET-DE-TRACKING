@@ -7,7 +7,7 @@ Hébergement de test : **Cloudflare Workers + adaptateur OpenNext**, offre gratu
 ## Points de vigilance
 
 - **Temps de calcul** : l’offre gratuite limite chaque requête à 10 ms de calcul (les attentes réseau vers Supabase ne comptent pas). En cas d’erreurs « CPU limit exceeded », passer à l’offre Workers payante (environ 5 $/mois).
-- **Génération des documents Word** (≈ 85 ms de calcul par contrat, au-delà de la limite gratuite) : faite par la **fonction Supabase `generate-contract`** (`supabase/functions/`, 2 s de calcul par appel sur l’offre gratuite de Supabase), appelée par l’application avec le jeton de l’utilisateur (RLS appliquée, jamais la clé `service_role`). Décision de USA CARS du 19/10/2026 : rester sur des offres gratuites pour l’instant.
+- **Génération des documents Word** (≈ 85 ms de calcul par document (contrat, ordre d’achat), au-delà de la limite gratuite) : faite par la **fonction Supabase `generate-document`** (`supabase/functions/`, 2 s de calcul par appel sur l’offre gratuite de Supabase), appelée par l’application avec le jeton de l’utilisateur (RLS appliquée, jamais la clé `service_role`). Décision de USA CARS du 19/10/2026 : rester sur des offres gratuites pour l’instant.
 - **Proxy Next.js 16** (`proxy.ts`, exécuté sous Node.js) : signalé « expérimental » par OpenNext sur Cloudflare. Vérifié à chaque build par la CI (job « Build Cloudflare » : redirection vers la connexion dans le moteur `workerd`).
 - **E-mails** : une adresse `workers.dev` ne permet pas d’envoyer des e-mails (pas d’accès DNS). Envoi réel (Brevo, décision E2) dès qu’un domaine est acheté.
 
@@ -35,7 +35,7 @@ Hébergement de test : **Cloudflare Workers + adaptateur OpenNext**, offre gratu
 6. Désactiver les déploiements de prévisualisation des branches (ils utiliseraient la base de production — point X12).
 7. Supabase → Authentication → URL Configuration : `Site URL` = `APP_URL` ; ajouter `APP_URL/auth/confirm` aux redirections (voir README).
 8. Avant la première mise en ligne : migrations poussées en production (`supabase db push`, après sauvegarde et accord), puis `pnpm admin:create --production --lien` (✅ fait le 19/10/2026 : première connexion de l’administrateur réussie).
-9. **Fonctions Supabase** (à chaque modification de `supabase/functions/`, après accord de USA CARS) : `npx supabase functions deploy generate-contract --project-ref hzgkhtaefpbqztwagwph`, lancé par USA CARS depuis son terminal. Sans cette étape, l’ouverture d’un dossier en production ne génère pas le contrat (le dossier reste ouvert ; bouton « Générer le contrat » sur sa fiche).
+9. **Fonctions Supabase** (à chaque modification de `supabase/functions/`, après accord de USA CARS) : `npx supabase functions deploy generate-document --project-ref hzgkhtaefpbqztwagwph`, lancé par USA CARS depuis son terminal. Sans cette étape, l’ouverture d’un dossier en production ne génère pas le contrat (le dossier reste ouvert ; bouton « Générer le contrat » sur sa fiche).
 
 ## Commandes locales
 

@@ -1,14 +1,17 @@
 /**
- * Prépare le modèle balisé du contrat (pnpm templates:contract) — docs/16_documents_generes.md.
+ * Prépare les modèles balisés (pnpm templates:generate) — docs/16_documents_generes.md.
  *
  * Source : reference/templates/USA_CARS_Contrat_Prestation_Services_Senegal_-_Revise.docx (jamais modifié).
- * Sorties : templates/contrat_prestation.docx (copie balisée, syntaxe docxtemplater `{champ}`) et
- *           supabase/functions/_shared/contract-template.generated.ts (même fichier en base64, embarqué dans la
- *           fonction Supabase generate-contract, sans accès au disque).
+ * Sorties (syntaxe docxtemplater `{champ}`) :
+ *   - templates/contrat_prestation.docx : le contrat (en-tête, blocs « USA CARS » et « LE CLIENT », article 3,
+ *     signatures balisés) ;
+ *   - templates/ordre_achat.docx : l'annexe B seule (ordre d'achat et mandat d'enchère), document signé à part ;
+ *   - supabase/functions/_shared/document-templates.generated.ts : les deux fichiers en base64, embarqués dans la
+ *     fonction Supabase generate-document (sans accès au disque).
  *
- * Seuls l'en-tête, les blocs « USA CARS » et « LE CLIENT », l'identification du véhicule (article 3) et les
- * signatures sont balisés. Les valeurs contractuelles surlignées restent celles du modèle jusqu'à la
- * validation juridique (décision D1) ; la mention « PROJET » est ajoutée dans l'en-tête de page.
+ * Les valeurs contractuelles surlignées restent celles du modèle jusqu'à la validation juridique (décision D1) ;
+ * la mention « PROJET » est ajoutée dans l'en-tête de page. Les 4 confirmations de l'annexe B restent à cocher
+ * par le client sur le document signé.
  */
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -16,8 +19,9 @@ import { dirname, resolve } from "node:path";
 import PizZip from "pizzip";
 
 const SOURCE = "reference/templates/USA_CARS_Contrat_Prestation_Services_Senegal_-_Revise.docx";
-const OUTPUT_DOCX = "templates/contrat_prestation.docx";
-const OUTPUT_MODULE = "supabase/functions/_shared/contract-template.generated.ts";
+const OUTPUT_CONTRACT = "templates/contrat_prestation.docx";
+const OUTPUT_PURCHASE_ORDER = "templates/ordre_achat.docx";
+const OUTPUT_MODULE = "supabase/functions/_shared/document-templates.generated.ts";
 
 /** Remplace le texte d'un élément <w:t> (texte exact) ; `occurrence` : 1 = première, 2 = deuxième… */
 function replaceText(xml: string, from: string, to: string, occurrence = 1): string {
@@ -114,27 +118,82 @@ function tagHeader(xml: string): string {
   return `${xml.slice(0, end)}${run}${xml.slice(end)}`;
 }
 
-const zip = new PizZip(readFileSync(resolve(SOURCE)));
-const documentXml = tagDocument(zip.file("word/document.xml")!.asText());
-const headerXml = tagHeader(zip.file("word/header1.xml")!.asText());
-zip.file("word/document.xml", documentXml);
-zip.file("word/header1.xml", headerXml);
-const output = zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
+/** Annexe B seule : du titre « ANNEXE B » jusqu'au titre « ANNEXE C » exclu, sans saut de page. */
+function extractAnnexB(xml: string): string {
+  const bodyStart = xml.indexOf("<w:body>") + "<w:body>".length;
+  const sectionProperties = xml.lastIndexOf("<w:sectPr");
+  const paragraphStart = (marker: string) => {
+    const at = xml.indexOf(marker);
+    if (at < 0) throw new Error(`Repère introuvable dans le modèle : « ${marker} »`);
+    return xml.lastIndexOf("<w:p ", at);
+  };
+  const annexB = xml.slice(
+    paragraphStart(">ANNEXE B – ORDRE D’ACHAT ET MANDAT D’ENCHÈRE<"),
+    paragraphStart(">ANNEXE C – CONTENU DES FORFAITS<"),
+  );
+  return `${xml.slice(0, bodyStart)}${annexB.replaceAll('<w:br w:type="page"/>', "")}${xml.slice(sectionProperties)}`;
+}
 
-for (const path of [OUTPUT_DOCX, OUTPUT_MODULE]) mkdirSync(dirname(resolve(path)), { recursive: true });
-writeFileSync(resolve(OUTPUT_DOCX), output);
+function tagPurchaseOrder(xml: string): string {
+  let out = extractAnnexB(xml);
+  out = replaceText(out, "☐ COPART   ☐ IAA   ☐ Autre", "{plateforme_cases}", 1);
+  for (const [label, tag] of [
+    ["Référence dossier", "dossier_reference"],
+    ["Date / heure de l’enchère", "enchere_date"],
+    ["N° de lot", "lot"],
+    ["VIN", "vin"],
+    ["Marque / Modèle / Année", "vehicule"],
+    ["Lieu de vente", "lieu_vente"],
+    ["Statut du titre annoncé", "statut_titre"],
+    ["Enchère maximale (USD)", "enchere_max"],
+    ["Dépôt versé (USD)", "depot"],
+  ] as const) {
+    out = fillValueCell(out, label, tag);
+  }
+  return out;
+}
 
-// Version calculée sur le contenu balisé (le zip contient des horodatages) : stable d'une exécution à l'autre.
-const version = `contrat-revise-${createHash("sha256").update(documentXml).update(headerXml).digest("hex").slice(0, 12)}`;
+/** En-tête de page de l'ordre d'achat : titre propre au document et rattachement au contrat. */
+function tagPurchaseOrderHeader(xml: string): string {
+  let out = replaceText(xml, "| CONTRAT", "| ORDRE D’ACHAT — ANNEXE B DU CONTRAT {contrat_reference}");
+  out = replaceText(out, " DE PRESTATION DE SERVICES", "");
+  return tagHeader(out);
+}
+
+interface BuiltTemplate {
+  bytes: Buffer;
+  version: string;
+}
+
+/** Applique les balises, écrit le .docx et calcule une version stable (sur le contenu balisé, pas sur le zip). */
+function build(prefix: string, output: string, tagBody: (xml: string) => string, tagHead: (xml: string) => string) {
+  const zip = new PizZip(readFileSync(resolve(SOURCE)));
+  const documentXml = tagBody(zip.file("word/document.xml")!.asText());
+  const headerXml = tagHead(zip.file("word/header1.xml")!.asText());
+  zip.file("word/document.xml", documentXml);
+  zip.file("word/header1.xml", headerXml);
+  const bytes = zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
+  mkdirSync(dirname(resolve(output)), { recursive: true });
+  writeFileSync(resolve(output), bytes);
+  const version = `${prefix}-${createHash("sha256").update(documentXml).update(headerXml).digest("hex").slice(0, 12)}`;
+  console.log(`✅ ${output} (${bytes.length} octets), version ${version}`);
+  return { bytes, version } satisfies BuiltTemplate;
+}
+
+const contract = build("contrat-revise", OUTPUT_CONTRACT, tagDocument, tagHeader);
+const purchaseOrder = build("ordre-achat-revise", OUTPUT_PURCHASE_ORDER, tagPurchaseOrder, tagPurchaseOrderHeader);
+
+mkdirSync(dirname(resolve(OUTPUT_MODULE)), { recursive: true });
 writeFileSync(
   resolve(OUTPUT_MODULE),
   [
-    "// GÉNÉRÉ par `pnpm templates:contract` (scripts/prepare-contract-template.ts) : ne pas modifier à la main.",
-    "// Modèle balisé du contrat de prestation, en base64 (embarqué : pas de système de fichiers sur Cloudflare).",
-    `export const CONTRACT_TEMPLATE_VERSION = "${version}";`,
-    `export const CONTRACT_TEMPLATE_BASE64 =\n  "${output.toString("base64")}";`,
+    "// GÉNÉRÉ par `pnpm templates:generate` (scripts/prepare-document-templates.ts) : ne pas modifier à la main.",
+    "// Modèles balisés en base64, embarqués dans la fonction Supabase generate-document (pas d'accès au disque).",
+    `export const CONTRACT_TEMPLATE_VERSION = "${contract.version}";`,
+    `export const CONTRACT_TEMPLATE_BASE64 =\n  "${contract.bytes.toString("base64")}";`,
+    `export const PURCHASE_ORDER_TEMPLATE_VERSION = "${purchaseOrder.version}";`,
+    `export const PURCHASE_ORDER_TEMPLATE_BASE64 =\n  "${purchaseOrder.bytes.toString("base64")}";`,
     "",
   ].join("\n"),
   "utf8",
 );
-console.log(`✅ ${OUTPUT_DOCX} (${output.length} octets), version ${version}`);

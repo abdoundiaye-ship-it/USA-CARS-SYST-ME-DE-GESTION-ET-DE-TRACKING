@@ -8,9 +8,9 @@ import {
   ID_DOCUMENT_LABELS,
   platformBoxes,
   renderContract,
-  sha256Hex,
   type ContractInput,
 } from "@/supabase/functions/_shared/contract.ts";
+import { sha256Hex } from "@/supabase/functions/_shared/docx.ts";
 
 const input: ContractInput = {
   reference: "UC-2026-0042",
@@ -61,7 +61,7 @@ function textOf(bytes: Uint8Array): string {
   return (xml.match(/<w:t[^>]*>[^<]*<\/w:t>/g) ?? []).map((t) => t.replace(/<[^>]+>/g, "")).join("");
 }
 
-describe("contrat de prestation — fonction generate-contract (US-2.2, R14)", () => {
+describe("contrat de prestation — fonction generate-document (US-2.2, R14)", () => {
   it("coche la plateforme choisie", () => {
     expect(platformBoxes("iaa")).toBe("☐ COPART   ☒ IAA   ☐ Autre");
     expect(platformBoxes(null)).toBe("☐ COPART   ☐ IAA   ☐ Autre");

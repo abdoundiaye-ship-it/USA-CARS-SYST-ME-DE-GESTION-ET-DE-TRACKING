@@ -30,7 +30,7 @@
     "db:reset": "tsx scripts/guard-local-db.ts && supabase db reset --local",
     "admin:create": "tsx scripts/create-admin.ts",
     "settings:generate": "tsx scripts/generate-settings-migration.ts",
-    "templates:contract": "tsx scripts/prepare-contract-template.ts",
+    "templates:generate": "tsx scripts/prepare-document-templates.ts",
     "db:types": "supabase gen types typescript --local --schema public > supabase/.temp/database.generated.ts"
   },
   "dependencies": {

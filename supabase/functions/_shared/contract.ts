@@ -1,20 +1,12 @@
 /**
- * Contrat de prestation d'un dossier (US-2.2, règle R14) : données et rendu du modèle Word.
- *
- * Module autonome (aucun alias Next.js) : exécuté par la fonction Supabase generate-contract (Deno) et testé
- * par Vitest (lib/documents/contract.test.ts). Les paquets `docxtemplater` et `pizzip` sont résolus par
- * node_modules côté Node et par supabase/functions/generate-contract/deno.json côté Deno.
+ * Contrat de prestation d'un dossier (US-2.2, règle R14) : données du modèle templates/contrat_prestation.docx.
+ * Module autonome (Deno et Vitest) — voir docx.ts.
  */
-import Docxtemplater from "docxtemplater";
-import PizZip from "pizzip";
-import { CONTRACT_TEMPLATE_BASE64, CONTRACT_TEMPLATE_VERSION } from "./contract-template.generated.ts";
+import { BLANK, formatDate, formatInteger, platformBoxes, renderTemplate, text, type AuctionPlatform } from "./docx.ts";
+import { CONTRACT_TEMPLATE_BASE64, CONTRACT_TEMPLATE_VERSION } from "./document-templates.generated.ts";
 
-export { CONTRACT_TEMPLATE_VERSION };
-
-/** Espace réservé imprimé à la place d'une information encore inconnue (à compléter à la main). */
-export const BLANK = "____________";
-
-export type AuctionPlatform = "copart" | "iaa" | "other";
+export { BLANK, CONTRACT_TEMPLATE_VERSION, platformBoxes };
+export type { AuctionPlatform };
 
 /** Identité légale de USA CARS : paramètres company.* (valeur « À compléter » tant qu'ils ne sont pas saisis). */
 export interface CompanyIdentity {
@@ -85,30 +77,6 @@ export interface ContractInput {
   dossier: ContractDossier;
 }
 
-const text = (value: string | number | null | undefined): string => {
-  if (value === null || value === undefined) return BLANK;
-  const trimmed = String(value).trim();
-  return trimmed === "" ? BLANK : trimmed;
-};
-
-/** Date JJ/MM/AAAA, fuseau Africa/Dakar (CLAUDE.md §5). */
-const dateFormat = new Intl.DateTimeFormat("fr-FR", {
-  timeZone: "Africa/Dakar",
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-});
-
-/** 48000 → « 48 000 » (espace insécable, comme lib/format.ts). */
-const formatInteger = (value: number) =>
-  new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(value).replace(/[\s ]/g, " ");
-
-/** Cases de l'article 3 : « ☒ COPART   ☐ IAA   ☐ Autre ». */
-export function platformBoxes(platform: AuctionPlatform | null): string {
-  const box = (value: AuctionPlatform) => (platform === value ? "☒" : "☐");
-  return `${box("copart")} COPART   ${box("iaa")} IAA   ${box("other")} Autre`;
-}
-
 /** Données du modèle (balises `{…}` de templates/contrat_prestation.docx). */
 export function buildContractData(input: ContractInput): Record<string, string | boolean> {
   const { client, dossier, company } = input;
@@ -126,7 +94,7 @@ export function buildContractData(input: ContractInput): Record<string, string |
     projet: !input.legalValidated,
     contrat_reference: input.reference,
     dossier_reference: dossier.reference,
-    date_contrat: dateFormat.format(input.date),
+    date_contrat: formatDate(input.date),
     usa_forme_juridique: text(company.legalForm),
     usa_rccm: text(company.rccm),
     usa_ninea: text(company.ninea),
@@ -148,7 +116,7 @@ export function buildContractData(input: ContractInput): Record<string, string |
     plateforme_cases: platformBoxes(dossier.platform),
     lot: text(dossier.lot_number),
     vin: text(dossier.vin),
-    prix_adjudication: BLANK, // connu après l'enchère (lot 2b)
+    prix_adjudication: BLANK, // connu après l'enchère
     marque_modele: text(makeModel),
     annee: text(dossier.model_year),
     kilometrage: dossier.mileage === null ? BLANK : `${formatInteger(dossier.mileage)} miles`,
@@ -158,29 +126,6 @@ export function buildContractData(input: ContractInput): Record<string, string |
   };
 }
 
-function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-/** Remplit le modèle ; une balise sans valeur fait échouer la génération (jamais de « undefined » imprimé). */
 export function renderContract(input: ContractInput): Uint8Array {
-  const zip = new PizZip(base64ToBytes(CONTRACT_TEMPLATE_BASE64));
-  const doc = new Docxtemplater(zip, {
-    paragraphLoop: true,
-    linebreaks: true,
-    nullGetter: (part) => {
-      throw new Error(`Balise sans valeur dans le modèle du contrat : ${part.value}`);
-    },
-  });
-  doc.render(buildContractData(input));
-  return doc.getZip().generate({ type: "uint8array", compression: "DEFLATE" });
-}
-
-/** Empreinte SHA-256 (hexadécimal) d'un fichier — version figée d'un document accepté (R15). */
-export async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", bytes as BufferSource);
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+  return renderTemplate(CONTRACT_TEMPLATE_BASE64, buildContractData(input));
 }

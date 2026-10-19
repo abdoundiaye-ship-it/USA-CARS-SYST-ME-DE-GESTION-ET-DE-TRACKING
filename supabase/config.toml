@@ -420,9 +420,9 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
 
-# Génération du contrat Word (phase 2, lot 2a) : appelée par l'application avec le jeton de l'utilisateur.
+# Génération des documents Word (contrat, ordre d’achat — phase 2) : appelée par l'application avec le jeton de l'utilisateur.
 # verify_jwt : refuse tout appel sans jeton valide ; la fonction n'utilise jamais la clé service_role.
-[functions.generate-contract]
+[functions.generate-document]
 enabled = true
 verify_jwt = true
-import_map = "./functions/generate-contract/deno.json"
+import_map = "./functions/generate-document/deno.json"
