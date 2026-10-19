@@ -346,6 +346,10 @@ export type Database = {
       };
     };
     Views: {
+      staff_directory: {
+        Row: { id: string; full_name: string; role: AppRole; active: boolean };
+        Relationships: [];
+      };
       settings_current: {
         Row: {
           key: string;

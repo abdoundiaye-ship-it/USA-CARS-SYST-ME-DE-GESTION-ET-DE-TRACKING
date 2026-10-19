@@ -14,6 +14,19 @@ $$;
 revoke execute on function public.is_operations_writer() from public, anon;
 grant execute on function public.is_operations_writer() to authenticated;
 
+-- Annuaire interne : nom et rôle des membres de l'équipe (responsable d'un dossier, auteur d'un événement).
+-- Les profils restent protégés par leur RLS (un agent ne lit que le sien) ; cette vue n'expose que le nom,
+-- et seulement aux utilisateurs internes. Vue exécutée avec les droits de son propriétaire, filtrée par is_internal().
+create view public.staff_directory as
+  select p.id, p.full_name, p.role, p.active
+  from public.profiles p
+  where p.role <> 'client' and public.is_internal();
+
+comment on view public.staff_directory is 'Noms et rôles de l’équipe interne, lisibles par les utilisateurs internes.';
+
+revoke all on public.staff_directory from anon;
+grant select on public.staff_directory to authenticated;
+
 -- ---------------------------------------------------------------------------
 -- Clients (US-2.1)
 -- ---------------------------------------------------------------------------
