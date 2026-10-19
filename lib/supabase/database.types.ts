@@ -25,7 +25,12 @@ export type DocumentKind =
   | "release_receipt"
   | "photos"
   | "cost_receipt"
-  | "other";
+  | "other"
+  | "quote"
+  | "deposit_invoice"
+  | "balance_invoice"
+  | "cash_receipt"
+  | "refund_note";
 export type ContractStatus = "pending" | "accepted" | "refused";
 export type AcceptanceSubject = "contract" | "purchase_order" | "quote" | "extra_cost";
 export type AcceptanceDecision = "accepted" | "refused";
@@ -45,7 +50,9 @@ export type DossierEventKind =
   | "container_assigned"
   | "container_changed"
   | "eta_changed"
-  | "tracking_event";
+  | "tracking_event"
+  | "financial_document"
+  | "payment_recorded";
 export type ContainerStatus =
   | "booking_confirmed"
   | "departure_planned"
@@ -197,6 +204,8 @@ export type AcceptanceRow = {
   portal_ip: string | null;
   portal_session: string | null;
   acknowledgements: Json | null;
+  /** Devis : choix de l'assurance transport dans la même acceptation (X1). */
+  insurance_choice: "accepted" | "refused" | null;
   notes: string | null;
   recorded_by: string | null;
   recorded_at: string;
@@ -371,6 +380,75 @@ export type DossierForfaitsRow = {
   updated_by: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type FinancialDocType = "quote" | "deposit_invoice" | "balance_invoice" | "cash_receipt" | "refund_note";
+export type FinancialDocStatus = "issued" | "accepted" | "refused" | "expired" | "paid" | "cancelled";
+export type InsuranceChoice = "pending" | "accepted" | "refused";
+/** Devis et factures émis (R3) : lignes visibles du client uniquement — jamais de coût interne. */
+export type FinancialDocumentRow = {
+  id: string;
+  dossier_id: string;
+  client_id: string;
+  doc_type: FinancialDocType;
+  number: string;
+  status: FinancialDocStatus;
+  quote_id: string | null;
+  forfait_a_cents: number | null;
+  forfait_b_cents: number | null;
+  insurance_premium_cents: number;
+  insurance_choice: InsuranceChoice;
+  vat_rate_percent: number;
+  vat_cents: number;
+  insurance_vat_cents: number;
+  total_cents: number;
+  deposit_applied_cents: number;
+  deposit_excess_cents: number;
+  amount_due_cents: number;
+  fx_rate_id: string;
+  fx_rate: number;
+  fx_source: string;
+  fx_captured_at: string;
+  edition_fx_rate: number;
+  edition_fx_captured_at: string;
+  issued_at: string;
+  valid_until: string | null;
+  due_at: string | null;
+  decided_at: string | null;
+  document_id: string | null;
+  document_sha256: string | null;
+  template_version: string | null;
+  cancelled_reason: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  issued_by: string | null;
+  updated_at: string;
+};
+
+export type PaymentMode = "bank_transfer" | "wave" | "orange_money" | "cash";
+export type PaymentRow = {
+  id: string;
+  dossier_id: string;
+  client_id: string;
+  purpose: "deposit" | "payment1" | "balance";
+  amount_cents: number;
+  paid_currency: "USD" | "XOF";
+  amount_xof: number | null;
+  fx_rate_id: string | null;
+  fx_rate: number | null;
+  fx_captured_at: string | null;
+  fx_rate_same_day: boolean;
+  mode: PaymentMode;
+  official_account_id: string | null;
+  reference: string;
+  credited_at: string;
+  proof_document_id: string | null;
+  notes: string | null;
+  recorded_by: string | null;
+  recorded_at: string;
+  cancelled_reason: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
 };
 
 export type DossierConfirmationRow = {
@@ -656,6 +734,18 @@ export type Database = {
         Update: Partial<Pick<DossierForfaitsRow, "forfait_a_cents" | "forfait_b_cents" | "insurance_cents">>;
         Relationships: [];
       };
+      financial_documents: {
+        Row: FinancialDocumentRow;
+        Insert: never; // via issue_quote / issue_deposit_invoice
+        Update: never; // via cancel_financial_document / register_financial_document_file / acceptances
+        Relationships: [];
+      };
+      payments: {
+        Row: PaymentRow;
+        Insert: never; // via record_deposit
+        Update: never; // via cancel_payment
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -782,6 +872,39 @@ export type Database = {
       };
       approve_official_account: { Args: { p_account_id: string }; Returns: undefined };
       deactivate_official_account: { Args: { p_account_id: string; p_reason: string }; Returns: undefined };
+      is_finance_writer: { Args: Record<string, never>; Returns: boolean };
+      is_quote_writer: { Args: Record<string, never>; Returns: boolean };
+      expire_due_quotes: { Args: { p_dossier_id?: string }; Returns: number };
+      issue_quote: { Args: { p_dossier_id: string }; Returns: string };
+      issue_deposit_invoice: { Args: { p_dossier_id: string }; Returns: string };
+      cancel_financial_document: { Args: { p_id: string; p_reason: string }; Returns: undefined };
+      register_financial_document_file: {
+        Args: {
+          p_financial_document_id: string;
+          p_storage_path: string;
+          p_file_name: string;
+          p_size_bytes: number;
+          p_sha256: string;
+          p_template_version: string;
+        };
+        Returns: string;
+      };
+      record_deposit: {
+        Args: {
+          p_dossier_id: string;
+          p_paid_currency: "USD" | "XOF";
+          p_amount_cents: number | null;
+          p_amount_xof: number | null;
+          p_mode: PaymentMode;
+          p_official_account_id: string | null;
+          p_reference: string;
+          p_credited_at: string;
+          p_proof_document_id?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: string;
+      };
+      cancel_payment: { Args: { p_payment_id: string; p_reason: string }; Returns: undefined };
       log_audit: {
         Args: {
           p_action: string;

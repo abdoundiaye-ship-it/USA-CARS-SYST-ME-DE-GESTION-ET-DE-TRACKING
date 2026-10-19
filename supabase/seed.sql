@@ -116,7 +116,7 @@ update public.containers
 -- ---------------------------------------------------------------------------
 insert into public.fx_rates (rate, source, captured_at, created_by) values
   (586.52, 'XE.com — taux moyen du marché (valeur de démonstration)', now() - interval '1 day', 'd0000000-0000-4000-8000-000000000003'),
-  (587.10, 'XE.com — taux moyen du marché (valeur de démonstration)', now() - interval '1 hour', 'd0000000-0000-4000-8000-000000000003');
+  (587.10, 'XE.com — taux moyen du marché (valeur de démonstration)', now() - interval '5 minutes', 'd0000000-0000-4000-8000-000000000003');
 
 insert into public.official_accounts (id, kind, label, holder_name, bank_name, account_number, iban, phone, instructions,
                                       status, created_by, approved_by, approved_at) values
@@ -135,6 +135,40 @@ insert into public.internal_costs (dossier_id, section, category, label, amount_
   ('e0000000-0000-4000-8000-000000000003', 'A', 'auction_fees', 'Frais COPART', 95000, 'final', 'd0000000-0000-4000-8000-000000000002'),
   ('e0000000-0000-4000-8000-000000000003', 'B', 'inland_transport', 'Transport vers Houston', 45000, 'estimated', 'd0000000-0000-4000-8000-000000000002'),
   ('e0000000-0000-4000-8000-000000000003', 'B', 'ocean_freight', 'Fret maritime (quote-part)', 180000, 'estimated', 'd0000000-0000-4000-8000-000000000002');
+
+-- ---------------------------------------------------------------------------
+-- Phase 3, lot 3b — dossier au lot remporté, prêt pour le devis (paiement 1 dû dans 22 h), avec un dépôt reçu.
+-- Ordre d'achat sans fichier (brouillon du seed) ; coûts internes aux montants distinctifs, pour vérifier qu'ils
+-- n'apparaissent jamais dans le devis ni la facture générés (CLAUDE.md règle 2).
+-- ---------------------------------------------------------------------------
+insert into public.dossiers (
+  id, reference, client_id, owner_id, created_by, stage, status, platform, lot_number, vin, make, model, model_year,
+  vehicle_category, purchase_location, departure_port, auction_result, hammer_price_cents, lot_won_notified_at,
+  payment1_due_at
+) values (
+  'e0000000-0000-4000-8000-000000000004', 'DEMO-2026-0004', 'c0000000-0000-4000-8000-000000000001',
+  'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'purchase', 'won', 'iaa',
+  'DEMO-LOT-1004', '1DEMXXX0000000004', 'Toyota', 'RAV4', 2020, 'passenger', 'Dallas, TX (démo)', 'Houston', 'won',
+  943700, now() - interval '2 hours', now() + interval '22 hours'
+);
+
+insert into public.purchase_orders (dossier_id, auction_at, max_bid_cents, deposit_cents, created_by) values
+  ('e0000000-0000-4000-8000-000000000004', now() - interval '3 hours', 1000000, 250000, 'd0000000-0000-4000-8000-000000000002');
+
+insert into public.dossier_forfaits (dossier_id, forfait_a_cents, forfait_b_cents, insurance_cents, updated_by) values
+  ('e0000000-0000-4000-8000-000000000004', 1180000, 330000, 26000, 'd0000000-0000-4000-8000-000000000002');
+
+insert into public.internal_costs (dossier_id, section, category, label, amount_cents, status, created_by) values
+  ('e0000000-0000-4000-8000-000000000004', 'A', 'hammer_price', 'Prix d’adjudication IAA (démo)', 943700, 'final', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000004', 'A', 'auction_fees', 'Frais IAA (démo)', 87300, 'final', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000004', 'B', 'ocean_freight', 'Fret maritime (démo)', 178100, 'estimated', 'd0000000-0000-4000-8000-000000000002');
+
+insert into public.payments (dossier_id, client_id, purpose, amount_cents, paid_currency, fx_rate_id, fx_rate, fx_captured_at,
+                             fx_rate_same_day, mode, official_account_id, reference, credited_at, recorded_by)
+select 'e0000000-0000-4000-8000-000000000004', 'c0000000-0000-4000-8000-000000000001', 'deposit', 250000, 'USD',
+       r.id, r.rate, r.captured_at, true, 'bank_transfer', 'a0000000-0000-4000-8000-000000000001', 'DEMO-VIR-0001',
+       r.captured_at + interval '1 minute', 'd0000000-0000-4000-8000-000000000003'
+from public.fx_rates r where r.rate = 586.52;
 
 -- ---------------------------------------------------------------------------
 -- Décision A4-bis : la direction est soumise à la double authentification. Pour les essais LOCAUX et les tests,
