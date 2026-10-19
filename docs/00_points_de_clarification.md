@@ -43,6 +43,7 @@ Format pour ajouter une décision : `ID — date — décision`.
 | P2 | Dépôt sur l’ordre d’achat | **19/10/2026** : l’agent saisit le **montant attendu** (forfait A estimé, I2) ; l’encaissement est enregistré en phase 3 avec les paiements. |
 | P3 | Comptes des clients | **19/10/2026** : phase 2 = fiches clients seulement ; comptes de connexion avec le portail (phase 4). |
 | P4 | Transporteurs | **19/10/2026** : créés par l’administrateur dans Paramètres → Transporteurs ; transporteurs fictifs dans le seed local. |
+| P5 | Âge du véhicule à l’importation | **19/10/2026** : âge = année en cours − année du modèle ; **bloquant si l’âge dépasse la limite** (limite 10 ans : un véhicule de 10 ans passe, un de 11 ans ou plus est bloqué). Dérogation possible par l’administrateur seulement, avec motif. |
 
 ---
 
