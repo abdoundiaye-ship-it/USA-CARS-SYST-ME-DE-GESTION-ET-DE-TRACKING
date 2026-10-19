@@ -73,3 +73,21 @@ insert into public.dossiers (
   ('e0000000-0000-4000-8000-000000000002', 'DEMO-2026-0002', 'c0000000-0000-4000-8000-000000000002',
    'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'info_missing', 'iaa', null,
    null, 'Ford', 'Transit', 2020, null, 'light_utility', null, null, null);
+
+-- ---------------------------------------------------------------------------
+-- Phase 2, lot 2c — transporteurs et conteneurs fictifs (P4 : les vrais transporteurs sont saisis par
+-- l'administrateur en production). Numéros DEMU… conformes à ISO 6346 (chiffre de contrôle valide).
+-- ---------------------------------------------------------------------------
+insert into public.carriers (id, code, name, tracking_url, url_template, link_type, note, created_by) values
+  ('f0000000-0000-4000-8000-000000000001', 'demo-maritime', 'Transporteur Démo (fictif)', 'https://exemple.test/suivi',
+   'https://exemple.test/suivi/{container}', 'officiel', 'Transporteur fictif du seed local.',
+   'd0000000-0000-4000-8000-000000000001'),
+  ('f0000000-0000-4000-8000-000000000002', 'demo-tiers', 'Suivi tiers Démo (fictif)', 'https://exemple.test/suivi-tiers',
+   null, 'tiers', 'Service tiers fictif : référence à saisir sur la page de suivi.',
+   'd0000000-0000-4000-8000-000000000001');
+
+insert into public.containers (id, number, carrier_id, bl_number, vessel, voyage, port_of_loading, etd, eta, created_by) values
+  ('f1000000-0000-4000-8000-000000000001', 'DEMU1234560', 'f0000000-0000-4000-8000-000000000001', 'DEMO-BL-0001',
+   'Navire Démo', 'DEMO-001', 'Houston', '2026-11-02', '2026-11-20', 'd0000000-0000-4000-8000-000000000002'),
+  ('f1000000-0000-4000-8000-000000000002', 'DEMU7654322', 'f0000000-0000-4000-8000-000000000002', null,
+   null, null, 'Baltimore', null, null, 'd0000000-0000-4000-8000-000000000002');

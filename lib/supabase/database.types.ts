@@ -40,7 +40,20 @@ export type DossierEventKind =
   | "stage_exception"
   | "cancelled"
   | "document_added"
-  | "note";
+  | "note"
+  | "container_assigned"
+  | "container_changed"
+  | "eta_changed"
+  | "tracking_event";
+export type ContainerStatus =
+  | "booking_confirmed"
+  | "departure_planned"
+  | "at_sea"
+  | "transshipment"
+  | "arrival_estimated"
+  | "arrived";
+export type EtaSource = "carrier_site" | "carrier_notice" | "manual";
+export type TrackingEventKind = "departure" | "transshipment" | "arrival" | "eta_changed" | "delay" | "note";
 export type PurchaseOrderStatus = "draft" | "pending" | "accepted" | "refused";
 export type ConfirmationCode = "quote_accepted" | "payment1_received" | "balance_invoice_issued" | "balance_paid";
 
@@ -212,6 +225,77 @@ export type PurchaseOrderRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type CarrierRow = {
+  id: string;
+  code: string;
+  name: string;
+  tracking_url: string;
+  url_template: string | null;
+  link_type: "officiel" | "tiers";
+  note: string | null;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ContainerRow = {
+  id: string;
+  number: string;
+  carrier_id: string;
+  bl_number: string | null;
+  vessel: string | null;
+  voyage: string | null;
+  port_of_loading: string | null;
+  port_of_discharge: string;
+  etd: string | null;
+  eta: string | null;
+  departed_on: string | null;
+  ata: string | null;
+  status: ContainerStatus;
+  last_checked_at: string | null;
+  last_checked_by: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EtaHistoryRow = {
+  id: number;
+  container_id: string;
+  previous_eta: string | null;
+  eta: string;
+  source: EtaSource;
+  note: string | null;
+  changed_by: string | null;
+  changed_at: string;
+};
+
+export type TrackingEventRow = {
+  id: number;
+  container_id: string;
+  occurred_at: string;
+  kind: TrackingEventKind;
+  label: string;
+  location: string | null;
+  source: "manual" | "carrier_link" | "api";
+  visible_client: boolean;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type DossierContainerRow = {
+  id: string;
+  dossier_id: string;
+  container_id: string;
+  assigned_at: string;
+  assigned_by: string | null;
+  removed_at: string | null;
+  removed_by: string | null;
+  removal_reason: string | null;
 };
 
 export type DossierConfirmationRow = {
@@ -407,6 +491,65 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      carriers: {
+        Row: CarrierRow;
+        Insert: InsertOf<CarrierRow, "code" | "name" | "tracking_url">;
+        Update: Partial<Omit<CarrierRow, "id" | "created_by" | "created_at" | "updated_at">>;
+        Relationships: [];
+      };
+      containers: {
+        Row: ContainerRow;
+        Insert: InsertOf<ContainerRow, "number" | "carrier_id">;
+        // ETA, départ, ATA, statut et vérification : écrits par les fonctions dédiées.
+        Update: Partial<
+          Pick<
+            ContainerRow,
+            "carrier_id" | "bl_number" | "vessel" | "voyage" | "port_of_loading" | "port_of_discharge" | "etd" | "notes"
+          >
+        >;
+        Relationships: [
+          {
+            foreignKeyName: "containers_carrier_id_fkey";
+            columns: ["carrier_id"];
+            isOneToOne: false;
+            referencedRelation: "carriers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      eta_history: {
+        Row: EtaHistoryRow;
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
+      tracking_events: {
+        Row: TrackingEventRow;
+        Insert: InsertOf<TrackingEventRow, "container_id" | "occurred_at" | "kind" | "label">;
+        Update: never;
+        Relationships: [];
+      };
+      dossier_containers: {
+        Row: DossierContainerRow;
+        Insert: never; // via assign_container
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: "dossier_containers_container_id_fkey";
+            columns: ["container_id"];
+            isOneToOne: false;
+            referencedRelation: "containers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "dossier_containers_dossier_id_fkey";
+            columns: ["dossier_id"];
+            isOneToOne: false;
+            referencedRelation: "dossiers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -499,6 +642,18 @@ export type Database = {
       };
       advance_stage: { Args: { p_dossier_id: string; p_override_reason?: string }; Returns: DossierStage };
       cancel_dossier: { Args: { p_dossier_id: string; p_reason: string }; Returns: undefined };
+      active_container_id: { Args: { p_dossier_id: string }; Returns: string | null };
+      assign_container: {
+        Args: { p_dossier_id: string; p_container_id: string; p_reason?: string };
+        Returns: undefined;
+      };
+      update_container_eta: {
+        Args: { p_container_id: string; p_eta: string; p_source: EtaSource; p_note?: string };
+        Returns: undefined;
+      };
+      record_container_departure: { Args: { p_container_id: string; p_departed_on: string }; Returns: undefined };
+      record_container_arrival: { Args: { p_container_id: string; p_ata: string }; Returns: undefined };
+      mark_container_checked: { Args: { p_container_id: string }; Returns: undefined };
       log_audit: {
         Args: {
           p_action: string;
