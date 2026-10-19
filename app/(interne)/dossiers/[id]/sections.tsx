@@ -22,6 +22,7 @@ import type {
   DossierRow,
   PurchaseOrderRow,
 } from "@/lib/supabase/database.types";
+import { VisibilityToggle } from "../../documents/visibility-toggle";
 import { AcceptanceForm } from "../dossier-forms";
 import {
   AdvanceStageForm,
@@ -446,11 +447,12 @@ export function ContainerSection({
 export function DocumentsSection({
   dossierId,
   documents,
-  canWrite,
+  canEdit,
 }: {
   dossierId: string;
   documents: DocumentRow[];
-  canWrite: boolean;
+  /** Ajout et visibilité client : admin, agent opérations, comptabilité (US-2.8). */
+  canEdit: boolean;
 }) {
   return (
     <Card className="flex flex-col gap-4">
@@ -477,13 +479,25 @@ export function DocumentsSection({
                   <p className="text-muted text-xs break-all">{d.file_name}</p>
                 </Td>
                 <Td className="hidden sm:table-cell">{formatDateTime(d.uploaded_at)}</Td>
-                <Td>{d.visible_client ? <Badge tone="info">Visible</Badge> : <Badge>Interne</Badge>}</Td>
+                <Td>
+                  {canEdit ? (
+                    <VisibilityToggle
+                      documentId={d.id}
+                      visible={d.visible_client}
+                      label={DOCUMENT_KIND_LABELS[d.kind]}
+                    />
+                  ) : d.visible_client ? (
+                    <Badge tone="info">Visible</Badge>
+                  ) : (
+                    <Badge>Interne</Badge>
+                  )}
+                </Td>
               </tr>
             ))}
           </tbody>
         </Table>
       )}
-      {canWrite && (
+      {canEdit && (
         <details>
           <summary className="cursor-pointer text-sm font-medium">Ajouter un document…</summary>
           <div className="mt-3">

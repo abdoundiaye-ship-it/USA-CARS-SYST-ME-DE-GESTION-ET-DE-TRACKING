@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FormMessage } from "@/components/form-message";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import { CONFIRMATION_LABELS, DOCUMENT_KIND_LABELS } from "@/lib/dossiers/labels";
+import { CONFIRMATION_LABELS, DOCUMENT_KIND_LABELS, UPLOADABLE_DOCUMENT_KINDS } from "@/lib/dossiers/labels";
 import type { ConfirmationCode, PurchaseOrderRow } from "@/lib/supabase/database.types";
 import { useFormAction } from "@/lib/use-form-action";
 import {
@@ -321,8 +321,6 @@ export function AssignContainerForm({
   );
 }
 
-const UPLOAD_KINDS = ["auction_invoice", "pickup_proof", "title", "photos", "other"] as const;
-
 /** Ajout d'un document au dossier (facture d'enchère, preuve de prise en charge…). */
 export function UploadDocumentForm({ dossierId }: { dossierId: string }) {
   const { state, pending, formProps } = useFormAction(uploadDossierDocument, { resetOnSuccess: true });
@@ -336,7 +334,7 @@ export function UploadDocumentForm({ dossierId }: { dossierId: string }) {
           {(aria) => (
             <Select {...aria} name="kind" defaultValue="">
               <option value="">— Choisir —</option>
-              {UPLOAD_KINDS.map((kind) => (
+              {UPLOADABLE_DOCUMENT_KINDS.map((kind) => (
                 <option key={kind} value={kind}>
                   {DOCUMENT_KIND_LABELS[kind]}
                 </option>

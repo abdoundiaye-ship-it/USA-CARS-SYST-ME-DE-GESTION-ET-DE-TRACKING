@@ -424,6 +424,13 @@ export type Database = {
             referencedRelation: "dossiers";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "documents_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
         ];
       };
       contracts: {

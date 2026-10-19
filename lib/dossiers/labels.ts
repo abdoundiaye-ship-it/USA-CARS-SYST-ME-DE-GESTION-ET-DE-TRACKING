@@ -77,6 +77,20 @@ export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
   other: "Autre document",
 };
 
+/** Types de documents téléversés par l'équipe (les autres sont générés ou enregistrés par l'application). */
+export const UPLOADABLE_DOCUMENT_KINDS = [
+  "auction_invoice",
+  "pickup_proof",
+  "title",
+  "bill_of_lading",
+  "payment_proof",
+  "power_of_attorney",
+  "release_receipt",
+  "signed_contract",
+  "photos",
+  "other",
+] as const satisfies readonly DocumentKind[];
+
 export const ACCEPTANCE_METHOD_LABELS: Record<AcceptanceMethod, string> = {
   scanned_paper: "Papier signé et scanné",
   whatsapp: "Validation par WhatsApp",

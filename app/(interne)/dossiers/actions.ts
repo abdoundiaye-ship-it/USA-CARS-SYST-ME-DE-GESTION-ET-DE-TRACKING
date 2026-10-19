@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getInternalAccess } from "@/lib/auth/access";
 import { SCREEN_ROLES } from "@/lib/auth/roles";
 import { failure, formObject, invalid, success, withValues, type FormState } from "@/lib/forms";
+import { UPLOADABLE_DOCUMENT_KINDS } from "@/lib/dossiers/labels";
 import { generateContract, generateDocument } from "@/lib/server/contracts";
 import { storagePath, uploadToStorage } from "@/lib/server/documents";
 import type { DocumentKind } from "@/lib/supabase/database.types";
@@ -364,14 +365,15 @@ export async function cancelDossier(_previous: FormState, formData: FormData): P
 }
 
 /** Documents demandés par les conditions de passage (facture d'enchère, preuve de prise en charge…). */
-const UPLOADABLE_KINDS = ["auction_invoice", "pickup_proof", "title", "photos", "other"] as const;
 
 export async function uploadDossierDocument(_previous: FormState, formData: FormData): Promise<FormState> {
-  if (!(await getInternalAccess(SCREEN_ROLES.operationsWrite))) return failure(WRITERS_ONLY);
+  if (!(await getInternalAccess(SCREEN_ROLES.documentsWrite))) {
+    return failure("Action réservée à l’administrateur, aux agents opérations et à la comptabilité.");
+  }
   const id = dossierIdSchema.safeParse(formObject(formData));
   if (!id.success) return failure("Dossier inconnu.");
   const kind = formData.get("kind");
-  if (typeof kind !== "string" || !(UPLOADABLE_KINDS as readonly string[]).includes(kind)) {
+  if (typeof kind !== "string" || !(UPLOADABLE_DOCUMENT_KINDS as readonly string[]).includes(kind)) {
     return { status: "error", message: "Choisissez le type de document.", fieldErrors: { kind: "Type obligatoire." } };
   }
   const file = formData.get("file");

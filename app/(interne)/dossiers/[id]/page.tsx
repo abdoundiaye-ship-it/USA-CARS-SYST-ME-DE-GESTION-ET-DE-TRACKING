@@ -267,7 +267,11 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
           )}
         </Card>
 
-        <DocumentsSection dossierId={dossier.id} documents={documents ?? []} canWrite={canWrite} />
+        <DocumentsSection
+          dossierId={dossier.id}
+          documents={documents ?? []}
+          canEdit={canAccess(access.role, SCREEN_ROLES.documentsWrite)}
+        />
 
         <Card className="flex flex-col gap-4">
           <h2 className="font-semibold">Chronologie</h2>
