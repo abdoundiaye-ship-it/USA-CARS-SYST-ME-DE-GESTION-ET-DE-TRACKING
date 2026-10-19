@@ -1,5 +1,7 @@
 import type {
   AcceptanceMethod,
+  ConfirmationCode,
+  PurchaseOrderStatus,
   AuctionPlatform,
   ClientKind,
   ContractStatus,
@@ -62,6 +64,7 @@ export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
   acceptance_proof: "Preuve d’acceptation",
   purchase_order: "Ordre d’achat",
   auction_invoice: "Facture d’enchère",
+  pickup_proof: "Preuve de prise en charge",
   title: "Titre du véhicule",
   bill_of_lading: "B/L",
   payment_proof: "Preuve de paiement",
@@ -82,3 +85,26 @@ export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
   accepted: "Accepté",
   refused: "Refusé",
 };
+
+export const PURCHASE_ORDER_STATUS_LABELS: Record<PurchaseOrderStatus, string> = {
+  draft: "Saisi — document à générer",
+  pending: "En attente de signature",
+  accepted: "Signé",
+  refused: "Refusé",
+};
+
+/** Confirmations manuelles en attendant la phase 3 (hypothèse P1). */
+export const CONFIRMATION_LABELS: Record<ConfirmationCode, string> = {
+  quote_accepted: "Devis accepté par le client",
+  payment1_received: "Paiement 1 intégralement reçu",
+  balance_invoice_issued: "Facture de solde émise",
+  balance_paid: "Solde réglé",
+};
+
+/** Les 4 confirmations de l’annexe B, cochées par le client sur l’ordre d’achat signé. */
+export const PURCHASE_ORDER_ACKNOWLEDGEMENTS = [
+  ["vehicle_info", "a pris connaissance des informations et photos de la plateforme et accepte le véhicule en l’état"],
+  ["import_age", "a vérifié que l’âge du véhicule respecte la limite d’importation au Sénégal"],
+  ["binding_win", "sait que le lot remporté l’engage et que le paiement 1 est dû dans le délai de l’article 9.1"],
+  ["duties_excluded", "sait que les droits et taxes au Sénégal ne sont pas inclus, sauf mention au devis"],
+] as const;

@@ -66,7 +66,7 @@ test("agent : client, dossier, contrat généré puis accepté par scan", async 
   await expect(page.getByText("Accepté par le client")).toBeVisible();
   await expect(page.getByText("Accepté", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Télécharger la preuve" })).toBeVisible();
-  await expect(page.getByText("Contrat signé", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Statut dans l’étape")).toHaveValue("contract_signed");
   await expect(page.getByText("Contrat accepté (papier signé scanné)")).toBeVisible();
   await expect(page.getByRole("button", { name: "Enregistrer la décision du client" })).toHaveCount(0);
 

@@ -5,17 +5,21 @@ import { StageBanner } from "@/components/stage-banner";
 import { Alert, Badge, Card, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { requireInternal } from "@/lib/auth/access";
 import { canAccess, SCREEN_ROLES } from "@/lib/auth/roles";
-import {
-  ACCEPTANCE_METHOD_LABELS,
-  CONTRACT_STATUS_LABELS,
-  PLATFORM_LABELS,
-  STAGE_LABELS,
-  VEHICLE_CATEGORY_LABELS,
-} from "@/lib/dossiers/labels";
+import { CONTRACT_STATUS_LABELS, PLATFORM_LABELS, STAGE_LABELS, VEHICLE_CATEGORY_LABELS } from "@/lib/dossiers/labels";
 import { formatDate, formatDateTime, formatInteger } from "@/lib/format";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { missingClientInformation } from "@/lib/validation/operations";
-import { AcceptanceForm, DuplicateDossierForm, RegenerateContractForm, VehicleForm } from "../dossier-forms";
+import { DuplicateDossierForm, AcceptanceForm, RegenerateContractForm, VehicleForm } from "../dossier-forms";
+import {
+  AcceptanceSummary,
+  AuctionSection,
+  ConfirmationsSection,
+  DocumentsSection,
+  downloadHref,
+  PurchaseOrderSection,
+  StageSection,
+  type AgeCheck,
+} from "./sections";
 
 export const metadata: Metadata = { title: "Fiche dossier" };
 
@@ -31,11 +35,11 @@ const NOTICES: Record<string, { tone: "success" | "danger"; text: string }> = {
   },
 };
 
-const downloadHref = (documentId: string) => `/documents/${documentId}` as Route;
-
 export default async function DossierPage({ params, searchParams }: PageProps<"/dossiers/[id]">) {
   const access = await requireInternal(SCREEN_ROLES.dossiers);
   const canWrite = canAccess(access.role, SCREEN_ROLES.operationsWrite);
+  const isAdmin = access.role === "admin";
+  const canConfirm = canAccess(access.role, ["admin", "ops", "accounting"]);
   const { id } = await params;
   const query = await searchParams;
   const notice =
@@ -54,9 +58,15 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
   const [
     { data: client },
     { data: contract },
+    { data: order },
+    { data: acceptances },
     { data: events, error: eventsError },
     { data: statuses },
     { data: staff },
+    { data: conditions },
+    { data: ageRows },
+    { data: confirmations },
+    { data: documents },
   ] = await Promise.all([
     supabase.from("clients").select("*").eq("id", dossier.client_id).maybeSingle(),
     supabase
@@ -64,29 +74,34 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
       .select("*, documents!contracts_document_id_fkey(version, uploaded_at)")
       .eq("dossier_id", id)
       .maybeSingle(),
+    supabase.from("purchase_orders").select("*").eq("dossier_id", id).maybeSingle(),
+    supabase.from("acceptances").select("*").eq("dossier_id", id),
     supabase
       .from("dossier_events")
       .select("*")
       .eq("dossier_id", id)
       .order("occurred_at", { ascending: false })
       .limit(100),
-    supabase.from("workflow_statuses").select("stage, code, label").eq("stage", dossier.stage),
+    supabase
+      .from("workflow_statuses")
+      .select("stage, code, label, position")
+      .eq("stage", dossier.stage)
+      .order("position"),
     supabase.from("staff_directory").select("id, full_name"),
+    supabase.rpc("stage_conditions", { p_dossier_id: id }),
+    supabase.rpc("vehicle_age_check", { p_dossier_id: id }),
+    supabase.from("dossier_confirmations").select("*").eq("dossier_id", id),
+    supabase.from("documents").select("*").eq("dossier_id", id).order("uploaded_at", { ascending: false }),
   ]);
-  const { data: acceptance } = contract
-    ? await supabase
-        .from("acceptances")
-        .select("*")
-        .eq("subject", "contract")
-        .eq("subject_id", contract.id)
-        .maybeSingle()
-    : { data: null };
+  const contractAcceptance = acceptances?.find((a) => a.subject === "contract") ?? null;
+  const orderAcceptance = acceptances?.find((a) => a.subject === "purchase_order") ?? null;
 
   const statusLabel = statuses?.find((s) => s.code === dossier.status)?.label ?? dossier.status;
   const staffName = (userId: string | null) => staff?.find((s) => s.id === userId)?.full_name ?? null;
   const missing = client ? missingClientInformation(client) : [];
   const vehicle = [dossier.make, dossier.model, dossier.model_year].filter(Boolean).join(" ");
   const today = new Date().toISOString().slice(0, 10); // Africa/Dakar = UTC+0
+  const ageCheck = (ageRows?.[0] ?? null) as AgeCheck | null;
 
   return (
     <>
@@ -128,6 +143,14 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
           {missing.length > 0 && <Alert tone="warning">Fiche client à compléter : {missing.join(", ")}.</Alert>}
         </Card>
 
+        <StageSection
+          dossier={dossier}
+          conditions={conditions ?? []}
+          statuses={statuses ?? []}
+          canWrite={canWrite}
+          isAdmin={isAdmin}
+        />
+
         <Card className="flex flex-col gap-4">
           <h2 className="font-semibold">Contrat de prestation</h2>
           {!contract ? (
@@ -165,49 +188,14 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
                 <span className="font-mono">{contract.document_sha256}</span>
               </p>
 
-              {acceptance ? (
-                <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className="text-muted">Décision</dt>
-                    <dd>{acceptance.decision === "accepted" ? "Accepté par le client" : "Refusé par le client"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted">Méthode</dt>
-                    <dd>{ACCEPTANCE_METHOD_LABELS[acceptance.method]}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted">Date</dt>
-                    <dd>{formatDate(acceptance.decided_at)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted">Enregistrée par</dt>
-                    <dd>
-                      {staffName(acceptance.recorded_by) ?? "—"} le {formatDateTime(acceptance.recorded_at)}
-                    </dd>
-                  </div>
-                  {acceptance.whatsapp_from && (
-                    <div>
-                      <dt className="text-muted">Numéro émetteur</dt>
-                      <dd>{acceptance.whatsapp_from}</dd>
-                    </div>
-                  )}
-                  {acceptance.proof_document_id && (
-                    <div>
-                      <dt className="text-muted">Preuve</dt>
-                      <dd>
-                        <a href={downloadHref(acceptance.proof_document_id)} className="text-primary underline">
-                          Télécharger la preuve
-                        </a>
-                      </dd>
-                    </div>
-                  )}
-                </dl>
+              {contractAcceptance ? (
+                <AcceptanceSummary acceptance={contractAcceptance} staffName={staffName} />
               ) : canWrite ? (
                 <>
                   <RegenerateContractForm dossierId={dossier.id} label="Régénérer le contrat" />
                   <div className="border-border border-t pt-4">
                     <h3 className="mb-3 font-medium">Enregistrer la décision du client</h3>
-                    <AcceptanceForm dossierId={dossier.id} contractId={contract.id} today={today} />
+                    <AcceptanceForm dossierId={dossier.id} subject="contract" subjectId={contract.id} today={today} />
                   </div>
                 </>
               ) : (
@@ -216,6 +204,26 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
             </>
           )}
         </Card>
+
+        <PurchaseOrderSection
+          dossier={dossier}
+          order={order}
+          acceptance={orderAcceptance}
+          ageCheck={ageCheck}
+          canWrite={canWrite}
+          isAdmin={isAdmin}
+          today={today}
+          staffName={staffName}
+        />
+
+        <AuctionSection dossier={dossier} order={order} canWrite={canWrite} isAdmin={isAdmin} staffName={staffName} />
+
+        <ConfirmationsSection
+          dossier={dossier}
+          confirmations={confirmations ?? []}
+          canConfirm={canConfirm}
+          staffName={staffName}
+        />
 
         <Card className="flex flex-col gap-4">
           <h2 className="font-semibold">Véhicule</h2>
@@ -242,6 +250,8 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
             </dl>
           )}
         </Card>
+
+        <DocumentsSection dossierId={dossier.id} documents={documents ?? []} canWrite={canWrite} />
 
         <Card className="flex flex-col gap-4">
           <h2 className="font-semibold">Chronologie</h2>

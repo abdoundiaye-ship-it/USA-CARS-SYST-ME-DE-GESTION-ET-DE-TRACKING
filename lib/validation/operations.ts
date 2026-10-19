@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseUsdToCents } from "@/lib/money/cents";
 
 /** Validation des formulaires du lot 2a : clients, dossiers, acceptations (US-2.1, US-2.2). */
 
@@ -169,15 +170,24 @@ export const dossierIdSchema = z.object({ dossierId: z.uuid("Dossier inconnu.") 
 export const PROOF_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"] as const;
 export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
+/** Les 4 confirmations de l'annexe B (cases cochées par le client sur l'ordre d'achat signé). */
+export const ACKNOWLEDGEMENT_KEYS = ["vehicle_info", "import_age", "binding_win", "duties_excluded"] as const;
+
+/** Décision du client sur un document (contrat ou ordre d'achat), par scan ou WhatsApp (R15). */
 export const acceptanceSchema = z
   .object({
     dossierId: z.uuid("Dossier inconnu."),
-    contractId: z.uuid("Contrat inconnu."),
+    subject: z.enum(["contract", "purchase_order"], "Document inconnu."),
+    subjectId: z.uuid("Document inconnu."),
     method: z.enum(["scanned_paper", "whatsapp"], "Choisissez la méthode d’acceptation."),
     decision: z.enum(["accepted", "refused"], "Indiquez si le client accepte ou refuse."),
     decidedOn: z.iso.date("Saisissez la date de signature ou du message."),
     whatsappFrom: z.string().prefault(""),
     notes: optionalText(1000, "1 000 caractères au maximum."),
+    ack_vehicle_info: z.string().optional(),
+    ack_import_age: z.string().optional(),
+    ack_binding_win: z.string().optional(),
+    ack_duties_excluded: z.string().optional(),
   })
   .transform((value, ctx) => {
     let whatsappFrom: string | null = null;
@@ -192,8 +202,134 @@ export const acceptanceSchema = z
         return z.NEVER;
       }
     }
-    return { ...value, whatsappFrom };
+    let acknowledgements: Record<(typeof ACKNOWLEDGEMENT_KEYS)[number], boolean> | null = null;
+    if (value.subject === "purchase_order") {
+      acknowledgements = {
+        vehicle_info: value.ack_vehicle_info === "on",
+        import_age: value.ack_import_age === "on",
+        binding_win: value.ack_binding_win === "on",
+        duties_excluded: value.ack_duties_excluded === "on",
+      };
+      if (value.decision === "accepted" && Object.values(acknowledgements).some((v) => !v)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["acknowledgements"],
+          message: "Le client doit avoir coché les 4 confirmations de l’ordre d’achat.",
+        });
+        return z.NEVER;
+      }
+    }
+    return {
+      dossierId: value.dossierId,
+      subject: value.subject,
+      subjectId: value.subjectId,
+      method: value.method,
+      decision: value.decision,
+      decidedOn: value.decidedOn,
+      notes: value.notes,
+      whatsappFrom,
+      acknowledgements,
+    };
   });
+
+/** Montant en dollars saisi (« 12 450 » ou « 12450,50 ») → centimes. */
+const usdField = (required: string, { allowZero = false } = {}) =>
+  z.string(required).transform((value, ctx) => {
+    if (value.trim() === "") {
+      if (allowZero) return 0;
+      ctx.addIssue({ code: "custom", message: required });
+      return z.NEVER;
+    }
+    const cents = parseUsdToCents(value);
+    if (cents === null || cents < 0 || (!allowZero && cents === 0)) {
+      ctx.addIssue({ code: "custom", message: "Montant invalide : chiffres en dollars, ex. 12450 ou 12450,50." });
+      return z.NEVER;
+    }
+    return cents;
+  });
+
+/** Date et heure saisies (champ datetime-local) → ISO ; heure de Dakar = UTC (CLAUDE.md §5). */
+const dakarDateTime = (message: string) =>
+  z.string().transform((value, ctx) => {
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
+      ctx.addIssue({ code: "custom", message });
+      return z.NEVER;
+    }
+    return new Date(`${value}:00Z`).toISOString();
+  });
+
+/** US-2.3 : ordre d'achat (enchère maximale, dépôt attendu — P2, date de l'enchère facultative). */
+export const purchaseOrderSchema = z.object({
+  dossierId: z.uuid("Dossier inconnu."),
+  maxBid: usdField("Saisissez l’enchère maximale en dollars."),
+  deposit: usdField("Saisissez le dépôt attendu.", { allowZero: true }).prefault(""),
+  auctionAt: z
+    .string()
+    .prefault("")
+    .transform((v) => (v.trim() === "" ? null : v))
+    .pipe(dakarDateTime("Date et heure de l’enchère invalides.").nullable()),
+});
+
+/** Motif obligatoire (dérogation, exception, annulation) : 5 caractères au moins. */
+const reasonField = (message: string) =>
+  z.string(message).trim().min(5, message).max(500, "500 caractères au maximum.");
+
+export const ageOverrideSchema = z.object({
+  dossierId: z.uuid("Dossier inconnu."),
+  reason: reasonField("Motif de la dérogation obligatoire (5 caractères au moins)."),
+});
+
+/** US-2.4 : résultat d'enchère ; motif de l'administrateur si le prix dépasse l'enchère maximale. */
+export const auctionResultSchema = z
+  .object({
+    dossierId: z.uuid("Dossier inconnu."),
+    result: z.enum(["won", "lost"], "Indiquez si le lot est remporté ou non."),
+    hammerPrice: z.string().prefault(""),
+    notifiedAt: z.string().prefault(""),
+    overrideReason: z.string().trim().prefault(""),
+  })
+  .transform((value, ctx) => {
+    if (value.result === "lost") return { dossierId: value.dossierId, result: value.result } as const;
+    const cents = usdField("Saisissez le prix d’adjudication en dollars.").safeParse(value.hammerPrice);
+    if (!cents.success) {
+      ctx.addIssue({ code: "custom", path: ["hammerPrice"], message: cents.error.issues[0]!.message });
+    }
+    const notified = dakarDateTime("Saisissez la date et l’heure de notification du lot remporté.").safeParse(
+      value.notifiedAt,
+    );
+    if (!notified.success) {
+      ctx.addIssue({ code: "custom", path: ["notifiedAt"], message: notified.error.issues[0]!.message });
+    }
+    if (!cents.success || !notified.success) return z.NEVER;
+    return {
+      dossierId: value.dossierId,
+      result: value.result,
+      hammerPriceCents: cents.data,
+      notifiedAt: notified.data,
+      overrideReason: value.overrideReason || null,
+    } as const;
+  });
+
+export const advanceStageSchema = z.object({
+  dossierId: z.uuid("Dossier inconnu."),
+  reason: z.string().trim().max(500, "500 caractères au maximum.").prefault(""),
+});
+
+export const cancelDossierSchema = z.object({
+  dossierId: z.uuid("Dossier inconnu."),
+  reason: reasonField("Motif de l’annulation obligatoire (5 caractères au moins)."),
+});
+
+export const statusSchema = z.object({
+  dossierId: z.uuid("Dossier inconnu."),
+  status: z.string().regex(/^[a-z0-9_]+$/, "Choisissez un statut dans la liste."),
+});
+
+export const confirmationSchema = z.object({
+  dossierId: z.uuid("Dossier inconnu."),
+  code: z.enum(["quote_accepted", "payment1_received"], "Confirmation inconnue."),
+  note: optionalText(500, "500 caractères au maximum."),
+});
 
 /** Vérifie le fichier de preuve ; renvoie un message d'erreur ou null. */
 export function proofFileError(file: File | null): string | null {

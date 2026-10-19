@@ -4,16 +4,15 @@ import { useActionState, useState } from "react";
 import { FormMessage } from "@/components/form-message";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import { ACCEPTANCE_METHOD_LABELS, PLATFORM_LABELS, VEHICLE_CATEGORY_LABELS } from "@/lib/dossiers/labels";
+import {
+  ACCEPTANCE_METHOD_LABELS,
+  PLATFORM_LABELS,
+  PURCHASE_ORDER_ACKNOWLEDGEMENTS,
+  VEHICLE_CATEGORY_LABELS,
+} from "@/lib/dossiers/labels";
 import { initialFormState, type FormState } from "@/lib/forms";
 import type { DossierRow } from "@/lib/supabase/database.types";
-import {
-  createDossier,
-  duplicateDossier,
-  recordContractAcceptance,
-  regenerateContract,
-  updateVehicle,
-} from "./actions";
+import { createDossier, duplicateDossier, recordAcceptance, regenerateContract, updateVehicle } from "./actions";
 
 type Values = (name: string, saved: string | number | null | undefined) => string;
 
@@ -182,24 +181,30 @@ export function RegenerateContractForm({ dossierId, label }: { dossierId: string
   );
 }
 
-/** R15 : décision du client sur le contrat, avec preuve (scan signé ou capture WhatsApp). */
+/** R15 : décision du client sur le contrat ou l'ordre d'achat, avec preuve (scan signé ou capture WhatsApp). */
 export function AcceptanceForm({
   dossierId,
-  contractId,
+  subject,
+  subjectId,
   today,
 }: {
   dossierId: string;
-  contractId: string;
+  subject: "contract" | "purchase_order";
+  subjectId: string;
   today: string;
 }) {
-  const [state, action, pending] = useActionState(recordContractAcceptance, initialFormState);
+  const [state, action, pending] = useActionState(recordAcceptance, initialFormState);
   const [method, setMethod] = useState(state.data?.method ?? "scanned_paper");
   const e = state.fieldErrors ?? {};
+  const isOrder = subject === "purchase_order";
+  const noun = isOrder ? "l’ordre d’achat" : "le contrat";
+  const id = (name: string) => `${subject}-${name}`; // deux formulaires peuvent coexister sur la fiche
   return (
     <form action={action} className="flex flex-col gap-4" noValidate>
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossierId} />
-      <input type="hidden" name="contractId" value={contractId} />
+      <input type="hidden" name="subject" value={subject} />
+      <input type="hidden" name="subjectId" value={subjectId} />
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-sm font-medium">Méthode</legend>
         {(["scanned_paper", "whatsapp"] as const).map((value) => (
@@ -220,17 +225,38 @@ export function AcceptanceForm({
         <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-2 text-sm">
             <input type="radio" name="decision" value="accepted" defaultChecked={state.data?.decision !== "refused"} />
-            Accepte le contrat
+            Accepte {noun}
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input type="radio" name="decision" value="refused" defaultChecked={state.data?.decision === "refused"} />
-            Refuse le contrat
+            Refuse {noun}
           </label>
         </div>
       </fieldset>
+      {isOrder && (
+        <fieldset className="flex flex-col gap-2" aria-describedby={e.acknowledgements ? id("acks-erreur") : undefined}>
+          <legend className="mb-1 text-sm font-medium">Confirmations cochées par le client sur l’ordre signé</legend>
+          {PURCHASE_ORDER_ACKNOWLEDGEMENTS.map(([key, label]) => (
+            <label key={key} className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                name={`ack_${key}`}
+                defaultChecked={state.data?.[`ack_${key}`] === "on"}
+                className="mt-1"
+              />
+              <span>Le client {label}</span>
+            </label>
+          ))}
+          {e.acknowledgements && (
+            <p id={id("acks-erreur")} className="text-danger text-xs">
+              {e.acknowledgements}
+            </p>
+          )}
+        </fieldset>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
-          id="decidedOn"
+          id={id("decidedOn")}
           label={method === "whatsapp" ? "Date du message" : "Date de signature"}
           error={e.decidedOn}
         >
@@ -246,7 +272,7 @@ export function AcceptanceForm({
           )}
         </Field>
         {method === "whatsapp" && (
-          <Field id="whatsappFrom" label="Numéro émetteur du message" error={e.whatsappFrom}>
+          <Field id={id("whatsappFrom")} label="Numéro émetteur du message" error={e.whatsappFrom}>
             {(aria) => (
               <Input
                 {...aria}
@@ -259,8 +285,14 @@ export function AcceptanceForm({
           </Field>
         )}
         <Field
-          id="proof"
-          label={method === "whatsapp" ? "Capture ou export du message" : "Contrat signé scanné"}
+          id={id("proof")}
+          label={
+            method === "whatsapp"
+              ? "Capture ou export du message"
+              : isOrder
+                ? "Ordre d’achat signé scanné"
+                : "Contrat signé scanné"
+          }
           hint="PDF, JPEG, PNG, WebP ou HEIC — 20 Mo au plus"
           error={e.proof}
         >
@@ -275,12 +307,12 @@ export function AcceptanceForm({
           )}
         </Field>
       </div>
-      <Field id="acceptance-notes" label="Remarque (facultatif)" error={e.notes}>
+      <Field id={id("notes")} label="Remarque (facultatif)" error={e.notes}>
         {(aria) => <Textarea {...aria} name="notes" defaultValue={state.data?.notes ?? ""} />}
       </Field>
       <div>
         <Button type="submit" pending={pending}>
-          Enregistrer la décision du client
+          {isOrder ? "Enregistrer la décision sur l’ordre d’achat" : "Enregistrer la décision du client"}
         </Button>
       </div>
     </form>

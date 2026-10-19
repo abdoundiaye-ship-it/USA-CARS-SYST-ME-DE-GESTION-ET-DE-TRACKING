@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   acceptanceSchema,
+  auctionResultSchema,
+  purchaseOrderSchema,
   clientSchema,
   missingClientInformation,
   normalizePhone,
@@ -86,7 +88,8 @@ describe("véhicule du dossier", () => {
 describe("acceptation du contrat (R15)", () => {
   const base = {
     dossierId: "11111111-1111-4111-8111-111111111111",
-    contractId: "22222222-2222-4222-8222-222222222222",
+    subject: "contract",
+    subjectId: "22222222-2222-4222-8222-222222222222",
     decision: "accepted",
     decidedOn: "2026-10-19",
   };
@@ -106,5 +109,57 @@ describe("acceptation du contrat (R15)", () => {
     expect(proofFileError(null)).toMatch(/Joignez/);
     expect(proofFileError(new File(["x"], "a.exe", { type: "application/x-msdownload" }))).toMatch(/Format/);
     expect(proofFileError(new File(["x"], "scan.pdf", { type: "application/pdf" }))).toBeNull();
+  });
+});
+
+describe("ordre d’achat et enchère (US-2.3, US-2.4)", () => {
+  const dossierId = "11111111-1111-4111-8111-111111111111";
+
+  it("signature de l’ordre d’achat : les 4 confirmations sont exigées", () => {
+    const base = {
+      dossierId,
+      subject: "purchase_order",
+      subjectId: "33333333-3333-4333-8333-333333333333",
+      method: "scanned_paper",
+      decision: "accepted",
+      decidedOn: "2026-10-19",
+      ack_vehicle_info: "on",
+      ack_import_age: "on",
+      ack_binding_win: "on",
+    };
+    expect(acceptanceSchema.safeParse(base).error?.issues[0]?.message).toMatch(/4 confirmations/);
+    expect(acceptanceSchema.parse({ ...base, ack_duties_excluded: "on" }).acknowledgements).toEqual({
+      vehicle_info: true,
+      import_age: true,
+      binding_win: true,
+      duties_excluded: true,
+    });
+    expect(acceptanceSchema.safeParse({ ...base, decision: "refused" }).success).toBe(true);
+  });
+
+  it("montants en dollars convertis en centimes, date de l’enchère à l’heure de Dakar", () => {
+    const parsed = purchaseOrderSchema.parse({
+      dossierId,
+      maxBid: "12 450",
+      deposit: "3000,50",
+      auctionAt: "2026-10-21T15:30",
+    });
+    expect(parsed.maxBid).toBe(1_245_000);
+    expect(parsed.deposit).toBe(300_050);
+    expect(parsed.auctionAt).toBe("2026-10-21T15:30:00.000Z");
+    expect(purchaseOrderSchema.parse({ dossierId, maxBid: "5000" })).toMatchObject({ deposit: 0, auctionAt: null });
+  });
+
+  it.each(["", "0", "-10", "douze"])("refuse l’enchère maximale « %s »", (maxBid) =>
+    expect(purchaseOrderSchema.safeParse({ dossierId, maxBid }).success).toBe(false),
+  );
+
+  it("lot remporté : prix et date de notification exigés ; lot perdu : rien d’autre", () => {
+    const missing = auctionResultSchema.safeParse({ dossierId, result: "won" });
+    expect(missing.error?.issues.map((i) => i.path[0])).toEqual(["hammerPrice", "notifiedAt"]);
+    expect(
+      auctionResultSchema.parse({ dossierId, result: "won", hammerPrice: "8 200", notifiedAt: "2026-10-21T18:05" }),
+    ).toMatchObject({ hammerPriceCents: 820_000, notifiedAt: "2026-10-21T18:05:00.000Z", overrideReason: null });
+    expect(auctionResultSchema.parse({ dossierId, result: "lost" })).toEqual({ dossierId, result: "lost" });
   });
 });

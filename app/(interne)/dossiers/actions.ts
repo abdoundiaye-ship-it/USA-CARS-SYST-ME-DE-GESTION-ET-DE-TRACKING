@@ -6,19 +6,31 @@ import { redirect } from "next/navigation";
 import { getInternalAccess } from "@/lib/auth/access";
 import { SCREEN_ROLES } from "@/lib/auth/roles";
 import { failure, formObject, invalid, success, withValues, type FormState } from "@/lib/forms";
-import { generateContract } from "@/lib/server/contracts";
+import { generateContract, generateDocument } from "@/lib/server/contracts";
 import { storagePath, uploadToStorage } from "@/lib/server/documents";
+import type { DocumentKind } from "@/lib/supabase/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   acceptanceSchema,
+  advanceStageSchema,
+  ageOverrideSchema,
+  auctionResultSchema,
+  cancelDossierSchema,
+  confirmationSchema,
   dossierIdSchema,
   newDossierSchema,
   proofFileError,
+  purchaseOrderSchema,
+  statusSchema,
   vehicleSchema,
   type VehicleInput,
 } from "@/lib/validation/operations";
 
 const WRITERS_ONLY = "Action réservée à l’administrateur et aux agents opérations.";
+
+/** Message d'une règle métier de la base (22023) ou d'un refus explicite (42501), sinon message générique. */
+const ruleMessage = (error: { code?: string; message: string } | null, fallback: string) =>
+  error && (error.code === "22023" || error.code === "42501") ? error.message : fallback;
 
 function vehicleRow(input: VehicleInput) {
   return {
@@ -84,12 +96,17 @@ export async function updateVehicle(_previous: FormState, formData: FormData): P
     .update(vehicleRow(parsed.data))
     .eq("id", id.data.dossierId)
     .select("id");
-  if (error) return withValues(failure("Les informations du véhicule n’ont pas pu être enregistrées."), formData);
+  if (error) {
+    return withValues(
+      failure(ruleMessage(error, "Les informations du véhicule n’ont pas pu être enregistrées.")),
+      formData,
+    );
+  }
   if (!data?.length) return failure(WRITERS_ONLY);
 
   revalidatePath(dossierPath(id.data.dossierId));
   return success(
-    "Véhicule enregistré. Si le contrat n’est pas encore signé, régénérez-le pour y reporter ces informations.",
+    "Véhicule enregistré. Si le contrat ou l’ordre d’achat n’est pas encore signé, régénérez-le pour y reporter ces informations.",
   );
 }
 
@@ -105,11 +122,48 @@ export async function regenerateContract(_previous: FormState, formData: FormDat
   return success("Contrat généré. Téléchargez la nouvelle version pour la faire signer.");
 }
 
+/** Téléverse un fichier du dossier (bucket privé) et l'enregistre ; renvoie l'identifiant du document. */
+async function storeDossierFile(
+  dossierId: string,
+  kind: DocumentKind,
+  file: File,
+  visibleClient = false,
+): Promise<string | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data: dossier } = await supabase.from("dossiers").select("client_id").eq("id", dossierId).maybeSingle();
+  if (!dossier) return null;
+  const stored = await uploadToStorage(
+    storagePath(dossierId, kind, file.name),
+    new Uint8Array(await file.arrayBuffer()),
+    file.type,
+  );
+  if (!stored) return null;
+  const { data: document } = await supabase
+    .from("documents")
+    .insert({
+      dossier_id: dossierId,
+      client_id: dossier.client_id,
+      kind,
+      storage_path: stored.path,
+      file_name: file.name.slice(0, 200),
+      mime_type: file.type,
+      size_bytes: stored.size,
+      sha256: stored.sha256,
+      visible_client: visibleClient,
+    })
+    .select("id")
+    .single();
+  return document?.id ?? null;
+}
+
+const SUBJECT_LABELS = { contract: "du contrat", purchase_order: "de l’ordre d’achat" } as const;
+
 /**
- * US-2.2 / R15 : acceptation ou refus du contrat, par papier signé scanné ou par WhatsApp.
- * La preuve est téléversée dans le bucket privé ; la base impose la version en vigueur et son empreinte.
+ * R15 : décision du client sur le contrat (US-2.2) ou l'ordre d'achat (US-2.3), par scan ou WhatsApp.
+ * La preuve est téléversée dans le bucket privé ; la base impose la version en vigueur et son empreinte,
+ * et exige les 4 confirmations de l'annexe B pour signer un ordre d'achat.
  */
-export async function recordContractAcceptance(_previous: FormState, formData: FormData): Promise<FormState> {
+export async function recordAcceptance(_previous: FormState, formData: FormData): Promise<FormState> {
   if (!(await getInternalAccess(SCREEN_ROLES.operationsWrite))) return failure(WRITERS_ONLY);
 
   const parsed = acceptanceSchema.safeParse(formObject(formData));
@@ -122,59 +176,220 @@ export async function recordContractAcceptance(_previous: FormState, formData: F
       formData,
     );
   }
-  const file = proof as File;
-  const { dossierId, contractId, method, decision, decidedOn, whatsappFrom, notes } = parsed.data;
+  const { dossierId, subject, subjectId, method, decision, decidedOn, whatsappFrom, notes, acknowledgements } =
+    parsed.data;
 
-  const supabase = await createSupabaseServerClient();
-  const { data: dossier } = await supabase.from("dossiers").select("client_id").eq("id", dossierId).maybeSingle();
-  if (!dossier) return failure("Dossier introuvable.");
-  const stored = await uploadToStorage(
-    storagePath(dossierId, "acceptance_proof", file.name),
-    new Uint8Array(await file.arrayBuffer()),
-    file.type,
-  );
-  if (!stored) return withValues(failure("La preuve n’a pas pu être enregistrée. Réessayez."), formData);
+  const proofId = await storeDossierFile(dossierId, "acceptance_proof", proof as File);
+  if (!proofId) return withValues(failure("La preuve n’a pas pu être enregistrée. Réessayez."), formData);
 
-  const { data: document, error: documentError } = await supabase
-    .from("documents")
-    .insert({
-      dossier_id: dossierId,
-      client_id: dossier.client_id,
-      kind: "acceptance_proof",
-      storage_path: stored.path,
-      file_name: file.name.slice(0, 200),
-      mime_type: file.type,
-      size_bytes: stored.size,
-      sha256: stored.sha256,
-    })
-    .select("id")
-    .single();
-  if (documentError || !document) return withValues(failure("La preuve n’a pas pu être enregistrée."), formData);
-
-  // Date saisie (JJ/MM/AAAA côté écran) : midi à Dakar (UTC+0), pour éviter tout décalage de jour.
+  // Date saisie : midi à Dakar (UTC+0), pour éviter tout décalage de jour.
   const decidedAt = new Date(`${decidedOn}T12:00:00Z`);
+  const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("acceptances").insert({
     dossier_id: dossierId,
-    subject: "contract",
-    subject_id: contractId,
-    document_id: document.id, // remplacé par la base (version en vigueur du contrat)
-    document_sha256: stored.sha256, // idem
+    subject,
+    subject_id: subjectId,
+    document_id: proofId, // remplacé par la base (version en vigueur du document)
+    document_sha256: "0".repeat(64), // idem
     method,
     decision,
     decided_at: (decidedAt.getTime() > Date.now() ? new Date() : decidedAt).toISOString(),
-    proof_document_id: document.id,
+    proof_document_id: proofId,
     whatsapp_from: whatsappFrom,
+    acknowledgements,
     notes,
   });
   if (error) {
-    return withValues(
-      failure(error.code === "22023" ? error.message : "La décision du client n’a pas pu être enregistrée."),
-      formData,
-    );
+    return withValues(failure(ruleMessage(error, "La décision du client n’a pas pu être enregistrée.")), formData);
   }
 
   revalidatePath(dossierPath(dossierId));
-  return success(decision === "accepted" ? "Acceptation du contrat enregistrée." : "Refus du contrat enregistré.");
+  return success(
+    decision === "accepted"
+      ? `Acceptation ${SUBJECT_LABELS[subject]} enregistrée.`
+      : `Refus ${SUBJECT_LABELS[subject]} enregistré.`,
+  );
+}
+
+/**
+ * US-2.3 : saisie de l'ordre d'achat puis génération du document à faire signer.
+ * Si la génération est refusée (véhicule incomplet ou trop âgé), l'ordre reste enregistré et le motif est affiché.
+ */
+export async function savePurchaseOrder(_previous: FormState, formData: FormData): Promise<FormState> {
+  if (!(await getInternalAccess(SCREEN_ROLES.operationsWrite))) return failure(WRITERS_ONLY);
+  const parsed = purchaseOrderSchema.safeParse(formObject(formData));
+  if (!parsed.success) return withValues(invalid(parsed.error), formData);
+  const { dossierId, maxBid, deposit, auctionAt } = parsed.data;
+
+  const supabase = await createSupabaseServerClient();
+  const terms = { max_bid_cents: maxBid, deposit_cents: deposit, auction_at: auctionAt };
+  const { data: existing } = await supabase
+    .from("purchase_orders")
+    .select("id")
+    .eq("dossier_id", dossierId)
+    .maybeSingle();
+  const { error } = existing
+    ? await supabase.from("purchase_orders").update(terms).eq("id", existing.id)
+    : await supabase.from("purchase_orders").insert({ dossier_id: dossierId, ...terms });
+  if (error) return withValues(failure(ruleMessage(error, "L’ordre d’achat n’a pas pu être enregistré.")), formData);
+
+  const generated = await generateDocument(dossierId, "purchase_order");
+  revalidatePath(dossierPath(dossierId));
+  if (!generated.ok) return failure(`Ordre d’achat enregistré, mais document non généré : ${generated.message}`);
+  return success("Ordre d’achat généré. Téléchargez-le pour le faire signer avec les 4 confirmations.");
+}
+
+/** Dérogation au contrôle de l'âge du véhicule : administrateur seulement, avec motif (US-2.3). */
+export async function overrideImportAge(_previous: FormState, formData: FormData): Promise<FormState> {
+  if (!(await getInternalAccess(["admin"]))) {
+    return failure("Dérogation réservée à l’administrateur (avec double authentification validée).");
+  }
+  const parsed = ageOverrideSchema.safeParse(formObject(formData));
+  if (!parsed.success) return withValues(invalid(parsed.error), formData);
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("purchase_orders")
+    .update({ age_override_reason: parsed.data.reason })
+    .eq("dossier_id", parsed.data.dossierId)
+    .select("id");
+  if (error || !data?.length) {
+    return withValues(
+      failure(ruleMessage(error, "Saisissez d’abord l’ordre d’achat, puis enregistrez la dérogation.")),
+      formData,
+    );
+  }
+  revalidatePath(dossierPath(parsed.data.dossierId));
+  return success("Dérogation enregistrée et journalisée. Vous pouvez générer l’ordre d’achat.");
+}
+
+/** US-2.4 : résultat de l'enchère (gagné avec prix et notification, ou perdu : dossier clôturé). */
+export async function recordAuctionResult(_previous: FormState, formData: FormData): Promise<FormState> {
+  if (!(await getInternalAccess(SCREEN_ROLES.operationsWrite))) return failure(WRITERS_ONLY);
+  const parsed = auctionResultSchema.safeParse(formObject(formData));
+  if (!parsed.success) return withValues(invalid(parsed.error), formData);
+
+  const supabase = await createSupabaseServerClient();
+  const value = parsed.data;
+  const { error } = await supabase.rpc(
+    "record_auction_result",
+    value.result === "lost"
+      ? { p_dossier_id: value.dossierId, p_result: "lost" }
+      : {
+          p_dossier_id: value.dossierId,
+          p_result: "won",
+          p_hammer_price_cents: value.hammerPriceCents,
+          p_notified_at: value.notifiedAt,
+          ...(value.overrideReason ? { p_override_reason: value.overrideReason } : {}),
+        },
+  );
+  if (error) {
+    return withValues(failure(ruleMessage(error, "Le résultat de l’enchère n’a pas pu être enregistré.")), formData);
+  }
+  revalidatePath(dossierPath(value.dossierId));
+  return success(value.result === "won" ? "Lot remporté enregistré." : "Lot non remporté : dossier clôturé.");
+}
+
+/** Hypothèse P1 : confirmation manuelle d'un élément financier, en attendant la phase 3. */
+export async function confirmManually(_previous: FormState, formData: FormData): Promise<FormState> {
+  if (!(await getInternalAccess(["admin", "ops", "accounting"]))) {
+    return failure("Action réservée à l’administrateur, aux agents opérations et à la comptabilité.");
+  }
+  const parsed = confirmationSchema.safeParse(formObject(formData));
+  if (!parsed.success) return invalid(parsed.error);
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("dossier_confirmations")
+    .insert({ dossier_id: parsed.data.dossierId, code: parsed.data.code, note: parsed.data.note });
+  if (error) {
+    return failure(error.code === "23505" ? "Déjà confirmé." : "La confirmation n’a pas pu être enregistrée.");
+  }
+  revalidatePath(dossierPath(parsed.data.dossierId));
+  return success("Confirmation enregistrée et journalisée.");
+}
+
+/** US-2.5 : passage à l'étape suivante ; exception de l'administrateur avec motif (R13). */
+export async function advanceStage(_previous: FormState, formData: FormData): Promise<FormState> {
+  if (!(await getInternalAccess(SCREEN_ROLES.operationsWrite))) return failure(WRITERS_ONLY);
+  const parsed = advanceStageSchema.safeParse(formObject(formData));
+  if (!parsed.success) return invalid(parsed.error);
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("advance_stage", {
+    p_dossier_id: parsed.data.dossierId,
+    ...(parsed.data.reason ? { p_override_reason: parsed.data.reason } : {}),
+  });
+  if (error) return withValues(failure(ruleMessage(error, "Le passage d’étape a échoué.")), formData);
+  revalidatePath(dossierPath(parsed.data.dossierId));
+  return success("Étape suivante enregistrée.");
+}
+
+/** US-2.5 : changement de statut à l'intérieur de l'étape en cours. */
+export async function changeStatus(_previous: FormState, formData: FormData): Promise<FormState> {
+  if (!(await getInternalAccess(SCREEN_ROLES.operationsWrite))) return failure(WRITERS_ONLY);
+  const parsed = statusSchema.safeParse(formObject(formData));
+  if (!parsed.success) return invalid(parsed.error);
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("dossiers")
+    .update({ status: parsed.data.status })
+    .eq("id", parsed.data.dossierId)
+    .select("id");
+  if (error || !data?.length) {
+    return failure(
+      error?.code === "23503" ? "Ce statut n’existe pas dans l’étape en cours." : "Le statut n’a pas pu être changé.",
+    );
+  }
+  revalidatePath(dossierPath(parsed.data.dossierId));
+  return success("Statut enregistré.");
+}
+
+/** Annulation d'un dossier (Ouverture ou Achat → Clôture), motif obligatoire. */
+export async function cancelDossier(_previous: FormState, formData: FormData): Promise<FormState> {
+  if (!(await getInternalAccess(SCREEN_ROLES.operationsWrite))) return failure(WRITERS_ONLY);
+  const parsed = cancelDossierSchema.safeParse(formObject(formData));
+  if (!parsed.success) return withValues(invalid(parsed.error), formData);
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("cancel_dossier", {
+    p_dossier_id: parsed.data.dossierId,
+    p_reason: parsed.data.reason,
+  });
+  if (error) return withValues(failure(ruleMessage(error, "L’annulation a échoué.")), formData);
+  revalidatePath(dossierPath(parsed.data.dossierId));
+  return success("Dossier annulé.");
+}
+
+/** Documents demandés par les conditions de passage (facture d'enchère, preuve de prise en charge…). */
+const UPLOADABLE_KINDS = ["auction_invoice", "pickup_proof", "title", "photos", "other"] as const;
+
+export async function uploadDossierDocument(_previous: FormState, formData: FormData): Promise<FormState> {
+  if (!(await getInternalAccess(SCREEN_ROLES.operationsWrite))) return failure(WRITERS_ONLY);
+  const id = dossierIdSchema.safeParse(formObject(formData));
+  if (!id.success) return failure("Dossier inconnu.");
+  const kind = formData.get("kind");
+  if (typeof kind !== "string" || !(UPLOADABLE_KINDS as readonly string[]).includes(kind)) {
+    return { status: "error", message: "Choisissez le type de document.", fieldErrors: { kind: "Type obligatoire." } };
+  }
+  const file = formData.get("file");
+  if (proofFileError(file instanceof File ? file : null)) {
+    return {
+      status: "error",
+      message: "Le fichier est à joindre.",
+      fieldErrors: { file: "Joignez un fichier PDF, JPEG, PNG, WebP ou HEIC de 20 Mo au plus." },
+    };
+  }
+  const documentId = await storeDossierFile(
+    id.data.dossierId,
+    kind as DocumentKind,
+    file as File,
+    formData.get("visibleClient") === "on",
+  );
+  if (!documentId) return failure("Le document n’a pas pu être enregistré. Réessayez.");
+  revalidatePath(dossierPath(id.data.dossierId));
+  return success("Document ajouté au dossier.");
 }
 
 /** « Dupliquer le dossier » (R14) : nouveau dossier pour le même client, avec son propre contrat. */
