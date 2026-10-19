@@ -46,3 +46,30 @@ insert into public.profiles (id, email, full_name, role) values
   ('d0000000-0000-4000-8000-000000000003', 'compta@exemple.test', 'Coumba Comptabilité (démo)', 'accounting'),
   ('d0000000-0000-4000-8000-000000000004', 'direction@exemple.test', 'Daouda Direction (démo)', 'management'),
   ('d0000000-0000-4000-8000-000000000005', 'client@exemple.test', 'Client Démo', 'client');
+
+-- ---------------------------------------------------------------------------
+-- Phase 2 — clients et dossiers fictifs (DEMO-, @exemple.test, numéros +22177000000x)
+-- ---------------------------------------------------------------------------
+insert into public.clients (id, kind, name, id_document_type, id_document_number, address, notify_phone, notify_email, created_by) values
+  ('c0000000-0000-4000-8000-000000000001', 'person', 'Mamadou Diallo (démo)', 'national_id', 'DEMO-CNI-0001',
+   'Dakar, adresse fictive', '+221770000001', 'client@exemple.test', 'd0000000-0000-4000-8000-000000000002');
+insert into public.clients (id, kind, name, ninea, rccm, representative_name, representative_title, address, notify_phone, notify_email, created_by) values
+  ('c0000000-0000-4000-8000-000000000002', 'company', 'Société Démo Auto SARL (démo)', 'DEMO-NINEA-0002', 'DEMO-RCCM-0002',
+   'Fatou Ndiaye (démo)', 'Gérante', 'Thiès, adresse fictive', '+221770000002', 'societe@exemple.test',
+   'd0000000-0000-4000-8000-000000000002');
+
+-- Le compte client@exemple.test accède au portail du premier client (phase 4).
+update public.profiles set client_id = 'c0000000-0000-4000-8000-000000000001'
+where id = 'd0000000-0000-4000-8000-000000000005';
+
+insert into public.dossiers (
+  id, reference, client_id, owner_id, created_by, status, platform, lot_number, vin, make, model, model_year, mileage,
+  vehicle_category, title_status, purchase_location, departure_port
+) values
+  ('e0000000-0000-4000-8000-000000000001', 'DEMO-2026-0001', 'c0000000-0000-4000-8000-000000000001',
+   'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'new', 'copart', 'DEMO-LOT-1001',
+   '1DEMXXX0000000001', 'Toyota', 'Corolla', 2019, 48000, 'passenger', 'Clean title (démo)', 'Houston, TX (démo)',
+   'Houston'),
+  ('e0000000-0000-4000-8000-000000000002', 'DEMO-2026-0002', 'c0000000-0000-4000-8000-000000000002',
+   'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'info_missing', 'iaa', null,
+   null, 'Ford', 'Transit', 2020, null, 'light_utility', null, null, null);
