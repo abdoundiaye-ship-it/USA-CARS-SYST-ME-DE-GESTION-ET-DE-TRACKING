@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  creditedAtOf,
+  depositSchema,
   forfaitsSchema,
   fxRateSchema,
   internalCostSchema,
@@ -61,6 +63,35 @@ describe("formulaires financiers", () => {
     expect(cost.amount).toBe(180_000);
     expect(sectionOf(cost.category)).toBe("B");
     expect(sectionOf("us_taxes")).toBe("A");
+  });
+
+  it("dépôt (US-3.4) : USD en centimes, FCFA entiers, compte officiel exigé sauf espèces", () => {
+    const base = {
+      dossierId: "11111111-1111-4111-8111-111111111111",
+      mode: "bank_transfer",
+      accountId: "22222222-2222-4222-8222-222222222222",
+      reference: "VIR-001",
+      creditedOn: "2026-10-18",
+    };
+    expect(depositSchema.parse({ ...base, currency: "USD", amount: "2 500,50" })).toMatchObject({
+      amountCents: 250_050,
+      amountXof: null,
+    });
+    expect(depositSchema.parse({ ...base, currency: "XOF", amount: "1 500 000" })).toMatchObject({
+      amountCents: null,
+      amountXof: 1_500_000,
+    });
+    expect(depositSchema.safeParse({ ...base, currency: "XOF", amount: "1500,5" }).success).toBe(false);
+    expect(depositSchema.safeParse({ ...base, accountId: "", currency: "USD", amount: "100" }).success).toBe(false);
+    expect(
+      depositSchema.safeParse({ ...base, mode: "cash", accountId: "", currency: "USD", amount: "100" }).success,
+    ).toBe(true);
+  });
+
+  it("date de crédit : fin de journée pour un jour passé (dernier taux du jour), maintenant pour aujourd'hui", () => {
+    const now = new Date("2026-10-19T10:15:00Z");
+    expect(creditedAtOf("2026-10-18", now).toISOString()).toBe("2026-10-18T23:59:59.000Z");
+    expect(creditedAtOf("2026-10-19", now)).toEqual(now);
   });
 
   it("compte officiel : numéro Wave au format international, banque complète", () => {

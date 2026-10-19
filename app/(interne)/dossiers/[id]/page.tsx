@@ -9,6 +9,7 @@ import { CONTRACT_STATUS_LABELS, PLATFORM_LABELS, STAGE_LABELS, VEHICLE_CATEGORY
 import { formatDate, formatDateTime, formatInteger } from "@/lib/format";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { missingClientInformation } from "@/lib/validation/operations";
+import { BillingSection } from "./billing-section";
 import { FinanceSection } from "./finance-section";
 import { DuplicateDossierForm, AcceptanceForm, RegenerateContractForm, VehicleForm } from "../dossier-forms";
 import {
@@ -35,6 +36,12 @@ const NOTICES: Record<string, { tone: "success" | "danger"; text: string }> = {
     tone: "danger",
     text: "Le dossier est ouvert, mais le contrat n’a pas pu être généré. Utilisez « Générer le contrat » ci-dessous.",
   },
+  devis: { tone: "success", text: "Devis émis. Téléchargez le fichier pour l’envoyer au client." },
+  facture: { tone: "success", text: "Facture d’acompte émise. Téléchargez le fichier pour l’envoyer au client." },
+  "fichier-erreur": {
+    tone: "danger",
+    text: "Le document est émis, mais son fichier n’a pas pu être généré. Utilisez « Générer le fichier » sur le document.",
+  },
 };
 
 export default async function DossierPage({ params, searchParams }: PageProps<"/dossiers/[id]">) {
@@ -51,7 +58,9 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
         ? NOTICES.duplique
         : query.contrat === "erreur"
           ? NOTICES["contrat-erreur"]
-          : null;
+          : typeof query.facturation === "string" && ["devis", "facture", "fichier-erreur"].includes(query.facturation)
+            ? NOTICES[query.facturation]
+            : null;
 
   const supabase = await createSupabaseServerClient();
   const { data: dossier } = await supabase.from("dossiers").select("*").eq("id", id).maybeSingle();
@@ -73,6 +82,10 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     { data: openContainers },
     { data: forfaits },
     { data: costs },
+    { data: financialDocuments },
+    { data: payments },
+    { data: activeAccounts },
+    { data: todayRateExists },
   ] = await Promise.all([
     supabase.from("clients").select("*").eq("id", dossier.client_id).maybeSingle(),
     supabase
@@ -106,6 +119,10 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     supabase.from("containers").select("id, number, eta").is("ata", null).order("number"),
     supabase.from("dossier_forfaits").select("*").eq("dossier_id", id).maybeSingle(),
     supabase.from("internal_costs").select("*").eq("dossier_id", id).order("created_at"),
+    supabase.from("financial_documents").select("*").eq("dossier_id", id).order("issued_at", { ascending: false }),
+    supabase.from("payments").select("*").eq("dossier_id", id).order("credited_at"),
+    supabase.from("official_accounts").select("id, kind, label").eq("status", "active").order("label"),
+    supabase.rpc("fx_rate_exists_on", { p_day: new Date().toISOString().slice(0, 10) }),
   ]);
   const contractAcceptance = acceptances?.find((a) => a.subject === "contract") ?? null;
   const orderAcceptance = acceptances?.find((a) => a.subject === "purchase_order") ?? null;
@@ -244,6 +261,22 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
           forfaits={forfaits}
           costs={costs ?? []}
           canEdit={canAccess(access.role, SCREEN_ROLES.forfaitsWrite)}
+        />
+
+        <BillingSection
+          dossier={dossier}
+          order={order}
+          forfaits={forfaits}
+          documents={financialDocuments ?? []}
+          payments={payments ?? []}
+          acceptances={acceptances ?? []}
+          accounts={activeAccounts ?? []}
+          todayRateExists={todayRateExists === true}
+          canWriteQuote={canAccess(access.role, SCREEN_ROLES.quotesWrite)}
+          canWriteInvoice={canAccess(access.role, SCREEN_ROLES.invoicesWrite)}
+          canWritePayment={canAccess(access.role, SCREEN_ROLES.paymentsWrite)}
+          today={today}
+          staffName={staffName}
         />
 
         <ConfirmationsSection

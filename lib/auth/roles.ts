@@ -41,6 +41,10 @@ export const SCREEN_ROLES = {
   forfaitsWrite: ["admin", "ops", "accounting"],
   accountsWrite: ["admin"],
   accountsApprove: ["admin", "management"],
+  // Devis : émission et décision du client (admin, agent, comptabilité) ; factures et paiements : admin, comptabilité.
+  quotesWrite: ["admin", "ops", "accounting"],
+  invoicesWrite: ["admin", "accounting"],
+  paymentsWrite: ["admin", "accounting"],
 } as const satisfies Record<string, readonly AppRole[]>;
 
 export function canAccess(role: AppRole | null | undefined, allowed: readonly AppRole[]): boolean {

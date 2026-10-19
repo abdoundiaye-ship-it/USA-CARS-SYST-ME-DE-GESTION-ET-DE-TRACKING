@@ -8,7 +8,7 @@ import { SCREEN_ROLES } from "@/lib/auth/roles";
 import { failure, formObject, invalid, success, withValues, type FormState } from "@/lib/forms";
 import { UPLOADABLE_DOCUMENT_KINDS } from "@/lib/dossiers/labels";
 import { generateContract, generateDocument } from "@/lib/server/contracts";
-import { storagePath, uploadToStorage } from "@/lib/server/documents";
+import { storeDossierFile } from "@/lib/server/documents";
 import type { DocumentKind } from "@/lib/supabase/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -124,49 +124,20 @@ export async function regenerateContract(_previous: FormState, formData: FormDat
   return success("Contrat généré. Téléchargez la nouvelle version pour la faire signer.");
 }
 
-/** Téléverse un fichier du dossier (bucket privé) et l'enregistre ; renvoie l'identifiant du document. */
-async function storeDossierFile(
-  dossierId: string,
-  kind: DocumentKind,
-  file: File,
-  visibleClient = false,
-): Promise<string | null> {
-  const supabase = await createSupabaseServerClient();
-  const { data: dossier } = await supabase.from("dossiers").select("client_id").eq("id", dossierId).maybeSingle();
-  if (!dossier) return null;
-  const stored = await uploadToStorage(
-    storagePath(dossierId, kind, file.name),
-    new Uint8Array(await file.arrayBuffer()),
-    file.type,
-  );
-  if (!stored) return null;
-  const { data: document } = await supabase
-    .from("documents")
-    .insert({
-      dossier_id: dossierId,
-      client_id: dossier.client_id,
-      kind,
-      storage_path: stored.path,
-      file_name: file.name.slice(0, 200),
-      mime_type: file.type,
-      size_bytes: stored.size,
-      sha256: stored.sha256,
-      visible_client: visibleClient,
-    })
-    .select("id")
-    .single();
-  return document?.id ?? null;
-}
-
-const SUBJECT_LABELS = { contract: "du contrat", purchase_order: "de l’ordre d’achat" } as const;
+const SUBJECT_LABELS = { contract: "du contrat", purchase_order: "de l’ordre d’achat", quote: "du devis" } as const;
 
 /**
- * R15 : décision du client sur le contrat (US-2.2) ou l'ordre d'achat (US-2.3), par scan ou WhatsApp.
- * La preuve est téléversée dans le bucket privé ; la base impose la version en vigueur et son empreinte,
- * et exige les 4 confirmations de l'annexe B pour signer un ordre d'achat.
+ * R15 : décision du client sur le contrat (US-2.2), l'ordre d'achat (US-2.3) ou le devis (US-3.3, avec le choix
+ * d'assurance — X1), par scan ou WhatsApp. La preuve est téléversée dans le bucket privé ; la base impose la
+ * version en vigueur et son empreinte, les 4 confirmations de l'annexe B et la validité du devis.
  */
 export async function recordAcceptance(_previous: FormState, formData: FormData): Promise<FormState> {
-  if (!(await getInternalAccess(SCREEN_ROLES.operationsWrite))) return failure(WRITERS_ONLY);
+  const quote = formData.get("subject") === "quote";
+  if (!(await getInternalAccess(quote ? SCREEN_ROLES.quotesWrite : SCREEN_ROLES.operationsWrite))) {
+    return failure(
+      quote ? "Action réservée à l’administrateur, aux agents opérations et à la comptabilité." : WRITERS_ONLY,
+    );
+  }
 
   const parsed = acceptanceSchema.safeParse(formObject(formData));
   if (!parsed.success) return withValues(invalid(parsed.error), formData);
@@ -178,14 +149,22 @@ export async function recordAcceptance(_previous: FormState, formData: FormData)
       formData,
     );
   }
-  const { dossierId, subject, subjectId, method, decision, decidedOn, whatsappFrom, notes, acknowledgements } =
-    parsed.data;
+  const {
+    dossierId,
+    subject,
+    subjectId,
+    method,
+    decision,
+    decidedAt,
+    insuranceChoice,
+    whatsappFrom,
+    notes,
+    acknowledgements,
+  } = parsed.data;
 
   const proofId = await storeDossierFile(dossierId, "acceptance_proof", proof as File);
   if (!proofId) return withValues(failure("La preuve n’a pas pu être enregistrée. Réessayez."), formData);
 
-  // Date saisie : midi à Dakar (UTC+0), pour éviter tout décalage de jour.
-  const decidedAt = new Date(`${decidedOn}T12:00:00Z`);
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("acceptances").insert({
     dossier_id: dossierId,
@@ -199,6 +178,7 @@ export async function recordAcceptance(_previous: FormState, formData: FormData)
     proof_document_id: proofId,
     whatsapp_from: whatsappFrom,
     acknowledgements,
+    insurance_choice: insuranceChoice,
     notes,
   });
   if (error) {

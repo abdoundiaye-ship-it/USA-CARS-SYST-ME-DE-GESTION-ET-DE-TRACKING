@@ -42,3 +42,37 @@ export async function uploadToStorage(
   if (error) return null;
   return { path, sha256: await sha256Hex(bytes), size: bytes.byteLength };
 }
+
+/** Téléverse un fichier du dossier (bucket privé) et l'enregistre ; renvoie l'identifiant du document. */
+export async function storeDossierFile(
+  dossierId: string,
+  kind: DocumentKind,
+  file: File,
+  visibleClient = false,
+): Promise<string | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data: dossier } = await supabase.from("dossiers").select("client_id").eq("id", dossierId).maybeSingle();
+  if (!dossier) return null;
+  const stored = await uploadToStorage(
+    storagePath(dossierId, kind, file.name),
+    new Uint8Array(await file.arrayBuffer()),
+    file.type,
+  );
+  if (!stored) return null;
+  const { data: document } = await supabase
+    .from("documents")
+    .insert({
+      dossier_id: dossierId,
+      client_id: dossier.client_id,
+      kind,
+      storage_path: stored.path,
+      file_name: file.name.slice(0, 200),
+      mime_type: file.type,
+      size_bytes: stored.size,
+      sha256: stored.sha256,
+      visible_client: visibleClient,
+    })
+    .select("id")
+    .single();
+  return document?.id ?? null;
+}

@@ -131,6 +131,71 @@ export const officialAccountSchema = z
 
 export const accountIdSchema = z.object({ accountId: z.uuid("Compte inconnu.") });
 
+/** Montant en FCFA (entier, espaces acceptés : « 1 250 000 »). */
+const xofAmount = (value: string) => {
+  const digits = value.replace(/[\s ]/g, "");
+  return /^\d{1,13}$/.test(digits) && Number(digits) > 0 ? Number(digits) : null;
+};
+
+/**
+ * Date de crédit → instant retenu pour le taux du jour du paiement (R1) : fin de journée pour un jour passé
+ * (dernier taux relevé ce jour-là), maintenant pour aujourd'hui (Africa/Dakar = UTC).
+ */
+export function creditedAtOf(creditedOn: string, now = new Date()): Date {
+  const endOfDay = new Date(`${creditedOn}T23:59:59Z`);
+  return endOfDay > now ? now : endOfDay;
+}
+
+/** US-3.4 : dépôt reçu (I2), en USD ou en FCFA converti au taux du jour du paiement par la base. */
+export const depositSchema = z
+  .object({
+    dossierId: z.uuid("Dossier inconnu."),
+    currency: z.enum(["USD", "XOF"], "Choisissez la devise reçue."),
+    amount: z.string().prefault(""),
+    mode: z.enum(["bank_transfer", "wave", "orange_money", "cash"], "Choisissez le mode de paiement."),
+    accountId: z
+      .string()
+      .prefault("")
+      .transform((v) => (v === "" ? null : v))
+      .pipe(z.uuid("Compte inconnu.").nullable()),
+    reference: z.string().trim().min(2, "Saisissez la référence du paiement.").max(120, "120 caractères au maximum."),
+    creditedOn: z.iso.date("Saisissez la date de crédit."),
+    notes: optionalText(500),
+  })
+  .transform((value, ctx) => {
+    let amountCents: number | null = null;
+    let amountXof: number | null = null;
+    if (value.currency === "USD") {
+      amountCents = parseUsdToCents(value.amount);
+      if (amountCents === null || amountCents <= 0) {
+        ctx.addIssue({ code: "custom", path: ["amount"], message: "Montant invalide : dollars, ex. 2500 ou 2500,50." });
+        return z.NEVER;
+      }
+    } else {
+      amountXof = xofAmount(value.amount);
+      if (amountXof === null) {
+        ctx.addIssue({ code: "custom", path: ["amount"], message: "Montant invalide : FCFA entiers, ex. 1 500 000." });
+        return z.NEVER;
+      }
+    }
+    if (value.mode !== "cash" && !value.accountId) {
+      ctx.addIssue({ code: "custom", path: ["accountId"], message: "Choisissez le compte officiel crédité." });
+      return z.NEVER;
+    }
+    return { ...value, amountCents, amountXof };
+  });
+
+export const financialDocumentIdSchema = z.object({
+  dossierId: z.uuid("Dossier inconnu."),
+  financialDocumentId: z.uuid("Document inconnu."),
+});
+
+export const cancelFinancialSchema = z.object({
+  dossierId: z.uuid("Dossier inconnu."),
+  targetId: z.uuid("Élément inconnu."),
+  reason: z.string().trim().min(5, "Indiquez le motif (5 caractères au moins).").max(300, "300 caractères au maximum."),
+});
+
 export const deactivateAccountSchema = z.object({
   accountId: z.uuid("Compte inconnu."),
   reason: z.string().trim().min(5, "Indiquez le motif (5 caractères au moins).").max(300),

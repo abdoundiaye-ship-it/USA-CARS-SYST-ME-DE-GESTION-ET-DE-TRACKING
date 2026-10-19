@@ -1,4 +1,12 @@
-import type { CostCategory, CostSection, OfficialAccountKind } from "@/lib/supabase/database.types";
+import type {
+  CostCategory,
+  CostSection,
+  FinancialDocStatus,
+  FinancialDocType,
+  InsuranceChoice,
+  OfficialAccountKind,
+  PaymentMode,
+} from "@/lib/supabase/database.types";
 
 /** Libellés financiers (vocabulaire du devis révisé et du contrat). */
 
@@ -30,4 +38,42 @@ export const ACCOUNT_KIND_LABELS: Record<OfficialAccountKind, string> = {
   wave: "Wave",
   orange_money: "Orange Money",
   cash_office: "Espèces au bureau de Dakar",
+};
+
+export const FINANCIAL_DOC_TYPE_LABELS: Record<FinancialDocType, string> = {
+  quote: "Devis",
+  deposit_invoice: "Facture d’acompte",
+  balance_invoice: "Facture de solde",
+  cash_receipt: "Reçu espèces",
+  refund_note: "Note de remboursement",
+};
+
+export const FINANCIAL_STATUS_LABELS: Record<FinancialDocStatus, string> = {
+  issued: "Émis",
+  accepted: "Accepté",
+  refused: "Refusé",
+  expired: "Expiré",
+  paid: "Payé",
+  cancelled: "Annulé",
+};
+
+export const INSURANCE_CHOICE_LABELS: Record<InsuranceChoice, string> = {
+  pending: "En attente du choix du client",
+  accepted: "Acceptée",
+  refused: "Refusée",
+};
+
+export const PAYMENT_MODE_LABELS: Record<PaymentMode, string> = {
+  bank_transfer: "Virement bancaire",
+  wave: "Wave",
+  orange_money: "Orange Money",
+  cash: "Espèces",
+};
+
+/** Compte officiel correspondant à un mode de paiement (annexe D). */
+export const ACCOUNT_KIND_OF_MODE: Record<PaymentMode, OfficialAccountKind> = {
+  bank_transfer: "bank",
+  wave: "wave",
+  orange_money: "orange_money",
+  cash: "cash_office",
 };
