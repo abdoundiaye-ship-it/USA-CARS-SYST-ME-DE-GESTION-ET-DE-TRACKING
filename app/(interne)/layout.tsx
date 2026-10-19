@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { AppNav, type NavItem } from "@/components/app-nav";
+import { BrandLogo } from "@/components/brand-logo";
 import { requireInternal } from "@/lib/auth/access";
 import { canAccess, ROLE_LABELS, SCREEN_ROLES } from "@/lib/auth/roles";
 import { signOut } from "../connexion/actions";
@@ -19,7 +21,9 @@ export default async function InternalLayout({ children }: { children: React.Rea
     <div className="min-h-dvh">
       <header className="border-border bg-card border-b">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <p className="text-primary font-semibold">USA CARS</p>
+          <Link href="/tableau-de-bord" aria-label="USA CARS — tableau de bord">
+            <BrandLogo priority className="h-10" />
+          </Link>
           <div className="flex min-w-0 items-center gap-3 text-sm">
             <p className="min-w-0 truncate text-right">
               <span className="font-medium">{access.fullName}</span>

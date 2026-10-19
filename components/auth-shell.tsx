@@ -1,3 +1,5 @@
+import { BrandLogo } from "./brand-logo";
+
 /** Mise en page des écrans d’authentification (centrés, lisibles dès 400 px). */
 export function AuthShell({
   title,
@@ -11,8 +13,8 @@ export function AuthShell({
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-4 py-10">
       <div>
-        <p className="text-primary text-sm font-semibold tracking-wide uppercase">USA CARS</p>
-        <h1 className="mt-1 text-2xl font-semibold">{title}</h1>
+        <BrandLogo priority className="h-20" />
+        <h1 className="mt-4 text-2xl font-semibold">{title}</h1>
         {description && <p className="text-muted mt-2 text-sm">{description}</p>}
       </div>
       <div className="border-border bg-card rounded-lg border p-4 sm:p-6">{children}</div>
