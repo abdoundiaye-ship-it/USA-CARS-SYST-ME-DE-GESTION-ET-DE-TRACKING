@@ -33,7 +33,7 @@ Hébergement de test : **Cloudflare Workers + adaptateur OpenNext**, offre gratu
    `/auth/confirm`). Seuls les secrets sont conservés d’un déploiement à l’autre.
 6. Désactiver les déploiements de prévisualisation des branches (ils utiliseraient la base de production — point X12).
 7. Supabase → Authentication → URL Configuration : `Site URL` = `APP_URL` ; ajouter `APP_URL/auth/confirm` aux redirections (voir README).
-8. Avant la première mise en ligne : migrations poussées en production (`supabase db push`, après sauvegarde et accord), puis `pnpm admin:create --production`.
+8. Avant la première mise en ligne : migrations poussées en production (`supabase db push`, après sauvegarde et accord), puis `pnpm admin:create --production --lien` (✅ fait le 19/10/2026 : première connexion de l’administrateur réussie).
 
 ## Commandes locales
 

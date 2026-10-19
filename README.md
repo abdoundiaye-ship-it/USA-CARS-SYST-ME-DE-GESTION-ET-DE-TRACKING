@@ -56,7 +56,7 @@ pnpm dev             # http://localhost:3000
 | `pnpm test:e2e` | Parcours (Playwright, desktop et 400 px) |
 | `pnpm db:types` | Types TypeScript générés depuis la base locale |
 | `pnpm settings:generate` | Régénère la migration des paramètres initiaux depuis `specs/parametres_contractuels.json` |
-| `pnpm admin:create` | Compte administrateur initial (`ADMIN_EMAIL`), idempotent — local par défaut |
+| `pnpm admin:create` | Compte administrateur initial (`ADMIN_EMAIL`), idempotent — local par défaut ; `--lien` affiche un lien d’accès à usage unique (sans e-mail) |
 
 **Production** (`hzgkhtaefpbqztwagwph`) : jamais de `db reset`, de seed ni de tests. Les clés de production se saisissent
 uniquement dans l’hébergeur — pas dans `.env.local`. Garde-fous : l’application refuse de démarrer sur l’URL de
@@ -76,6 +76,8 @@ Après `pnpm db:reset` : `admin@exemple.test`, `ops@exemple.test`, `compta@exemp
 
 - Authentication → URL Configuration : `Site URL` = URL de l’application ; ajouter `<URL>/auth/confirm` aux redirections.
 - Authentication → Email Templates : reprendre `supabase/templates/invitation.html` et `reinitialisation.html`.
+  **Impossible sur l’offre gratuite sans SMTP personnalisé** (constaté le 19/10/2026) : d’ici là, donner l’accès par
+  lien à copier (écran Utilisateurs, ou `pnpm admin:create --production --lien` pour l’administrateur initial).
 - Authentication → Providers → Email : inscriptions publiques désactivées ; mot de passe 12 caractères minimum.
 - Authentication → Multi-Factor : TOTP activé.
 - SMTP personnalisé (fournisseur d’e-mail, question E2) : le service d’envoi intégré de Supabase est limité et
