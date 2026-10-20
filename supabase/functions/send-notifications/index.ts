@@ -56,8 +56,15 @@ Deno.serve(async (request) => {
     let redirectedTo: string | null = null;
     try {
       const target = effectiveRecipient(notification.channel, notification.recipient, config);
+      const providerReady =
+        notification.channel === "email"
+          ? Boolean(config.brevoApiKey && config.emailFrom)
+          : Boolean(config.twilioAccountSid && config.twilioAuthToken && config.twilioWhatsappFrom);
       if (!target.to) {
-        result = { status: "failed", error: "Destinataire de test non configuré (NOTIFICATIONS_TEST_*)." };
+        // Message de test sans destinataire de test : simulé si le canal n'est pas configuré, échec sinon.
+        result = providerReady
+          ? { status: "failed", error: "Destinataire de test non configuré (NOTIFICATIONS_TEST_*)." }
+          : { status: "simulated" };
       } else {
         if (target.redirected) redirectedTo = target.to;
         const rendered = renderNotification(notification.template, notification.variables ?? {}, portalUrl);

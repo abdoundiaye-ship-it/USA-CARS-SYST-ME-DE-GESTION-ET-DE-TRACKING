@@ -231,15 +231,19 @@ begin
 end;
 $$;
 
--- Message de test (administrateur) : adressé au destinataire de test configuré au déploiement.
+-- Message de test (administrateur) : e-mail à l'administrateur connecté, WhatsApp au numéro de test configuré
+-- au déploiement (simulé tant que WhatsApp n'est pas configuré) ; en mode test, tout va aux destinataires de test.
 create function public.queue_test_notification() returns int
 language plpgsql security definer set search_path = '' as $$
+declare
+  v_email text;
 begin
   if public.current_role_app() is distinct from 'admin' then
     raise exception 'Message de test réservé à l’administrateur.' using errcode = '42501';
   end if;
+  select p.email into v_email from public.profiles p where p.id = auth.uid();
   insert into public.notifications (template, channel, recipient, variables)
-  values ('test_message', 'email', 'test', '{"nom": "Test USA CARS"}'::jsonb),
+  values ('test_message', 'email', coalesce(v_email, 'test'), '{"nom": "Test USA CARS"}'::jsonb),
          ('test_message', 'whatsapp', 'test', '{"nom": "Test USA CARS"}'::jsonb);
   perform public.log_audit('notification_test', 'notifications', 'test');
   return 2;
