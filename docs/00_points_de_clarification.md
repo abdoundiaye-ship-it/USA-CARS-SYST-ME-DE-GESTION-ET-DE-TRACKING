@@ -63,6 +63,11 @@ Format pour ajouter une décision : `ID — date — décision`.
 | E3-b | Test réel WhatsApp | **20/10/2026** : e-mail validé en réel (Brevo, expéditeur `usacarsusasen@gmail.com`, message reçu). WhatsApp : le bac à sable Twilio exige des modèles (erreur 21654), impossibles à créer sur l’offre d’essai ; **test reporté** au passage de Twilio en offre payante (à l’usage), avec numéro WhatsApp Business de USA CARS, vérification Meta et approbation des modèles de `docs/19`. D’ici là, WhatsApp reste en **envoi simulé** en production (paramètres Twilio laissés vides). |
 | R9-a | Qui enregistre la remise des documents | **20/10/2026** (hypothèse validée) : l’administrateur et les agents opérations ; la comptabilité et la direction consultent. |
 | F9 | Dossiers sans devis accepté dans les soldes | **20/10/2026** (hypothèse validée) : rien n’est dû tant que le devis n’est pas accepté ; ces dossiers n’apparaissent pas dans les soldes de l’écran Finances. |
+| F2-a | Accès API des transporteurs | **20/10/2026** (plan de la phase 5 validé) : aucun accès demandé pour le moment ; suivi par **liens seulement**, connecteur API (US-5.4) reporté jusqu’à l’obtention d’un accès. L’état de l’accès API reste renseigné par transporteur. |
+| U1 | Délais de la procédure « véhicule non réclamé » | **20/10/2026** : relance à J+30, mise en demeure à J+60, délai de régularisation d’au moins 15 jours, procédure possible à 4 mois après l’arrivée (contrat art. 21–22) : valeurs **confirmées**. |
+| U2 | Textes des courriers de relance et de mise en demeure | **20/10/2026** : rédigés par Claude Code d’après les articles 21–22, marqués « PROJET » jusqu’à validation par USA CARS (ou son avocat, D1). |
+| U3 | Qui émet les courriers et ouvre la procédure | **20/10/2026** : l’administrateur, la direction et la comptabilité émettent les courriers et enregistrent leur envoi ; les agents opérations consultent. L’ouverture de la procédure à 4 mois (statut « Non réclamé ») est réservée à l’administrateur et à la direction, avec motif. Aucune action automatique sur la propriété du véhicule (R11). |
+| U4 | Envoi des courriers | **20/10/2026** : l’agent envoie le courrier (remise en main propre, e-mail, WhatsApp, coursier) et enregistre l’envoi (date, canal, preuve) ; le courrier devient alors visible dans l’espace client et le client reçoit une notification l’en informant (sans pièce jointe ni coordonnées de paiement). |
 
 ---
 
@@ -89,7 +94,7 @@ I1 et I2 ont été confirmées le 17/10/2026, I4 le 19/10/2026 (voir section 1).
 | E3 | **Fournisseur WhatsApp** : API WhatsApp Business de Meta (en direct) ou intermédiaire (Twilio, 360dialog…) ? Numéro WhatsApp Business dédié ? Vérification de l’entreprise par Meta à lancer. | Phase 4 | API WhatsApp Business via Twilio ; modèles de messages soumis à approbation. |
 | E5 | Textes des notifications (lot remporté, devis, échéances, départ, ETA modifiée, arrivée, documents prêts, relances). | Phase 4 | Proposés par Claude Code, validés par USA CARS. |
 | F1 | Lien officiel de suivi Grimaldi. | — | Lien tiers TrackingMCP, signalé comme tel. |
-| F2 | Demander un accès API Maersk / MSC ? | Phase 5 (API) | Liens seulement ; API reportée. |
+| F2 | Demander un accès API Maersk / MSC ? | Phase 5 (API) | Liens seulement ; API reportée (voir F2-a). |
 | F3 | Fréquence de vérification manuelle du suivi. | — | Alerte après 3 jours sans vérification en transit. |
 | F4 | Exemples réels anonymisés de numéros de conteneur et de B/L. | Phase 5 | Contrôle ISO 6346 ; B/L en texte libre. |
 | G1 | Formalités CDP (données personnelles). | Production | Avant la mise en production. |
