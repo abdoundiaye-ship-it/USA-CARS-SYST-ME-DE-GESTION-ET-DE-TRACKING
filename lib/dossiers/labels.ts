@@ -74,7 +74,13 @@ export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
   power_of_attorney: "Procuration",
   release_receipt: "Décharge de remise",
   photos: "Photos",
+  cost_receipt: "Justificatif de coût (interne)",
   other: "Autre document",
+  quote: "Devis",
+  deposit_invoice: "Facture d’acompte",
+  balance_invoice: "Facture de solde",
+  cash_receipt: "Reçu espèces",
+  refund_note: "Note de remboursement",
 };
 
 /** Types de documents téléversés par l'équipe (les autres sont générés ou enregistrés par l'application). */

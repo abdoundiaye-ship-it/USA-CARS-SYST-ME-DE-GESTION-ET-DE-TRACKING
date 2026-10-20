@@ -40,3 +40,17 @@ Sections 6 à 8 : comptes officiels actifs, référence à indiquer, conditions,
 - Mention « PROJET » en filigrane tant que le paramètre `templates.legal_validated` est faux (décision D1).
 - Chaque document soumis à acceptation porte une empreinte (SHA-256) enregistrée avec l’acceptation (R15).
 - Export PDF : seconde étape (LibreOffice headless côté serveur ou service dédié), à décider en phase 3.
+
+## Mise en œuvre (lot 3b)
+
+- Modèle balisé `templates/devis_facture.docx`, produit par `pnpm templates:generate` à partir du modèle révisé : logo de USA CARS en en-tête (D4), case du type de document, valeurs contractuelles du modèle (validité, frais de retard, délais du paiement 1 et du solde, remise des documents) **remplacées par les paramètres** en vigueur à l’ouverture du dossier (CLAUDE.md règle 4).
+- Émission en deux temps : la base émet le document (numéro DV/FA continu, montants et taux figés — fonctions `issue_quote`, `issue_deposit_invoice`), puis la fonction `generate-document` produit le fichier Word et le rattache **une seule fois** (`register_financial_document_file`). Un échec de génération n’entraîne aucun trou de numérotation : « Générer le fichier » relance la génération.
+- Le générateur ne lit que les lignes visibles du client (`financial_documents`) : aucune requête sur `internal_costs`. Contrôle automatique : test unitaire sur le fichier généré et parcours Playwright qui télécharge le devis et y cherche les coûts internes du dossier.
+- Devis : section 1 (expédition) affichée « — » tant que le conteneur n’est pas connu ; total « hors option C » et « avec l’assurance » ; reste à payer en FCFA au taux du jour d’édition.
+- Facture d’acompte : totalité du forfait A (+ TVA), dépôts imputés, excédent éventuel signalé « à restituer » ; taux de référence du devis.
+
+## Mise en œuvre (lot 3c)
+
+- Facture de solde `FS` : même modèle (case « Facture de solde »), émise après l’embarquement (conteneur affecté avec B/L et ETA) ; lignes B, C si acceptée, D approuvées (détaillées), TVA ; ETA de référence figée (« indicative ») ; section 1 renseignée depuis le conteneur (transporteur, navire, B/L, lien de suivi). Si l’ETA est avancée, l’échéance est avancée (R4) et l’événement est visible du client ; le fichier émis n’est pas regénéré.
+- Reçu espèces `RC` et note de remboursement `RB` : modèle d’une page `templates/recu.docx` (même en-tête avec logo, mention PROJET), montant USD qui fait foi et équivalent FCFA (montant reçu, ou taux du jour), mode, référence, signatures.
+- Les lignes D postérieures à la facture de solde (frais de retard, par exemple) entrent dans le solde du dossier sans modifier la facture émise.

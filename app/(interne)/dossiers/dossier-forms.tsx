@@ -188,17 +188,22 @@ export function AcceptanceForm({
   subject,
   subjectId,
   today,
+  insurancePremium,
 }: {
   dossierId: string;
-  subject: "contract" | "purchase_order";
+  subject: "contract" | "purchase_order" | "quote" | "extra_cost";
   subjectId: string;
   today: string;
+  /** Devis : prime de l'option C affichée avec le choix d'assurance (X1). */
+  insurancePremium?: string;
 }) {
   const { state, pending, formProps } = useFormAction(recordAcceptance);
   const [method, setMethod] = useState(state.data?.method ?? "scanned_paper");
   const e = state.fieldErrors ?? {};
   const isOrder = subject === "purchase_order";
-  const noun = isOrder ? "l’ordre d’achat" : "le contrat";
+  const isQuote = subject === "quote";
+  const isExtraCost = subject === "extra_cost";
+  const noun = isOrder ? "l’ordre d’achat" : isQuote ? "le devis" : isExtraCost ? "les frais" : "le contrat";
   const id = (name: string) => `${subject}-${name}`; // deux formulaires peuvent coexister sur la fiche
   return (
     <form {...formProps} className="flex flex-col gap-4" noValidate>
@@ -234,6 +239,41 @@ export function AcceptanceForm({
           </label>
         </div>
       </fieldset>
+      {isQuote && (
+        <fieldset
+          className="flex flex-col gap-2"
+          aria-describedby={e.insuranceChoice ? id("insurance-erreur") : undefined}
+        >
+          <legend className="mb-1 text-sm font-medium">
+            Assurance transport (option C{insurancePremium ? ` : ${insurancePremium}` : ""}) — choix du client
+          </legend>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="insuranceChoice"
+                value="accepted"
+                defaultChecked={state.data?.insuranceChoice === "accepted"}
+              />
+              Accepte l’assurance
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="insuranceChoice"
+                value="refused"
+                defaultChecked={state.data?.insuranceChoice === "refused"}
+              />
+              Refuse l’assurance
+            </label>
+          </div>
+          {e.insuranceChoice && (
+            <p id={id("insurance-erreur")} className="text-danger text-xs">
+              {e.insuranceChoice}
+            </p>
+          )}
+        </fieldset>
+      )}
       {isOrder && (
         <fieldset className="flex flex-col gap-2" aria-describedby={e.acknowledgements ? id("acks-erreur") : undefined}>
           <legend className="mb-1 text-sm font-medium">Confirmations cochées par le client sur l’ordre signé</legend>
@@ -272,6 +312,18 @@ export function AcceptanceForm({
             />
           )}
         </Field>
+        {isQuote && (
+          <Field
+            id={id("decidedTime")}
+            label={method === "whatsapp" ? "Heure du message" : "Heure de signature"}
+            hint="Le devis doit être accepté avant la fin de sa validité."
+            error={e.decidedTime}
+          >
+            {(aria) => (
+              <Input {...aria} name="decidedTime" type="time" defaultValue={state.data?.decidedTime ?? ""} required />
+            )}
+          </Field>
+        )}
         {method === "whatsapp" && (
           <Field id={id("whatsappFrom")} label="Numéro émetteur du message" error={e.whatsappFrom}>
             {(aria) => (
@@ -292,7 +344,11 @@ export function AcceptanceForm({
               ? "Capture ou export du message"
               : isOrder
                 ? "Ordre d’achat signé scanné"
-                : "Contrat signé scanné"
+                : isQuote
+                  ? "Devis signé scanné"
+                  : isExtraCost
+                    ? "Accord écrit du client scanné"
+                    : "Contrat signé scanné"
           }
           hint="PDF, JPEG, PNG, WebP ou HEIC — 20 Mo au plus"
           error={e.proof}
@@ -313,7 +369,13 @@ export function AcceptanceForm({
       </Field>
       <div>
         <Button type="submit" pending={pending}>
-          {isOrder ? "Enregistrer la décision sur l’ordre d’achat" : "Enregistrer la décision du client"}
+          {isOrder
+            ? "Enregistrer la décision sur l’ordre d’achat"
+            : isQuote
+              ? "Enregistrer la décision sur le devis"
+              : isExtraCost
+                ? "Enregistrer la décision sur les frais"
+                : "Enregistrer la décision du client"}
         </Button>
       </div>
     </form>

@@ -101,6 +101,26 @@ describe("acceptation du contrat (R15)", () => {
     );
   });
 
+  it("contrat : date sans heure → midi à Dakar", () => {
+    expect(acceptanceSchema.parse({ ...base, method: "scanned_paper" }).decidedAt.toISOString()).toBe(
+      "2026-10-19T12:00:00.000Z",
+    );
+  });
+
+  it("devis : heure obligatoire et choix d'assurance dans la même acceptation (X1)", () => {
+    const quote = { ...base, subject: "quote", method: "scanned_paper" };
+    expect(acceptanceSchema.safeParse({ ...quote, insuranceChoice: "accepted" }).success).toBe(false);
+    expect(acceptanceSchema.safeParse({ ...quote, decidedTime: "09:45" }).success).toBe(false);
+    const parsed = acceptanceSchema.parse({ ...quote, decidedTime: "09:45", insuranceChoice: "refused" });
+    expect(parsed.insuranceChoice).toBe("refused");
+    expect(parsed.decidedAt.toISOString()).toBe("2026-10-19T09:45:00.000Z");
+    // Refus du devis : pas de choix d'assurance à enregistrer.
+    expect(
+      acceptanceSchema.parse({ ...quote, decision: "refused", decidedTime: "09:45", insuranceChoice: "accepted" })
+        .insuranceChoice,
+    ).toBeNull();
+  });
+
   it("le portail n'est pas une méthode saisissable par un agent", () => {
     expect(acceptanceSchema.safeParse({ ...base, method: "portal" }).success).toBe(false);
   });

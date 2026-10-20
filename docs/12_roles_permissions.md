@@ -18,7 +18,7 @@ L = lecture · E = écriture · V = validation · — = aucun accès
 | Paiements | L E | L | L E | L | L (les siens) |
 | Remboursements (trop-perçu) | L E V | L | L E (demande) | L | L (les siens) |
 | Acceptations (scan, WhatsApp, portail) | L E | L E (scan, WhatsApp) | L | L | E (portail), L (les siennes) |
-| Comptes officiels | L E (double validation) | L | L | L | L (comptes actifs uniquement, sur les factures) |
+| Comptes officiels | L E V (double validation) | L | L | L V (approbation, décision Q1) | L (comptes actifs uniquement, sur les factures) |
 | Taux de change | L E | L | L E | L | L (taux figé sur ses documents) |
 | Conteneurs, ETA, événements | L E | L E | L | L | L (conteneur de ses dossiers, événements `visible_client`) |
 | Documents | L E | L E | L E | L | L si `visible_client` |
@@ -34,5 +34,5 @@ L = lecture · E = écriture · V = validation · — = aucun accès
 Tests obligatoires (phase 1 puis à chaque nouvelle table) :
 1. Un client A ne peut lire aucune ligne d’un client B (dossiers, documents, paiements, notifications, événements).
 2. Le rôle `client` reçoit zéro ligne de `internal_costs`, et aucun document ou vue client ne contient la marge.
-3. Seul `admin` peut activer un compte officiel, et l’approbateur doit être différent du créateur.
+3. Seul `admin` crée ou modifie un compte officiel ; son activation est approuvée par `admin` ou `management` (décision Q1), et l’approbateur doit être différent du créateur.
 4. Un document émis (`financial_documents.status <> 'draft'`) ne peut plus être modifié, seulement annulé.

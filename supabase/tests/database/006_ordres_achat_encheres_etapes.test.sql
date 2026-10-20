@@ -154,19 +154,20 @@ select is((select count(*) from public.audit_log where action = 'auction_price_o
             and object_id = (select id::text from t where name = 'dossier')), 1::bigint,
   'Audit : la validation du dépassement est journalisée avec son motif');
 
--- P1 : confirmations manuelles (comptabilité : paiement reçu ; agent : devis accepté ; direction : refus)
+-- P1 : plus de confirmations manuelles depuis le lot 3d (contrôles financiers automatiques) ; celles de la phase 2
+-- restent prises en compte.
 select set_config('request.jwt.claims', '{"sub":"b3333333-3333-3333-3333-333333333333","role":"authenticated","aal":"aal2"}', true);
 set local role authenticated;
-select lives_ok(
+select throws_ok(
   $$ insert into public.dossier_confirmations (dossier_id, code) values ((select id from t where name = 'dossier'), 'payment1_received') $$,
-  'La comptabilité confirme la réception du paiement 1'
+  '42501', null, 'Lot 3d : plus de confirmation manuelle, les conditions financières sont vérifiées automatiquement'
 );
 select throws_ok(
   $$ select public.advance_stage((select id from t where name = 'dossier')) $$,
   '42501', null, 'Accès refusé : la comptabilité ne change pas l’étape d’un dossier'
 );
 reset role;
-select set_config('request.jwt.claims', '{"sub":"b4444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal1"}', true);
+select set_config('request.jwt.claims', '{"sub":"b4444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal2"}', true);
 set local role authenticated;
 select throws_ok(
   $$ insert into public.dossier_confirmations (dossier_id, code) values ((select id from t where name = 'dossier'), 'quote_accepted') $$,
@@ -175,9 +176,12 @@ select throws_ok(
 select is((select count(*) from public.stage_conditions((select id from t where name = 'dossier'))), 5::bigint,
   'La direction consulte les conditions de passage');
 reset role;
+-- Confirmations enregistrées en phase 2 (données existantes) : toujours prises en compte.
+insert into public.dossier_confirmations (dossier_id, code) values
+  ((select id from t where name = 'dossier'), 'payment1_received'),
+  ((select id from t where name = 'dossier'), 'quote_accepted');
 select set_config('request.jwt.claims', '{"sub":"b2222222-2222-2222-2222-222222222222","role":"authenticated","aal":"aal1"}', true);
 set local role authenticated;
-insert into public.dossier_confirmations (dossier_id, code) values ((select id from t where name = 'dossier'), 'quote_accepted');
 select is(
   (select string_agg(code, ',') from public.stage_conditions((select id from t where name = 'dossier')) where not met),
   'auction_invoice', 'Seule la facture d’enchère manque encore'

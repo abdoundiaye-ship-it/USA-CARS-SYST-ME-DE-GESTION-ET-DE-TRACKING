@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { databaseAvailable, expectNoHorizontalScroll, signIn, totp } from "./helpers";
+import { DEMO_PASSWORD, databaseAvailable, expectNoHorizontalScroll, freshTotp, signIn } from "./helpers";
 
 // Phase 1 — US-1.0 à US-1.4 sur les comptes du seed de démonstration (Supabase local).
 test.beforeEach(async ({ request }, testInfo) => {
@@ -39,9 +39,13 @@ test("agent opérations : paramètres en lecture seule, valeurs à confirmer sig
 });
 
 test("comptabilité : la double authentification est exigée (A4)", async ({ page }) => {
-  await signIn(page, "compta@exemple.test");
+  // Connexion par mot de passe seul (sans la session partagée de global-setup) : le code reste demandé.
+  await page.goto("/connexion");
+  await page.getByLabel("Adresse e-mail").fill("compta@exemple.test");
+  await page.getByLabel("Mot de passe").fill(DEMO_PASSWORD);
+  await page.getByRole("button", { name: "Se connecter" }).click();
   await expect(page).toHaveURL(/\/connexion\/mfa/);
-  await expect(page.getByRole("button", { name: "Configurer la double authentification" })).toBeVisible();
+  await expect(page.getByLabel("Code à 6 chiffres")).toBeVisible();
 
   await page.goto("/tableau-de-bord");
   await expect(page).toHaveURL(/\/connexion\/mfa/);
@@ -60,7 +64,7 @@ test.describe("administrateur", () => {
     await page.getByRole("button", { name: "Configurer la double authentification" }).click();
     const secret = (await page.getByTestId("totp-secret").textContent())?.trim() ?? "";
     expect(secret).not.toBe("");
-    await page.getByLabel("Code à 6 chiffres").fill(totp(secret));
+    await page.getByLabel("Code à 6 chiffres").fill(await freshTotp(secret));
     await page.getByRole("button", { name: "Valider le code" }).click();
     await expect(page).toHaveURL(/\/tableau-de-bord/);
 

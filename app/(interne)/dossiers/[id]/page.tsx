@@ -9,6 +9,10 @@ import { CONTRACT_STATUS_LABELS, PLATFORM_LABELS, STAGE_LABELS, VEHICLE_CATEGORY
 import { formatDate, formatDateTime, formatInteger } from "@/lib/format";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { missingClientInformation } from "@/lib/validation/operations";
+import { BillingSection } from "./billing-section";
+import { FinanceSection } from "./finance-section";
+import { ReleaseSection } from "./release-section";
+import { SettlementSection } from "./settlement-section";
 import { DuplicateDossierForm, AcceptanceForm, RegenerateContractForm, VehicleForm } from "../dossier-forms";
 import {
   AcceptanceSummary,
@@ -34,13 +38,19 @@ const NOTICES: Record<string, { tone: "success" | "danger"; text: string }> = {
     tone: "danger",
     text: "Le dossier est ouvert, mais le contrat n’a pas pu être généré. Utilisez « Générer le contrat » ci-dessous.",
   },
+  devis: { tone: "success", text: "Devis émis. Téléchargez le fichier pour l’envoyer au client." },
+  solde: { tone: "success", text: "Facture de solde émise. Téléchargez le fichier pour l’envoyer au client." },
+  facture: { tone: "success", text: "Facture d’acompte émise. Téléchargez le fichier pour l’envoyer au client." },
+  "fichier-erreur": {
+    tone: "danger",
+    text: "Le document est émis, mais son fichier n’a pas pu être généré. Utilisez « Générer le fichier » sur le document.",
+  },
 };
 
 export default async function DossierPage({ params, searchParams }: PageProps<"/dossiers/[id]">) {
   const access = await requireInternal(SCREEN_ROLES.dossiers);
   const canWrite = canAccess(access.role, SCREEN_ROLES.operationsWrite);
   const isAdmin = access.role === "admin";
-  const canConfirm = canAccess(access.role, ["admin", "ops", "accounting"]);
   const { id } = await params;
   const query = await searchParams;
   const notice =
@@ -50,7 +60,10 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
         ? NOTICES.duplique
         : query.contrat === "erreur"
           ? NOTICES["contrat-erreur"]
-          : null;
+          : typeof query.facturation === "string" &&
+              ["devis", "facture", "solde", "fichier-erreur"].includes(query.facturation)
+            ? NOTICES[query.facturation]
+            : null;
 
   const supabase = await createSupabaseServerClient();
   const { data: dossier } = await supabase.from("dossiers").select("*").eq("id", id).maybeSingle();
@@ -70,6 +83,17 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     { data: documents },
     { data: containerAssignments },
     { data: openContainers },
+    { data: forfaits },
+    { data: costs },
+    { data: financialDocuments },
+    { data: payments },
+    { data: activeAccounts },
+    { data: todayRateExists },
+    { data: adjustments },
+    { data: refunds },
+    { data: balanceRows },
+    { data: currentRate },
+    { data: release },
   ] = await Promise.all([
     supabase.from("clients").select("*").eq("id", dossier.client_id).maybeSingle(),
     supabase
@@ -97,10 +121,21 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     supabase.from("documents").select("*").eq("dossier_id", id).order("uploaded_at", { ascending: false }),
     supabase
       .from("dossier_containers")
-      .select("container_id, assigned_at, removed_at, removal_reason, containers(number, eta, ata, status)")
+      .select("container_id, assigned_at, removed_at, removal_reason, containers(number, eta, ata, status, bl_number)")
       .eq("dossier_id", id)
       .order("assigned_at", { ascending: false }),
     supabase.from("containers").select("id, number, eta").is("ata", null).order("number"),
+    supabase.from("dossier_forfaits").select("*").eq("dossier_id", id).maybeSingle(),
+    supabase.from("internal_costs").select("*").eq("dossier_id", id).order("created_at"),
+    supabase.from("financial_documents").select("*").eq("dossier_id", id).order("issued_at", { ascending: false }),
+    supabase.from("payments").select("*").eq("dossier_id", id).order("credited_at"),
+    supabase.from("official_accounts").select("id, kind, label").eq("status", "active").order("label"),
+    supabase.rpc("fx_rate_exists_on", { p_day: new Date().toISOString().slice(0, 10) }),
+    supabase.from("adjustments").select("*").eq("dossier_id", id).order("created_at"),
+    supabase.from("refunds").select("*").eq("dossier_id", id).order("requested_at"),
+    supabase.rpc("dossier_balance", { p_dossier_id: id }),
+    supabase.rpc("fx_rate_as_of", { p_at: new Date().toISOString() }),
+    supabase.from("document_releases").select("*").eq("dossier_id", id).maybeSingle(),
   ]);
   const contractAcceptance = acceptances?.find((a) => a.subject === "contract") ?? null;
   const orderAcceptance = acceptances?.find((a) => a.subject === "purchase_order") ?? null;
@@ -234,12 +269,68 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
           canWrite={canWrite}
         />
 
-        <ConfirmationsSection
+        <FinanceSection
+          dossierId={dossier.id}
+          forfaits={forfaits}
+          costs={costs ?? []}
+          canEdit={canAccess(access.role, SCREEN_ROLES.forfaitsWrite)}
+        />
+
+        <BillingSection
           dossier={dossier}
-          confirmations={confirmations ?? []}
-          canConfirm={canConfirm}
+          order={order}
+          forfaits={forfaits}
+          documents={financialDocuments ?? []}
+          payments={payments ?? []}
+          acceptances={acceptances ?? []}
+          accounts={activeAccounts ?? []}
+          todayRateExists={todayRateExists === true}
+          canWriteQuote={canAccess(access.role, SCREEN_ROLES.quotesWrite)}
+          canWriteInvoice={canAccess(access.role, SCREEN_ROLES.invoicesWrite)}
+          canWritePayment={canAccess(access.role, SCREEN_ROLES.paymentsWrite)}
+          today={today}
           staffName={staffName}
         />
+
+        <SettlementSection
+          dossier={dossier}
+          balance={balanceRows?.[0] ?? null}
+          documents={financialDocuments ?? []}
+          payments={payments ?? []}
+          adjustments={adjustments ?? []}
+          refunds={refunds ?? []}
+          acceptances={acceptances ?? []}
+          accounts={activeAccounts ?? []}
+          todayRate={currentRate?.[0] ?? null}
+          shippingReady={(containerAssignments ?? []).some(
+            (a) => a.removed_at === null && a.containers?.bl_number && a.containers?.eta,
+          )}
+          canWriteInvoice={canAccess(access.role, SCREEN_ROLES.invoicesWrite)}
+          canWritePayment={canAccess(access.role, SCREEN_ROLES.paymentsWrite)}
+          isAdmin={isAdmin}
+          today={today}
+          staffName={staffName}
+        />
+
+        <ReleaseSection
+          dossier={dossier}
+          balance={balanceRows?.[0] ?? null}
+          release={release}
+          clientName={client?.name ?? ""}
+          canWrite={canWrite}
+          today={today}
+          staffName={staffName}
+        />
+
+        {/* Confirmations manuelles de la phase 2 (P1) : conservées pour les dossiers concernés, en lecture seule. */}
+        {(confirmations?.length ?? 0) > 0 && (
+          <ConfirmationsSection
+            dossier={dossier}
+            confirmations={confirmations ?? []}
+            canConfirm={false}
+            staffName={staffName}
+          />
+        )}
 
         <Card className="flex flex-col gap-4">
           <h2 className="font-semibold">Véhicule</h2>

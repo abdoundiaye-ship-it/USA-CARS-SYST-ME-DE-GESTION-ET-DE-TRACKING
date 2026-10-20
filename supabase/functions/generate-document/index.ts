@@ -1,8 +1,11 @@
 /**
- * Fonction Supabase generate-document — contrat (US-2.2, R14) et ordre d'achat (US-2.3, annexe B).
+ * Fonction Supabase generate-document — contrat (US-2.2, R14), ordre d'achat (US-2.3, annexe B), devis et
+ * factures (US-3.3, US-3.4, US-3.7), reçus espèces et notes de remboursement (US-3.6, US-3.12).
  *
  * Remplit le modèle Word, dépose le fichier dans le bucket privé « documents » et l'enregistre
- * (register_contract_document / register_purchase_order_document). Exécutée ici plutôt que dans l'application :
+ * (register_contract_document / register_purchase_order_document / register_financial_document_file).
+ * Un devis ou une facture est d'abord émis en base (numéro, montants figés) ; le fichier est ensuite rattaché
+ * une seule fois. Exécutée ici plutôt que dans l'application :
  * le remplissage d'un modèle (~85 ms de calcul) dépasse la limite de l'offre gratuite de Cloudflare Workers (10 ms).
  *
  * Toutes les lectures et écritures se font AU NOM DE L'UTILISATEUR (jeton transmis par l'application) :
@@ -15,12 +18,19 @@ import {
   type CompanyIdentity,
 } from "../_shared/contract.ts";
 import { sha256Hex } from "../_shared/docx.ts";
+import {
+  FINANCIAL_TEMPLATE_VERSION,
+  renderFinancialDocument,
+  type FinancialDocumentInput,
+  type PaymentMode,
+} from "../_shared/financial-document.ts";
+import { RECEIPT_TEMPLATE_VERSION, renderReceipt, type RefundReason } from "../_shared/receipt.ts";
 import { PURCHASE_ORDER_TEMPLATE_VERSION, renderPurchaseOrder } from "../_shared/purchase-order.ts";
 import { SupabaseRest } from "../_shared/rest.ts";
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const KINDS = ["contract", "purchase_order"] as const;
+const KINDS = ["contract", "purchase_order", "financial_document"] as const;
 type Kind = (typeof KINDS)[number];
 
 class Refusal extends Error {
@@ -97,6 +107,284 @@ async function buildPurchaseOrder(api: SupabaseRest, dossier: Row) {
   return { bytes, fileName: `Ordre-achat-${dossier.reference}.docx`, templateVersion: PURCHASE_ORDER_TEMPLATE_VERSION };
 }
 
+/** Valeurs contractuelles imprimées sur le devis et les factures (paramètres à l'ouverture du dossier, X7). */
+const TERM_KEYS = {
+  validityHours: "quote.validity_hours",
+  payment1DueHoursAfterWin: "payment1.due_hours_after_win",
+  balanceDueHoursBeforeEta: "balance.due_hours_before_eta",
+  balanceRecommendedDaysBeforeEta: "balance.recommended_days_before_eta",
+  lateFeeCents: "late_fee.amount_usd",
+  lateFeePeriodDays: "late_fee.period_days",
+  releaseBusinessHours: "documents.release_business_hours",
+} as const;
+
+type FinancialRow = {
+  id: string;
+  dossier_id: string;
+  doc_type: "quote" | "deposit_invoice" | "balance_invoice" | "cash_receipt" | "refund_note";
+  number: string;
+  status: string;
+  document_id: string | null;
+  forfait_a_cents: number | null;
+  forfait_b_cents: number | null;
+  insurance_premium_cents: number;
+  insurance_choice: "pending" | "accepted" | "refused";
+  vat_rate_percent: number | string;
+  vat_cents: number;
+  insurance_vat_cents: number;
+  adjustments_cents: number;
+  total_cents: number;
+  deposit_applied_cents: number;
+  deposit_excess_cents: number;
+  amount_due_cents: number;
+  fx_rate: number | string;
+  fx_source: string;
+  fx_captured_at: string;
+  edition_fx_rate: number | string;
+  edition_fx_captured_at: string;
+  issued_at: string;
+  valid_until: string | null;
+  due_at: string | null;
+  reference_eta: string | null;
+  payment_id: string | null;
+  refund_id: string | null;
+};
+
+type PaymentRow = {
+  purpose: "deposit" | "payment1" | "balance";
+  credited_at: string;
+  mode: PaymentMode;
+  reference: string;
+  amount_cents: number;
+  paid_currency: "USD" | "XOF";
+  amount_xof: number | null;
+  fx_rate: number | string | null;
+  fx_captured_at: string | null;
+};
+
+/** Paramètres communs : identité légale (company.*), valeurs contractuelles, mention PROJET (D1). */
+async function documentSettings(api: SupabaseRest, dossier: Row) {
+  const valueOf = await settingsAsOf(
+    api,
+    [...Object.values(COMPANY_SETTING_KEYS), ...Object.values(TERM_KEYS), "templates.legal_validated"],
+    dossier.params_as_of,
+  );
+  const company = Object.fromEntries(
+    Object.entries(COMPANY_SETTING_KEYS).map(([field, key]) => {
+      const value = valueOf(key);
+      return [field, typeof value === "string" ? value : ""];
+    }),
+  ) as unknown as CompanyIdentity;
+  const terms = Object.fromEntries(
+    Object.entries(TERM_KEYS).map(([field, key]) => {
+      const value = Number(valueOf(key));
+      if (!Number.isFinite(value)) throw new Refusal(500, `Paramètre ${key} manquant.`);
+      return [field, value];
+    }),
+  ) as FinancialDocumentInput["terms"];
+  return { company, terms, legalValidated: valueOf("templates.legal_validated") === true };
+}
+
+/** Conteneur en cours du dossier (section 1 du devis / facture) ; lien de suivi du transporteur (R12). */
+async function shippingOf(api: SupabaseRest, dossierId: string): Promise<FinancialDocumentInput["shipping"]> {
+  const assignment = await api.first<{
+    containers: {
+      number: string;
+      bl_number: string | null;
+      vessel: string | null;
+      voyage: string | null;
+      eta: string | null;
+      ata: string | null;
+      carriers: { name: string; tracking_url: string; url_template: string | null } | null;
+    } | null;
+  }>("dossier_containers", {
+    select: "containers(number,bl_number,vessel,voyage,eta,ata,carriers(name,tracking_url,url_template))",
+    dossier_id: `eq.${dossierId}`,
+    removed_at: "is.null",
+  });
+  const c = assignment?.containers;
+  if (!c) return null;
+  const template = c.carriers?.url_template;
+  const trackingUrl = template
+    ? template.replace("{container}", c.number).replace("{bl}", c.bl_number ?? "")
+    : (c.carriers?.tracking_url ?? null);
+  return {
+    carrier: c.carriers?.name ?? "—",
+    container: c.number,
+    vessel: c.vessel,
+    voyage: c.voyage,
+    bl: c.bl_number,
+    eta: c.ata ? null : c.eta ? new Date(`${c.eta}T00:00:00Z`) : null,
+    trackingUrl,
+  };
+}
+
+/** Reçu espèces RC ou note de remboursement RB. */
+async function buildReceiptDocument(api: SupabaseRest, financial: FinancialRow, dossier: Row) {
+  const client = await api.first<{ name: string; notify_phone: string }>("clients", {
+    select: "name,notify_phone",
+    id: `eq.${dossier.client_id}`,
+  });
+  if (!client) throw new Refusal(404, "Client du dossier introuvable.");
+  const contract = await api.first<{ reference: string }>("contracts", {
+    select: "reference",
+    dossier_id: `eq.${dossier.id}`,
+  });
+  const { company, legalValidated } = await documentSettings(api, dossier);
+  const common = {
+    number: financial.number,
+    issuedAt: new Date(financial.issued_at),
+    legalValidated,
+    contractReference: contract?.reference ?? null,
+    company,
+    client,
+    dossierReference: dossier.reference,
+    amountCents: Number(financial.total_cents),
+    rate: { rate: String(financial.fx_rate), capturedAt: new Date(financial.fx_captured_at) },
+  };
+  let bytes: Uint8Array;
+  if (financial.doc_type === "cash_receipt") {
+    const payment = await api.first<PaymentRow>("payments", { select: "*", id: `eq.${financial.payment_id}` });
+    if (!payment) throw new Refusal(404, "Paiement du reçu introuvable.");
+    bytes = renderReceipt({
+      ...common,
+      kind: "cash_receipt",
+      amountXof: payment.paid_currency === "XOF" && payment.amount_xof !== null ? Number(payment.amount_xof) : null,
+      mode: payment.mode,
+      reference: payment.reference,
+      paidAt: new Date(payment.credited_at),
+    });
+  } else {
+    const refund = await api.first<{
+      reason: RefundReason;
+      mode: PaymentMode;
+      payment_reference: string;
+      paid_at: string;
+    }>("refunds", { select: "reason,mode,payment_reference,paid_at", id: `eq.${financial.refund_id}` });
+    if (!refund) throw new Refusal(404, "Remboursement introuvable.");
+    bytes = renderReceipt({
+      ...common,
+      kind: "refund_note",
+      amountXof: null,
+      mode: refund.mode,
+      reference: refund.payment_reference,
+      paidAt: new Date(refund.paid_at),
+      refundReason: refund.reason,
+    });
+  }
+  const prefix = financial.doc_type === "cash_receipt" ? "Recu" : "Note-remboursement";
+  return { bytes, fileName: `${prefix}-${financial.number}.docx`, templateVersion: RECEIPT_TEMPLATE_VERSION };
+}
+
+/** Devis, facture d'acompte ou de solde : uniquement les lignes visibles du client (jamais les coûts internes). */
+async function buildFinancialDocument(api: SupabaseRest, financial: FinancialRow, dossier: Row) {
+  if (financial.document_id) throw new Refusal(409, "Le fichier de ce document est déjà généré.");
+  if (financial.status === "cancelled") throw new Refusal(409, "Ce document est annulé.");
+  if (financial.doc_type === "cash_receipt" || financial.doc_type === "refund_note") {
+    return buildReceiptDocument(api, financial, dossier);
+  }
+  const isBalance = financial.doc_type === "balance_invoice";
+  const client = await api.first<FinancialDocumentInput["client"]>("clients", {
+    select: "kind,name,notify_phone,notify_email,id_document_type,id_document_number,ninea,rccm",
+    id: `eq.${dossier.client_id}`,
+  });
+  if (!client) throw new Refusal(404, "Client du dossier introuvable.");
+  const contract = await api.first<{ reference: string }>("contracts", {
+    select: "reference",
+    dossier_id: `eq.${dossier.id}`,
+  });
+  const { data: payments } = await api.select<PaymentRow>("payments", {
+    select: "purpose,credited_at,mode,reference,amount_cents,paid_currency,amount_xof,fx_rate,fx_captured_at",
+    dossier_id: `eq.${dossier.id}`,
+    cancelled_at: "is.null",
+    order: "credited_at.asc",
+  });
+  const { data: accounts } = await api.select<FinancialDocumentInput["accounts"][number]>("official_accounts", {
+    select: "kind,holder_name,bank_name,account_number,iban,phone",
+    status: "eq.active",
+    order: "created_at.asc",
+  });
+  const { company, terms, legalValidated } = await documentSettings(api, dossier);
+  const shipping = await shippingOf(api, dossier.id);
+
+  // Facture de solde : lignes D reprises, échéance du paiement 1 et son état (facture d'acompte).
+  let adjustments: FinancialDocumentInput["adjustments"] = [];
+  let depositInvoice: { due_at: string | null; status: string } | null = null;
+  if (isBalance) {
+    const { data } = await api.select<{ label: string; amount_cents: number }>("adjustments", {
+      select: "label,amount_cents",
+      financial_document_id: `eq.${financial.id}`,
+      order: "created_at.asc",
+    });
+    adjustments = (data ?? []).map((d) => ({ label: d.label, amountCents: Number(d.amount_cents) }));
+    depositInvoice = await api.first<{ due_at: string | null; status: string }>("financial_documents", {
+      select: "due_at,status",
+      dossier_id: `eq.${dossier.id}`,
+      doc_type: "eq.deposit_invoice",
+      status: "neq.cancelled",
+    });
+  }
+  const listed = (payments ?? []).filter((p) => (isBalance ? p.purpose === "balance" : true));
+  const payment1Due =
+    financial.doc_type === "quote"
+      ? typeof dossier.payment1_due_at === "string"
+        ? dossier.payment1_due_at
+        : null
+      : isBalance
+        ? (depositInvoice?.due_at ?? null)
+        : financial.due_at;
+
+  const bytes = renderFinancialDocument({
+    docType: financial.doc_type,
+    number: financial.number,
+    issuedAt: new Date(financial.issued_at),
+    validUntil: financial.valid_until ? new Date(financial.valid_until) : null,
+    payment1DueAt: payment1Due ? new Date(payment1Due) : null,
+    payment1Paid: depositInvoice?.status === "paid",
+    balanceDueAt: isBalance && financial.due_at ? new Date(financial.due_at) : null,
+    referenceEta: financial.reference_eta ? new Date(`${financial.reference_eta}T00:00:00Z`) : null,
+    shipping,
+    adjustments,
+    legalValidated,
+    contractReference: contract?.reference ?? null,
+    company,
+    client,
+    dossier: dossier as never,
+    amounts: {
+      forfaitACents: Number(financial.forfait_a_cents ?? 0),
+      forfaitBCents: financial.forfait_b_cents === null ? null : Number(financial.forfait_b_cents),
+      insurancePremiumCents: Number(financial.insurance_premium_cents),
+      insuranceChoice: financial.insurance_choice,
+      vatRatePercent: String(financial.vat_rate_percent),
+      vatCents: Number(financial.vat_cents),
+      insuranceVatCents: Number(financial.insurance_vat_cents),
+      totalCents: Number(financial.total_cents),
+      depositAppliedCents: Number(financial.deposit_applied_cents),
+      depositExcessCents: Number(financial.deposit_excess_cents),
+      amountDueCents: Number(financial.amount_due_cents),
+    },
+    referenceRate: {
+      rate: String(financial.fx_rate),
+      source: financial.fx_source,
+      capturedAt: new Date(financial.fx_captured_at),
+    },
+    editionRate: { rate: String(financial.edition_fx_rate), capturedAt: new Date(financial.edition_fx_captured_at) },
+    payments: listed.map((p) => ({
+      creditedAt: new Date(p.credited_at),
+      mode: p.mode,
+      reference: p.reference,
+      amountCents: Number(p.amount_cents),
+      paidCurrency: p.paid_currency,
+      amountXof: p.amount_xof === null ? null : Number(p.amount_xof),
+      fxRate: p.fx_rate === null ? null : String(p.fx_rate),
+    })),
+    accounts: accounts ?? [],
+    terms,
+  });
+  const prefix = financial.doc_type === "quote" ? "Devis" : isBalance ? "Facture-solde" : "Facture-acompte";
+  return { bytes, fileName: `${prefix}-${financial.number}.docx`, templateVersion: FINANCIAL_TEMPLATE_VERSION };
+}
+
 Deno.serve(async (request) => {
   if (request.method !== "POST") return reply(405, { message: "Méthode non autorisée." });
   const authorization = request.headers.get("Authorization");
@@ -104,51 +392,83 @@ Deno.serve(async (request) => {
 
   let dossierId: unknown;
   let kind: unknown;
+  let financialDocumentId: unknown;
   try {
-    ({ dossierId, kind } = await request.json());
+    ({ dossierId, kind, financialDocumentId } = await request.json());
   } catch {
     return reply(400, { message: "Requête invalide." });
   }
-  if (typeof dossierId !== "string" || !UUID.test(dossierId)) return reply(400, { message: "Dossier inconnu." });
   if (!KINDS.includes(kind as Kind)) return reply(400, { message: "Type de document inconnu." });
+  if (kind === "financial_document") {
+    if (typeof financialDocumentId !== "string" || !UUID.test(financialDocumentId)) {
+      return reply(400, { message: "Document inconnu." });
+    }
+  } else if (typeof dossierId !== "string" || !UUID.test(dossierId)) {
+    return reply(400, { message: "Dossier inconnu." });
+  }
 
   const api = new SupabaseRest(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, authorization);
 
   try {
-    // Écriture réservée à l'administrateur et à l'agent opérations (même règle que la RLS).
-    const { data: canWrite } = await api.rpc<boolean>("is_operations_writer");
-    if (canWrite !== true) throw new Refusal(403, "Action réservée à l’administrateur et aux agents opérations.");
+    // Mêmes règles que la base : contrat et ordre d'achat (administrateur, agent opérations) ; devis et factures
+    // (administrateur, agent opérations, comptabilité — la base vérifie à nouveau à l'enregistrement).
+    const financialKind = kind === "financial_document";
+    const { data: canWrite } = await api.rpc<boolean>(financialKind ? "is_quote_writer" : "is_operations_writer");
+    if (canWrite !== true) {
+      throw new Refusal(
+        403,
+        financialKind
+          ? "Action réservée à l’administrateur, aux agents opérations et à la comptabilité."
+          : "Action réservée à l’administrateur et aux agents opérations.",
+      );
+    }
 
+    let financial: FinancialRow | null = null;
+    if (financialKind) {
+      financial = await api.first<FinancialRow>("financial_documents", {
+        select: "*",
+        id: `eq.${financialDocumentId}`,
+      });
+      if (!financial) throw new Refusal(404, "Document introuvable.");
+      dossierId = financial.dossier_id;
+    }
     const dossier = await api.first<Row>("dossiers", { select: "*", id: `eq.${dossierId}` });
     if (!dossier) throw new Refusal(404, "Dossier introuvable.");
 
     let built: { bytes: Uint8Array; fileName: string; templateVersion: string };
     try {
-      built = kind === "contract" ? await buildContract(api, dossier) : await buildPurchaseOrder(api, dossier);
+      built = financial
+        ? await buildFinancialDocument(api, financial, dossier)
+        : kind === "contract"
+          ? await buildContract(api, dossier)
+          : await buildPurchaseOrder(api, dossier);
     } catch (error) {
       if (error instanceof Refusal) throw error;
       console.error("generate-document: rendu impossible", error);
       throw new Refusal(500, "Le document n’a pas pu être généré à partir du modèle.");
     }
 
-    const path = `dossiers/${dossier.id}/${kind}/${crypto.randomUUID()}-${built.fileName}`;
+    const folder = financial ? financial.doc_type : kind;
+    const path = `dossiers/${dossier.id}/${folder}/${crypto.randomUUID()}-${built.fileName}`;
     const uploadError = await api.upload("documents", path, built.bytes, DOCX_MIME);
     if (uploadError) {
       console.error("generate-document: dépôt impossible", uploadError.message);
       throw new Refusal(500, "Le document n’a pas pu être enregistré dans l’espace de stockage.");
     }
 
-    const { data: id, error } = await api.rpc<string>(
-      kind === "contract" ? "register_contract_document" : "register_purchase_order_document",
-      {
-        p_dossier_id: dossier.id,
-        p_storage_path: path,
-        p_file_name: built.fileName,
-        p_size_bytes: built.bytes.byteLength,
-        p_sha256: await sha256Hex(built.bytes),
-        p_template_version: built.templateVersion,
-      },
-    );
+    const file = {
+      p_storage_path: path,
+      p_file_name: built.fileName,
+      p_size_bytes: built.bytes.byteLength,
+      p_sha256: await sha256Hex(built.bytes),
+      p_template_version: built.templateVersion,
+    };
+    const { data: id, error } = financial
+      ? await api.rpc<string>("register_financial_document_file", { p_financial_document_id: financial.id, ...file })
+      : await api.rpc<string>(kind === "contract" ? "register_contract_document" : "register_purchase_order_document", {
+          p_dossier_id: dossier.id,
+          ...file,
+        });
     if (error || !id) {
       // 22023 : règle métier (véhicule incomplet, trop âgé, décision déjà enregistrée…) — message destiné à l'agent.
       const rule = error?.code === "22023";

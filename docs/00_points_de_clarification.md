@@ -44,12 +44,30 @@ Format pour ajouter une décision : `ID — date — décision`.
 | P3 | Comptes des clients | **19/10/2026** : phase 2 = fiches clients seulement ; comptes de connexion avec le portail (phase 4). |
 | P4 | Transporteurs | **19/10/2026** : créés par l’administrateur dans Paramètres → Transporteurs ; transporteurs fictifs dans le seed local. |
 | P5 | Âge du véhicule à l’importation | **19/10/2026** : âge = année en cours − année du modèle ; **bloquant si l’âge dépasse la limite** (limite 10 ans : un véhicule de 10 ans passe, un de 11 ans ou plus est bloqué). Dérogation possible par l’administrateur seulement, avec motif. |
+| I4 | Forfaits : saisie et approbation | **19/10/2026** (interprétation confirmée) : l’agent opérations saisit les forfaits A et B et, s’il le souhaite, le détail interne des coûts ; **pas d’approbation obligatoire** (`quote.require_approval = false`), émission journalisée ; détail des coûts et marge **jamais** visibles du client. |
+| C5 | Frais de retard | **19/10/2026** : **pas de plafond** ; ajoutés **après validation de la comptabilité**, jamais automatiquement. |
+| C7 | Numérotation reçus et remboursements | **19/10/2026** : oui, `RC-AAAA-####` (reçus espèces) et `RB-AAAA-####` (notes de remboursement). |
+| C8 | Comptes et canaux officiels | **19/10/2026** : **valeurs fictives** jusqu’à fourniture par USA CARS ; saisie ensuite par l’administrateur avec double validation. |
+| C9 | Remboursements | **19/10/2026** : même moyen que le paiement d’origine, sous **5 jours ouvrés**, validé par un administrateur. |
+| D4 | Logo et identité légale | **19/10/2026** : logo de USA CARS en en-tête des devis et factures ; identité légale par les paramètres `company.*`. |
+| D5 | Format des documents remis | **19/10/2026** : phase 3 = documents **Word** ; la conversion PDF (service supplémentaire, éventuellement payant) est traitée à part, après choix de l’outil par USA CARS. |
+| X1 | Moment du choix de l’assurance | **19/10/2026** : le client choisit l’assurance **à l’acceptation du devis** ; la facture de solde reprend ce choix. |
+| X2 | Validité du devis et paiement 1 | **19/10/2026** : la validité du devis est **alignée sur l’échéance du paiement 1** (le devis expire en même temps que le délai de paiement) ; les deux valeurs restent des paramètres. |
+| Q1 | Double validation des comptes officiels | **19/10/2026** : un administrateur crée ou modifie le compte ; l’activation est approuvée par **un administrateur ou la direction**, toujours une autre personne que le créateur. |
+| Q2 | Montants sur le tableau de bord | **19/10/2026** : les agents opérations voient les montants de leurs dossiers (forfaits, soldes) ; la marge consolidée reste réservée à la direction et à l’administrateur. |
+| A4-bis | Double authentification de la direction | **19/10/2026** : la direction approuvant les comptes de paiement (Q1), la double authentification est **exigée aussi pour la direction** (administrateur, comptabilité, direction). Nouvelle version du paramètre `auth.mfa_required_roles`. |
+| J1 | Jours ouvrés (remboursements, remise des documents) | **20/10/2026** : les délais en jours ouvrés excluent les week-ends **et les jours fériés au Sénégal**. Calendrier tenu par l’administrateur (Paramètres → Jours fériés) : fêtes fixes et liées à Pâques pré-remplies ; fêtes à date lunaire (Tamkharit, Maouloud, Korité, Tabaski, Grand Magal de Touba) saisies chaque année à leur annonce. « 48 heures ouvrées » = 2 jours ouvrés. |
+| E3-a | Fournisseur WhatsApp | **20/10/2026** (proposition validée) : **API WhatsApp Business via Twilio**, numéro WhatsApp Business dédié, vérification de l’entreprise par Meta à lancer par USA CARS ; modèles de messages soumis à l’approbation de Meta. |
+| E5-a | Textes des notifications | **20/10/2026** (proposition validée) : rédigés par Claude Code, validés par USA CARS avant soumission des modèles WhatsApp. |
+| I3-a | Connexion du client par WhatsApp | **20/10/2026** (proposition validée) : **lien de connexion à usage unique** généré côté serveur et envoyé par un modèle WhatsApp d’authentification approuvé ; lien magique par e-mail natif de Supabase en parallèle. |
+| R9-a | Qui enregistre la remise des documents | **20/10/2026** (hypothèse validée) : l’administrateur et les agents opérations ; la comptabilité et la direction consultent. |
+| F9 | Dossiers sans devis accepté dans les soldes | **20/10/2026** (hypothèse validée) : rien n’est dû tant que le devis n’est pas accepté ; ces dossiers n’apparaissent pas dans les soldes de l’écran Finances. |
 
 ---
 
 ## 2. Interprétations à faire confirmer par USA CARS
 
-I1 et I2 ont été confirmées le 17/10/2026 (voir section 1). Restent I3, I4 et I5 : Claude Code applique ces interprétations par défaut, les rappelle dans son plan de phase et attend confirmation avant la phase concernée.
+I1 et I2 ont été confirmées le 17/10/2026, I4 le 19/10/2026 (voir section 1). Restent I3 et I5 : Claude Code applique ces interprétations par défaut, les rappelle dans son plan de phase et attend confirmation avant la phase concernée.
 
 | ID | Réponse donnée | Interprétation appliquée | Phase |
 |---|---|---|---|
@@ -67,12 +85,6 @@ I1 et I2 ont été confirmées le 17/10/2026 (voir section 1). Restent I3, I4 et
 |---|---|---|---|
 | A5 | Langue de l’interface. | — | Français uniquement. |
 | A6 | Volume attendu (dossiers/mois, clients, utilisateurs internes). | — | 50 dossiers/mois, 200 clients, 10 internes. |
-| C5 | Frais de retard : plafond ? Ajout automatique ou après validation ? | Phase 3 | Pas de plafond ; ajout après validation de la comptabilité. |
-| C7 | Numérotation des reçus espèces (`RC-AAAA-####`) et des remboursements (`RB-AAAA-####`) ? | Phase 3 | Oui. |
-| C8 | Comptes officiels (banque, Wave, Orange Money), numéro WhatsApp et e-mail officiels. | Phase 3 (données) | Valeurs fictives jusqu’à fourniture. |
-| C9 | Mode et délai de **remboursement** du trop-perçu ou du dépôt (même canal que le paiement ? délai ?). | Phase 3 | Même mode que le paiement d’origine, sous 5 jours ouvrés, validé par un administrateur. |
-| D4 | Logo, couleurs, identité légale (forme, RCCM, NINEA, adresse). | Phase 3 | Mise en page des modèles actuels, sans logo. |
-| D5 | Documents remis au client en PDF seul, ou Word + PDF ? | Phase 3 | PDF au client, Word en interne. |
 | E3 | **Fournisseur WhatsApp** : API WhatsApp Business de Meta (en direct) ou intermédiaire (Twilio, 360dialog…) ? Numéro WhatsApp Business dédié ? Vérification de l’entreprise par Meta à lancer. | Phase 4 | API WhatsApp Business via Twilio ; modèles de messages soumis à approbation. |
 | E5 | Textes des notifications (lot remporté, devis, échéances, départ, ETA modifiée, arrivée, documents prêts, relances). | Phase 4 | Proposés par Claude Code, validés par USA CARS. |
 | F1 | Lien officiel de suivi Grimaldi. | — | Lien tiers TrackingMCP, signalé comme tel. |

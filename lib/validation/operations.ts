@@ -173,15 +173,23 @@ export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 /** Les 4 confirmations de l'annexe B (cases cochées par le client sur l'ordre d'achat signé). */
 export const ACKNOWLEDGEMENT_KEYS = ["vehicle_info", "import_age", "binding_win", "duties_excluded"] as const;
 
-/** Décision du client sur un document (contrat ou ordre d'achat), par scan ou WhatsApp (R15). */
+/**
+ * Décision du client sur un document (contrat, ordre d'achat ou devis), par scan ou WhatsApp (R15).
+ * Devis : l'heure compte (validité, X2) et le choix d'assurance figure dans la même acceptation (X1).
+ */
 export const acceptanceSchema = z
   .object({
     dossierId: z.uuid("Dossier inconnu."),
-    subject: z.enum(["contract", "purchase_order"], "Document inconnu."),
+    subject: z.enum(["contract", "purchase_order", "quote", "extra_cost"], "Document inconnu."),
     subjectId: z.uuid("Document inconnu."),
     method: z.enum(["scanned_paper", "whatsapp"], "Choisissez la méthode d’acceptation."),
     decision: z.enum(["accepted", "refused"], "Indiquez si le client accepte ou refuse."),
     decidedOn: z.iso.date("Saisissez la date de signature ou du message."),
+    decidedTime: z
+      .string()
+      .prefault("")
+      .refine((v) => v === "" || /^([01]\d|2[0-3]):[0-5]\d$/.test(v), "Heure invalide (HH:MM)."),
+    insuranceChoice: z.enum(["accepted", "refused"]).optional(),
     whatsappFrom: z.string().prefault(""),
     notes: optionalText(1000, "1 000 caractères au maximum."),
     ack_vehicle_info: z.string().optional(),
@@ -219,6 +227,28 @@ export const acceptanceSchema = z
         return z.NEVER;
       }
     }
+    let insuranceChoice: "accepted" | "refused" | null = null;
+    if (value.subject === "quote") {
+      if (value.decidedTime === "") {
+        ctx.addIssue({
+          code: "custom",
+          path: ["decidedTime"],
+          message: "Saisissez l’heure de la signature ou du message.",
+        });
+        return z.NEVER;
+      }
+      if (value.decision === "accepted") {
+        if (!value.insuranceChoice) {
+          ctx.addIssue({
+            code: "custom",
+            path: ["insuranceChoice"],
+            message: "Indiquez si le client accepte ou refuse l’assurance transport (option C).",
+          });
+          return z.NEVER;
+        }
+        insuranceChoice = value.insuranceChoice;
+      }
+    }
     return {
       dossierId: value.dossierId,
       subject: value.subject,
@@ -226,6 +256,9 @@ export const acceptanceSchema = z
       method: value.method,
       decision: value.decision,
       decidedOn: value.decidedOn,
+      // Sans heure (contrat, ordre d'achat) : midi à Dakar (UTC+0), pour éviter tout décalage de jour.
+      decidedAt: new Date(`${value.decidedOn}T${value.decidedTime || "12:00"}:00Z`),
+      insuranceChoice,
       notes: value.notes,
       whatsappFrom,
       acknowledgements,

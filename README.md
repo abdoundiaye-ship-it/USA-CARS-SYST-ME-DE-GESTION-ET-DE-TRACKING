@@ -69,8 +69,9 @@ seed fictif, tests pgTAP), `scripts/`, `tests/` (unitaires, e2e), `.github/workf
 ### Comptes de démonstration (local)
 
 Après `pnpm db:reset` : `admin@exemple.test`, `ops@exemple.test`, `compta@exemple.test`, `direction@exemple.test`,
-`client@exemple.test` — mot de passe `DemoUsaCars2026`. Admin et comptabilité configurent la double authentification
-(TOTP) à la première connexion. Les e-mails d’invitation locaux arrivent dans Mailpit (http://127.0.0.1:54324).
+`client@exemple.test` — mot de passe `DemoUsaCars2026`. L’administrateur configure la double authentification
+(TOTP) à la première connexion. La comptabilité et la direction (MFA exigée, décisions A4 et A4-bis) ont déjà un facteur de démonstration :
+ajoutez le secret `JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP` à une application d’authentification. Les e-mails d’invitation locaux arrivent dans Mailpit (http://127.0.0.1:54324).
 
 ### Authentification en production (à faire dans le tableau de bord Supabase, avant la mise en service)
 

@@ -45,7 +45,7 @@ select throws_ok(
 reset role;
 
 -- Direction : lecture seule
-select set_config('request.jwt.claims', '{"sub":"e4444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal1"}', true);
+select set_config('request.jwt.claims', '{"sub":"e4444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal2"}', true);
 set local role authenticated;
 update public.documents set visible_client = false where id = (select id from t where name = 'doc');
 reset role;

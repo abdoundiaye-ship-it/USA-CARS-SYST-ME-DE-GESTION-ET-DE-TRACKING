@@ -10,7 +10,7 @@
 --   admin@exemple.test       Administrateur (MFA à configurer à la première connexion)
 --   ops@exemple.test         Agent opérations
 --   compta@exemple.test      Comptabilité (MFA à configurer à la première connexion)
---   direction@exemple.test   Direction
+--   direction@exemple.test   Direction (MFA déjà configurée : secret de démonstration ci-dessous, décision A4-bis)
 --   client@exemple.test      Client (portail en phase 4)
 
 select set_config('app.actor_label', 'seed:demo', false);
@@ -109,3 +109,126 @@ insert into public.dossiers (
 update public.containers
   set status = 'at_sea', departed_on = current_date - 10, eta = current_date + 12
   where id = 'f1000000-0000-4000-8000-000000000002';
+
+-- ---------------------------------------------------------------------------
+-- Phase 3, lot 3a — taux, comptes officiels FICTIFS (décision C8), forfaits et coûts internes de démonstration.
+-- Comptes activés selon la double validation (Q1) : créés par l'administrateur, approuvés par la direction.
+-- ---------------------------------------------------------------------------
+insert into public.fx_rates (rate, source, captured_at, created_by) values
+  (586.52, 'XE.com — taux moyen du marché (valeur de démonstration)', now() - interval '1 day', 'd0000000-0000-4000-8000-000000000003'),
+  (587.10, 'XE.com — taux moyen du marché (valeur de démonstration)', now() - interval '5 minutes', 'd0000000-0000-4000-8000-000000000003');
+
+insert into public.official_accounts (id, kind, label, holder_name, bank_name, account_number, iban, phone, instructions,
+                                      status, created_by, approved_by, approved_at) values
+  ('a0000000-0000-4000-8000-000000000001', 'bank', 'Compte bancaire Démo (fictif)', 'USA CARS (démo)', 'Banque Démo',
+   'DEMO-0000-0001', 'SN00 DEMO 0000 0000 0000 0001', null, 'Indiquez la référence du dossier en libellé.', 'active',
+   'd0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000004', now()),
+  ('a0000000-0000-4000-8000-000000000002', 'wave', 'Wave Démo (fictif)', 'USA CARS (démo)', null, null, null,
+   '+221770000900', 'Envoyez une capture du transfert au WhatsApp officiel.', 'active',
+   'd0000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000004', now());
+
+insert into public.dossier_forfaits (dossier_id, forfait_a_cents, forfait_b_cents, insurance_cents, updated_by) values
+  ('e0000000-0000-4000-8000-000000000003', 1150000, 320000, 25000, 'd0000000-0000-4000-8000-000000000002');
+
+insert into public.internal_costs (dossier_id, section, category, label, amount_cents, status, created_by) values
+  ('e0000000-0000-4000-8000-000000000003', 'A', 'hammer_price', 'Prix d’adjudication', 950000, 'final', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000003', 'A', 'auction_fees', 'Frais COPART', 95000, 'final', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000003', 'B', 'inland_transport', 'Transport vers Houston', 45000, 'estimated', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000003', 'B', 'ocean_freight', 'Fret maritime (quote-part)', 180000, 'estimated', 'd0000000-0000-4000-8000-000000000002');
+
+-- ---------------------------------------------------------------------------
+-- Phase 3, lot 3b — dossier au lot remporté, prêt pour le devis (paiement 1 dû dans 22 h), avec un dépôt reçu.
+-- Ordre d'achat sans fichier (brouillon du seed) ; coûts internes aux montants distinctifs, pour vérifier qu'ils
+-- n'apparaissent jamais dans le devis ni la facture générés (CLAUDE.md règle 2).
+-- ---------------------------------------------------------------------------
+insert into public.dossiers (
+  id, reference, client_id, owner_id, created_by, stage, status, platform, lot_number, vin, make, model, model_year,
+  vehicle_category, purchase_location, departure_port, auction_result, hammer_price_cents, lot_won_notified_at,
+  payment1_due_at
+) values (
+  'e0000000-0000-4000-8000-000000000004', 'DEMO-2026-0004', 'c0000000-0000-4000-8000-000000000001',
+  'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'purchase', 'won', 'iaa',
+  'DEMO-LOT-1004', '1DEMXXX0000000004', 'Toyota', 'RAV4', 2020, 'passenger', 'Dallas, TX (démo)', 'Houston', 'won',
+  943700, now() - interval '2 hours', now() + interval '22 hours'
+);
+
+insert into public.purchase_orders (dossier_id, auction_at, max_bid_cents, deposit_cents, created_by) values
+  ('e0000000-0000-4000-8000-000000000004', now() - interval '3 hours', 1000000, 250000, 'd0000000-0000-4000-8000-000000000002');
+
+insert into public.dossier_forfaits (dossier_id, forfait_a_cents, forfait_b_cents, insurance_cents, updated_by) values
+  ('e0000000-0000-4000-8000-000000000004', 1180000, 330000, 26000, 'd0000000-0000-4000-8000-000000000002');
+
+insert into public.internal_costs (dossier_id, section, category, label, amount_cents, status, created_by) values
+  ('e0000000-0000-4000-8000-000000000004', 'A', 'hammer_price', 'Prix d’adjudication IAA (démo)', 943700, 'final', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000004', 'A', 'auction_fees', 'Frais IAA (démo)', 87300, 'final', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000004', 'B', 'ocean_freight', 'Fret maritime (démo)', 178100, 'estimated', 'd0000000-0000-4000-8000-000000000002');
+
+insert into public.payments (dossier_id, client_id, purpose, amount_cents, paid_currency, fx_rate_id, fx_rate, fx_captured_at,
+                             fx_rate_same_day, mode, official_account_id, reference, credited_at, recorded_by)
+select 'e0000000-0000-4000-8000-000000000004', 'c0000000-0000-4000-8000-000000000001', 'deposit', 250000, 'USD',
+       r.id, r.rate, r.captured_at, true, 'bank_transfer', 'a0000000-0000-4000-8000-000000000001', 'DEMO-VIR-0001',
+       r.captured_at + interval '1 minute', 'd0000000-0000-4000-8000-000000000003'
+from public.fx_rates r where r.rate = 586.52;
+
+-- ---------------------------------------------------------------------------
+-- Phase 3, lot 3c — dossier en mer, prêt pour la facture de solde : devis DEMO accepté (assurance acceptée),
+-- paiement 1 réglé, conteneur avec B/L et ETA. Numéros « DEMO-… » (hors séquences réelles, CLAUDE.md règle 8).
+-- ---------------------------------------------------------------------------
+insert into public.dossiers (
+  id, reference, client_id, owner_id, created_by, stage, status, platform, lot_number, vin, make, model, model_year,
+  vehicle_category, purchase_location, departure_port, auction_result, hammer_price_cents, lot_won_notified_at,
+  payment1_due_at, created_at
+) values (
+  'e0000000-0000-4000-8000-000000000005', 'DEMO-2026-0005', 'c0000000-0000-4000-8000-000000000002',
+  'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'ocean', 'at_sea', 'copart',
+  'DEMO-LOT-1005', '1DEMXXX0000000005', 'Hyundai', 'Tucson', 2021, 'passenger', 'Savannah, GA (démo)', 'Houston',
+  'won', 900000, now() - interval '20 days', now() - interval '19 days', now() - interval '25 days'
+);
+
+insert into public.dossier_forfaits (dossier_id, forfait_a_cents, forfait_b_cents, insurance_cents, updated_by) values
+  ('e0000000-0000-4000-8000-000000000005', 1050000, 300000, 20000, 'd0000000-0000-4000-8000-000000000002');
+
+insert into public.financial_documents (
+  id, dossier_id, client_id, doc_type, number, status, forfait_a_cents, forfait_b_cents, insurance_premium_cents,
+  insurance_choice, total_cents, amount_due_cents, fx_rate_id, fx_rate, fx_source, fx_captured_at, edition_fx_rate,
+  edition_fx_captured_at, issued_at, valid_until, decided_at, issued_by
+)
+select 'b0000000-0000-4000-8000-000000000005', 'e0000000-0000-4000-8000-000000000005',
+       'c0000000-0000-4000-8000-000000000002', 'quote', 'DEMO-DV-0005', 'accepted', 1050000, 300000, 20000, 'accepted',
+       1350000, 1350000, r.id, r.rate, r.source, r.captured_at, r.rate, r.captured_at, now() - interval '20 days',
+       now() - interval '19 days', now() - interval '20 days', 'd0000000-0000-4000-8000-000000000002'
+from public.fx_rates r where r.rate = 586.52;
+
+insert into public.financial_documents (
+  id, dossier_id, client_id, doc_type, number, status, quote_id, forfait_a_cents, insurance_premium_cents,
+  insurance_choice, total_cents, amount_due_cents, fx_rate_id, fx_rate, fx_source, fx_captured_at, edition_fx_rate,
+  edition_fx_captured_at, issued_at, due_at, issued_by
+)
+select 'b0000000-0000-4000-8000-000000000006', 'e0000000-0000-4000-8000-000000000005',
+       'c0000000-0000-4000-8000-000000000002', 'deposit_invoice', 'DEMO-FA-0005', 'paid',
+       'b0000000-0000-4000-8000-000000000005', 1050000, 20000, 'accepted', 1050000, 1050000, r.id, r.rate, r.source,
+       r.captured_at, r.rate, r.captured_at, now() - interval '20 days', now() - interval '19 days',
+       'd0000000-0000-4000-8000-000000000003'
+from public.fx_rates r where r.rate = 586.52;
+
+insert into public.payments (dossier_id, client_id, purpose, amount_cents, paid_currency, fx_rate_id, fx_rate, fx_captured_at,
+                             fx_rate_same_day, mode, official_account_id, reference, credited_at, recorded_by)
+select 'e0000000-0000-4000-8000-000000000005', 'c0000000-0000-4000-8000-000000000002', 'payment1', 1050000, 'USD',
+       r.id, r.rate, r.captured_at, false, 'bank_transfer', 'a0000000-0000-4000-8000-000000000001', 'DEMO-VIR-0005',
+       now() - interval '19 days 2 hours', 'd0000000-0000-4000-8000-000000000003'
+from public.fx_rates r where r.rate = 586.52;
+
+insert into public.dossier_containers (dossier_id, container_id, assigned_by) values
+  ('e0000000-0000-4000-8000-000000000005', 'f1000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000002');
+
+-- ---------------------------------------------------------------------------
+-- Décisions A4 et A4-bis : la comptabilité et la direction sont soumises à la double authentification. Pour les
+-- essais LOCAUX et les tests, leurs comptes de démonstration ont déjà un facteur TOTP vérifié, de secret connu (à
+-- saisir dans une application d'authentification) : JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP. L'administrateur, lui,
+-- configure sa double authentification à la première connexion (parcours testé).
+-- ---------------------------------------------------------------------------
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
+values ('d1000000-0000-4000-8000-000000000004', 'd0000000-0000-4000-8000-000000000004', 'Démonstration', 'totp',
+        'verified', now(), now(), 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'),
+       ('d1000000-0000-4000-8000-000000000003', 'd0000000-0000-4000-8000-000000000003', 'Démonstration', 'totp',
+        'verified', now(), now(), 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP');

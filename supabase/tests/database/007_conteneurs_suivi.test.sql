@@ -121,7 +121,10 @@ select throws_ok(
   $$ insert into public.tracking_events (container_id, occurred_at, kind, label) values ((select id from t where name = 'container'), now(), 'arrival', 'Faux') $$,
   '42501', null, 'L’arrivée ne se saisit que par l’action dédiée (ATA)'
 );
+-- Confirmation enregistrée en phase 2 (donnée existante) : toujours prise en compte (lot 3d).
+reset role;
 insert into public.dossier_confirmations (dossier_id, code) values ((select id from t where name = 'dossier'), 'balance_invoice_issued');
+set local role authenticated;
 select is(public.advance_stage((select id from t where name = 'dossier')), 'ocean'::public.dossier_stage,
   'Conteneur → Maritime quand les conditions sont remplies');
 select is((select status from public.dossiers where id = (select id from t where name = 'dossier')), 'booking_confirmed',

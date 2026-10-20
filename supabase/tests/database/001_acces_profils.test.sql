@@ -2,7 +2,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(26);
+select plan(27);
 
 -- Jeu d'essai fictif (@exemple.test)
 insert into auth.users (id, email) values
@@ -52,10 +52,14 @@ set local role authenticated;
 select is(public.current_role_app(), 'accounting'::public.app_role, 'Comptabilité avec MFA : rôle accounting');
 reset role;
 
--- Direction : MFA non imposée (A4)
+-- Direction : MFA exigée (décision A4-bis du 19/10/2026)
 select set_config('request.jwt.claims', '{"sub":"44444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal1"}', true);
 set local role authenticated;
-select is(public.current_role_app(), 'management'::public.app_role, 'Direction sans MFA : rôle management (A4)');
+select is(public.current_role_app(), null::public.app_role, 'Direction sans MFA : aucun rôle effectif (A4-bis)');
+reset role;
+select set_config('request.jwt.claims', '{"sub":"44444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal2"}', true);
+set local role authenticated;
+select is(public.current_role_app(), 'management'::public.app_role, 'Direction avec MFA : rôle management');
 select is((select count(*) from public.profiles where email like 'pgtap.%@exemple.test'), 6::bigint, 'Direction : lit tous les profils');
 reset role;
 
@@ -89,7 +93,7 @@ select is(public.is_internal(), false, 'Compte désactivé : pas d’accès inte
 reset role;
 
 -- Direction : lecture seule
-select set_config('request.jwt.claims', '{"sub":"44444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal1"}', true);
+select set_config('request.jwt.claims', '{"sub":"44444444-4444-4444-4444-444444444444","role":"authenticated","aal":"aal2"}', true);
 set local role authenticated;
 update public.profiles set full_name = 'Modifié' where id = '22222222-2222-2222-2222-222222222222';
 reset role;

@@ -6,6 +6,7 @@ import {
   type DashboardContainer,
   type DashboardData,
   type DashboardDossier,
+  type DashboardFinance,
 } from "./dashboard";
 
 const now = new Date("2026-10-19T12:00:00Z");
@@ -128,5 +129,86 @@ describe("progression calendaire (jamais une position)", () => {
     expect(calendarProgress({ departed_on: null, eta: "2026-10-29", ata: null }, now)).toBeNull();
     expect(calendarProgress({ departed_on: "2026-10-09", eta: "2026-10-12", ata: null }, now)).toBe(1);
     expect(calendarProgress({ departed_on: "2026-10-09", eta: "2026-10-29", ata: "2026-10-18" }, now)).toBe(1);
+  });
+});
+
+describe("tableau de bord financier (lot 3d)", () => {
+  const finance = (over: Partial<DashboardFinance>): DashboardFinance => ({
+    dossier_id: "f",
+    reference: "UC-2026-0009",
+    has_accepted_quote: true,
+    payment1_remaining_cents: 0,
+    balance_remaining_cents: 0,
+    payment1_due_at: "2026-10-10T12:00:00Z",
+    balance_due_at: null,
+    quote_expired: false,
+    proposed_late_fees: 0,
+    pending_client_extra_costs: 0,
+    overdue_refunds: 0,
+    ownership_transferred_at: null,
+    documents_released: false,
+    release_due_at: null,
+    ...over,
+  });
+
+  it("paiement 1 : situation réelle dès le devis accepté (les confirmations manuelles ne comptent plus)", () => {
+    const d = dossier({
+      id: "f",
+      reference: "UC-2026-0009",
+      stage: "purchase",
+      payment1_due_at: "2026-10-10T12:00:00Z",
+    });
+    const paid = { ...empty, dossiers: [d], finance: [finance({})] };
+    expect(buildTodoList(paid, thresholds, now)).toEqual([]);
+    const unpaid = { ...empty, dossiers: [d], finance: [finance({ payment1_remaining_cents: 5000 })] };
+    expect(buildTodoList(unpaid, thresholds, now).map((i) => i.kind)).toEqual(["payment1_overdue"]);
+  });
+
+  it("solde et remboursement en retard, devis expiré, décisions à prendre ; tri par gravité", () => {
+    const data = {
+      ...empty,
+      finance: [
+        finance({ dossier_id: "q", reference: "Q", quote_expired: true }),
+        finance({
+          dossier_id: "s",
+          reference: "S",
+          balance_remaining_cents: 30000,
+          balance_due_at: "2026-10-18T00:00:00Z",
+        }),
+        finance({ dossier_id: "r", reference: "R", overdue_refunds: 1 }),
+        finance({ dossier_id: "v", reference: "V", proposed_late_fees: 2, pending_client_extra_costs: 1 }),
+      ],
+    };
+    const todo = buildTodoList(data, thresholds, now);
+    expect(todo.map((i) => i.kind)).toEqual([
+      "balance_overdue",
+      "refund_overdue",
+      "quote_expired",
+      "finance_to_validate",
+    ]);
+    expect(todo[3]!.label).toBe("Frais de retard à valider · Frais supplémentaires : accord du client attendu");
+    expect(todo.every((i) => !/\$US|FCFA/.test(i.label))).toBe(true); // aucun montant dans la liste
+  });
+
+  it("remise des documents après le paiement intégral, urgente une fois le délai dépassé (R9)", () => {
+    const pending = finance({
+      ownership_transferred_at: "2026-10-15T10:00:00Z",
+      release_due_at: "2026-10-17T10:00:00Z",
+    });
+    expect(buildTodoList({ ...empty, finance: [pending] }, thresholds, now)[0]).toMatchObject({
+      kind: "documents_to_release",
+      severity: "danger",
+    });
+    expect(buildTodoList({ ...empty, finance: [{ ...pending, documents_released: true }] }, thresholds, now)).toEqual(
+      [],
+    );
+  });
+
+  it("indicateur : total des soldes dus, trop-perçus exclus", () => {
+    const data = {
+      ...empty,
+      finance: [finance({ balance_remaining_cents: 30000 }), finance({ balance_remaining_cents: -5000 })],
+    };
+    expect(buildIndicators(data, 7, [], now).balanceDueCents).toBe(30000);
   });
 });

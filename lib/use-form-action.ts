@@ -21,7 +21,9 @@ export function useFormAction(action: ServerAction, { resetOnSuccess = false } =
 
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
+    // Le bouton cliqué (name/value) fait partie de la saisie : ex. « Ajouter au solde » / « Écarter ».
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    const formData = new FormData(event.currentTarget, submitter instanceof HTMLButtonElement ? submitter : null);
     startTransition(() => dispatch(formData));
   };
 

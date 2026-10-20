@@ -11,11 +11,12 @@ const UNAVAILABLE = "Le service de génération des documents ne répond pas. R�
 
 type Attempt = GenerateDocumentResult & { transient?: boolean };
 
-async function invokeOnce(dossierId: string, kind: GeneratedDocumentKind): Promise<Attempt> {
+type InvokeBody =
+  { dossierId: string; kind: GeneratedDocumentKind } | { financialDocumentId: string; kind: "financial_document" };
+
+async function invokeOnce(body: InvokeBody): Promise<Attempt> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.functions.invoke<{ id: string }>("generate-document", {
-    body: { dossierId, kind },
-  });
+  const { data, error } = await supabase.functions.invoke<{ id: string }>("generate-document", { body });
   if (data?.id && !error) return { ok: true, id: data.id };
 
   if (error instanceof FunctionsHttpError) {
@@ -39,10 +40,22 @@ export async function generateDocument(
   dossierId: string,
   kind: GeneratedDocumentKind,
 ): Promise<GenerateDocumentResult> {
-  const first = await invokeOnce(dossierId, kind);
+  return invokeWithRetry({ dossierId, kind });
+}
+
+/**
+ * Fichier Word d'un devis ou d'une facture déjà émis (numéro et montants figés en base) ; rattaché une seule fois.
+ * Rejouable : si le fichier est déjà rattaché, la fonction refuse sans rien créer.
+ */
+export async function generateFinancialDocumentFile(financialDocumentId: string): Promise<GenerateDocumentResult> {
+  return invokeWithRetry({ financialDocumentId, kind: "financial_document" });
+}
+
+async function invokeWithRetry(body: InvokeBody): Promise<GenerateDocumentResult> {
+  const first = await invokeOnce(body);
   if (first.ok || !first.transient) return first;
   await new Promise((resolve) => setTimeout(resolve, 500));
-  const second = await invokeOnce(dossierId, kind);
+  const second = await invokeOnce(body);
   return second.ok ? second : { ok: false, message: second.message };
 }
 

@@ -35,9 +35,17 @@ export default async function ParametresPage() {
             : "Valeurs appliquées par l’application (consultation)."
         }
       >
-        <Link href="/parametres/transporteurs" className="text-primary text-sm font-medium underline">
-          Transporteurs et liens de suivi →
-        </Link>
+        <div className="flex flex-col gap-1 sm:items-end">
+          <Link href="/parametres/transporteurs" className="text-primary text-sm font-medium underline">
+            Transporteurs et liens de suivi →
+          </Link>
+          <Link href="/parametres/comptes-officiels" className="text-primary text-sm font-medium underline">
+            Comptes officiels de paiement →
+          </Link>
+          <Link href="/parametres/jours-feries" className="text-primary text-sm font-medium underline">
+            Jours fériés (jours ouvrés) →
+          </Link>
+        </div>
       </PageHeader>
 
       {toConfirm > 0 && (

@@ -24,7 +24,13 @@ export type DocumentKind =
   | "power_of_attorney"
   | "release_receipt"
   | "photos"
-  | "other";
+  | "cost_receipt"
+  | "other"
+  | "quote"
+  | "deposit_invoice"
+  | "balance_invoice"
+  | "cash_receipt"
+  | "refund_note";
 export type ContractStatus = "pending" | "accepted" | "refused";
 export type AcceptanceSubject = "contract" | "purchase_order" | "quote" | "extra_cost";
 export type AcceptanceDecision = "accepted" | "refused";
@@ -44,7 +50,11 @@ export type DossierEventKind =
   | "container_assigned"
   | "container_changed"
   | "eta_changed"
-  | "tracking_event";
+  | "tracking_event"
+  | "financial_document"
+  | "payment_recorded"
+  | "adjustment"
+  | "refund";
 export type ContainerStatus =
   | "booking_confirmed"
   | "departure_planned"
@@ -114,6 +124,8 @@ export type DossierRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** R9 : paiement intégral, propriété transférée (renseigné par la base). */
+  ownership_transferred_at: string | null;
 };
 
 /**
@@ -196,6 +208,8 @@ export type AcceptanceRow = {
   portal_ip: string | null;
   portal_session: string | null;
   acknowledgements: Json | null;
+  /** Devis : choix de l'assurance transport dans la même acceptation (X1). */
+  insurance_choice: "accepted" | "refused" | null;
   notes: string | null;
   recorded_by: string | null;
   recorded_at: string;
@@ -297,6 +311,264 @@ export type DossierContainerRow = {
   removed_by: string | null;
   removal_reason: string | null;
 };
+
+export type FxRateRow = {
+  id: string;
+  /** numeric(12,4) : renvoyé en nombre par PostgREST ; manipulé en chaîne exacte pour les calculs (lib/money/fx). */
+  rate: number;
+  source: string;
+  captured_at: string;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type OfficialAccountKind = "bank" | "wave" | "orange_money" | "cash_office";
+export type OfficialAccountRow = {
+  id: string;
+  kind: OfficialAccountKind;
+  label: string;
+  holder_name: string;
+  bank_name: string | null;
+  account_number: string | null;
+  iban: string | null;
+  swift: string | null;
+  phone: string | null;
+  instructions: string | null;
+  status: "pending_approval" | "active" | "inactive";
+  replaces_id: string | null;
+  created_by: string;
+  created_at: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  deactivated_by: string | null;
+  deactivated_at: string | null;
+  deactivation_reason: string | null;
+};
+
+export type CostSection = "A" | "B";
+export type CostCategory =
+  | "hammer_price"
+  | "auction_fees"
+  | "us_taxes"
+  | "acquisition_other"
+  | "inland_transport"
+  | "loading"
+  | "ocean_freight"
+  | "port_fees"
+  | "documentation"
+  | "logistics_other";
+export type InternalCostRow = {
+  id: string;
+  dossier_id: string;
+  section: CostSection;
+  category: CostCategory;
+  label: string | null;
+  amount_cents: number;
+  status: "estimated" | "final";
+  document_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DossierForfaitsRow = {
+  dossier_id: string;
+  forfait_a_cents: number | null;
+  forfait_b_cents: number | null;
+  insurance_cents: number | null;
+  mode: "manual" | "proposed_with_approval";
+  proposed_a_cents: number | null;
+  proposed_b_cents: number | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FinancialDocType = "quote" | "deposit_invoice" | "balance_invoice" | "cash_receipt" | "refund_note";
+export type FinancialDocStatus = "issued" | "accepted" | "refused" | "expired" | "paid" | "cancelled";
+export type InsuranceChoice = "pending" | "accepted" | "refused";
+/** Devis et factures émis (R3) : lignes visibles du client uniquement — jamais de coût interne. */
+export type FinancialDocumentRow = {
+  id: string;
+  dossier_id: string;
+  client_id: string;
+  doc_type: FinancialDocType;
+  number: string;
+  status: FinancialDocStatus;
+  quote_id: string | null;
+  forfait_a_cents: number | null;
+  forfait_b_cents: number | null;
+  insurance_premium_cents: number;
+  insurance_choice: InsuranceChoice;
+  vat_rate_percent: number;
+  vat_cents: number;
+  insurance_vat_cents: number;
+  total_cents: number;
+  deposit_applied_cents: number;
+  deposit_excess_cents: number;
+  amount_due_cents: number;
+  fx_rate_id: string;
+  fx_rate: number;
+  fx_source: string;
+  fx_captured_at: string;
+  edition_fx_rate: number;
+  edition_fx_captured_at: string;
+  issued_at: string;
+  valid_until: string | null;
+  due_at: string | null;
+  decided_at: string | null;
+  document_id: string | null;
+  document_sha256: string | null;
+  template_version: string | null;
+  cancelled_reason: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  issued_by: string | null;
+  updated_at: string;
+  /** Facture de solde : total des lignes D, ETA de référence figée (R4). */
+  adjustments_cents: number;
+  reference_eta: string | null;
+  /** Reçu espèces : paiement ; note de remboursement : remboursement. */
+  payment_id: string | null;
+  refund_id: string | null;
+};
+
+export type PaymentMode = "bank_transfer" | "wave" | "orange_money" | "cash";
+export type PaymentRow = {
+  id: string;
+  dossier_id: string;
+  client_id: string;
+  purpose: "deposit" | "payment1" | "balance";
+  amount_cents: number;
+  paid_currency: "USD" | "XOF";
+  amount_xof: number | null;
+  fx_rate_id: string | null;
+  fx_rate: number | null;
+  fx_captured_at: string | null;
+  fx_rate_same_day: boolean;
+  mode: PaymentMode;
+  official_account_id: string | null;
+  reference: string;
+  credited_at: string;
+  proof_document_id: string | null;
+  notes: string | null;
+  recorded_by: string | null;
+  recorded_at: string;
+  cancelled_reason: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  receipt_id: string | null;
+};
+
+export type AdjustmentKind = "extra_cost" | "late_fee" | "discount";
+export type AdjustmentStatus = "proposed" | "pending_client_approval" | "approved" | "rejected" | "cancelled";
+/** Ligne D (R2) : frais supplémentaires (R7), frais de retard (R5), remises. */
+export type AdjustmentRow = {
+  id: string;
+  dossier_id: string;
+  client_id: string;
+  kind: AdjustmentKind;
+  label: string;
+  section: "A" | "B" | null;
+  amount_cents: number;
+  status: AdjustmentStatus;
+  urgent: boolean;
+  reason: string | null;
+  proof_document_id: string | null;
+  late_fee_target: "payment1" | "balance" | null;
+  late_fee_period: number | null;
+  financial_document_id: string | null;
+  decided_at: string | null;
+  decided_by: string | null;
+  decision_note: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type RefundReason = "overpayment" | "deposit_excess" | "lot_not_won" | "cancellation";
+export type RefundStatus = "requested" | "approved" | "paid" | "rejected";
+export type RefundRow = {
+  id: string;
+  dossier_id: string;
+  client_id: string;
+  reason: RefundReason;
+  amount_cents: number;
+  mode: PaymentMode;
+  beneficiary: string;
+  status: RefundStatus;
+  requested_at: string;
+  requested_by: string | null;
+  due_by: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  rejection_reason: string | null;
+  paid_at: string | null;
+  payment_reference: string | null;
+  proof_document_id: string | null;
+  fx_rate: number | null;
+  refund_note_id: string | null;
+};
+
+/** Situation financière d'un dossier (fonction dossier_balance). */
+export type DossierBalance = {
+  a_total_cents: number;
+  total_due_cents: number;
+  paid_cents: number;
+  refunded_cents: number;
+  net_paid_cents: number;
+  payment1_remaining_cents: number;
+  balance_remaining_cents: number;
+  pending_refunds_cents: number;
+  adjustments_cents: number;
+  has_accepted_quote: boolean;
+};
+
+/** US-3.11 : remise des documents (R9). */
+export type DocumentReleaseRow = {
+  id: string;
+  dossier_id: string;
+  client_id: string;
+  released_at: string;
+  beneficiary_kind: "client" | "representative";
+  beneficiary_name: string;
+  id_document_type: IdDocumentType;
+  id_document_number: string;
+  power_of_attorney_document_id: string | null;
+  discharge_document_id: string;
+  notes: string | null;
+  recorded_by: string | null;
+  recorded_at: string;
+};
+
+/** Vue d'ensemble financière d'un dossier (fonction finance_overview, internes uniquement). */
+export type FinanceOverviewRow = {
+  dossier_id: string;
+  reference: string;
+  client_name: string;
+  stage: DossierStage;
+  dossier_status: string;
+  total_due_cents: number;
+  net_paid_cents: number;
+  payment1_remaining_cents: number;
+  balance_remaining_cents: number;
+  payment1_due_at: string | null;
+  balance_due_at: string | null;
+  has_accepted_quote: boolean;
+  quote_expired: boolean;
+  balance_invoice_issued: boolean;
+  proposed_late_fees: number;
+  pending_client_extra_costs: number;
+  open_refunds: number;
+  overdue_refunds: number;
+  ownership_transferred_at: string | null;
+  documents_released: boolean;
+  release_due_at: string | null;
+};
+
+/** Jours fériés au Sénégal (jours ouvrés, décision du 20/10/2026). */
+export type PublicHolidayRow = { day: string; label: string; created_by: string | null; created_at: string };
 
 export type DossierConfirmationRow = {
   dossier_id: string;
@@ -557,6 +829,66 @@ export type Database = {
           },
         ];
       };
+      fx_rates: {
+        Row: FxRateRow;
+        Insert: InsertOf<FxRateRow, "rate" | "source" | "captured_at">;
+        Update: never;
+        Relationships: [];
+      };
+      official_accounts: {
+        Row: OfficialAccountRow;
+        Insert: never; // via create_official_account
+        Update: never; // via approve_official_account / deactivate_official_account
+        Relationships: [];
+      };
+      internal_costs: {
+        Row: InternalCostRow;
+        Insert: InsertOf<InternalCostRow, "dossier_id" | "section" | "category" | "amount_cents">;
+        Update: Partial<Pick<InternalCostRow, "label" | "amount_cents" | "status" | "document_id">>;
+        Relationships: [];
+      };
+      dossier_forfaits: {
+        Row: DossierForfaitsRow;
+        Insert: InsertOf<DossierForfaitsRow, "dossier_id">;
+        Update: Partial<Pick<DossierForfaitsRow, "forfait_a_cents" | "forfait_b_cents" | "insurance_cents">>;
+        Relationships: [];
+      };
+      financial_documents: {
+        Row: FinancialDocumentRow;
+        Insert: never; // via issue_quote / issue_deposit_invoice
+        Update: never; // via cancel_financial_document / register_financial_document_file / acceptances
+        Relationships: [];
+      };
+      payments: {
+        Row: PaymentRow;
+        Insert: never; // via record_deposit / record_payment
+        Update: never; // via cancel_payment
+        Relationships: [];
+      };
+      adjustments: {
+        Row: AdjustmentRow;
+        Insert: never; // via add_extra_cost / add_discount / propose_late_fees
+        Update: never; // via decide_late_fee / cancel_adjustment / acceptances
+        Relationships: [];
+      };
+      public_holidays: {
+        Row: PublicHolidayRow;
+        Insert: Pick<PublicHolidayRow, "day" | "label">;
+        Update: never;
+        Relationships: [];
+      };
+      document_releases: {
+        Row: DocumentReleaseRow;
+        Insert: never; // via record_document_release
+        Update: never;
+        Relationships: [];
+      };
+      refunds: {
+        Row: RefundRow;
+        Insert: never; // demandes créées par la base (trop-perçu, excédent de dépôt, lot non remporté)
+        Update: never; // via decide_refund / execute_refund
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -661,6 +993,114 @@ export type Database = {
       record_container_departure: { Args: { p_container_id: string; p_departed_on: string }; Returns: undefined };
       record_container_arrival: { Args: { p_container_id: string; p_ata: string }; Returns: undefined };
       mark_container_checked: { Args: { p_container_id: string }; Returns: undefined };
+      fx_rate_as_of: {
+        Args: { p_at: string };
+        Returns: { id: string; rate: number; source: string; captured_at: string }[];
+      };
+      fx_rate_exists_on: { Args: { p_day: string }; Returns: boolean };
+      create_official_account: {
+        Args: {
+          p_kind: OfficialAccountKind;
+          p_label: string;
+          p_holder_name: string;
+          p_bank_name?: string;
+          p_account_number?: string;
+          p_iban?: string;
+          p_swift?: string;
+          p_phone?: string;
+          p_instructions?: string;
+          p_replaces_id?: string;
+        };
+        Returns: string;
+      };
+      approve_official_account: { Args: { p_account_id: string }; Returns: undefined };
+      deactivate_official_account: { Args: { p_account_id: string; p_reason: string }; Returns: undefined };
+      is_finance_writer: { Args: Record<string, never>; Returns: boolean };
+      is_quote_writer: { Args: Record<string, never>; Returns: boolean };
+      expire_due_quotes: { Args: { p_dossier_id?: string }; Returns: number };
+      issue_quote: { Args: { p_dossier_id: string }; Returns: string };
+      issue_deposit_invoice: { Args: { p_dossier_id: string }; Returns: string };
+      cancel_financial_document: { Args: { p_id: string; p_reason: string }; Returns: undefined };
+      register_financial_document_file: {
+        Args: {
+          p_financial_document_id: string;
+          p_storage_path: string;
+          p_file_name: string;
+          p_size_bytes: number;
+          p_sha256: string;
+          p_template_version: string;
+        };
+        Returns: string;
+      };
+      record_deposit: {
+        Args: {
+          p_dossier_id: string;
+          p_paid_currency: "USD" | "XOF";
+          p_amount_cents: number | null;
+          p_amount_xof: number | null;
+          p_mode: PaymentMode;
+          p_official_account_id: string | null;
+          p_reference: string;
+          p_credited_at: string;
+          p_proof_document_id?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: string;
+      };
+      cancel_payment: { Args: { p_payment_id: string; p_reason: string }; Returns: undefined };
+      dossier_balance: { Args: { p_dossier_id: string }; Returns: DossierBalance[] };
+      finance_overview: { Args: Record<string, never>; Returns: FinanceOverviewRow[] };
+      record_document_release: {
+        Args: {
+          p_dossier_id: string;
+          p_beneficiary_kind: "client" | "representative";
+          p_beneficiary_name: string;
+          p_id_document_type: IdDocumentType;
+          p_id_document_number: string;
+          p_discharge_document_id: string;
+          p_power_of_attorney_document_id?: string | null;
+          p_released_at?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: string;
+      };
+      record_payment: {
+        Args: {
+          p_dossier_id: string;
+          p_paid_currency: "USD" | "XOF";
+          p_amount_cents: number | null;
+          p_amount_xof: number | null;
+          p_mode: PaymentMode;
+          p_official_account_id: string | null;
+          p_reference: string;
+          p_credited_at: string;
+          p_proof_document_id?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: string;
+      };
+      issue_balance_invoice: { Args: { p_dossier_id: string }; Returns: string };
+      propose_late_fees: { Args: Record<string, never>; Returns: number };
+      add_extra_cost: {
+        Args: {
+          p_dossier_id: string;
+          p_section: "A" | "B";
+          p_label: string;
+          p_amount_cents: number;
+          p_proof_document_id: string;
+          p_urgent?: boolean;
+          p_reason?: string | null;
+        };
+        Returns: string;
+      };
+      add_discount: { Args: { p_dossier_id: string; p_label: string; p_amount_cents: number }; Returns: string };
+      decide_late_fee: { Args: { p_adjustment_id: string; p_approve: boolean; p_note?: string | null }; Returns: undefined };
+      cancel_adjustment: { Args: { p_adjustment_id: string; p_reason: string }; Returns: undefined };
+      decide_refund: { Args: { p_refund_id: string; p_approve: boolean; p_reason?: string | null }; Returns: undefined };
+      execute_refund: {
+        Args: { p_refund_id: string; p_paid_at: string; p_reference: string; p_proof_document_id: string };
+        Returns: string;
+      };
       log_audit: {
         Args: {
           p_action: string;
