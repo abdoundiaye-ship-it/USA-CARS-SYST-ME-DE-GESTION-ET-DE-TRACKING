@@ -490,6 +490,22 @@
       "status": "a_confirmer",
       "source": "Hypothèse de Claude Code (lot 2d) : une ETA modifiée reste signalée pendant ce nombre de jours",
       "lot": "phase2d"
+    },
+    {
+      "key": "client_auth.link_ttl_minutes",
+      "value": 15,
+      "type": "integer",
+      "status": "confirme",
+      "source": "R16 et US-4.1 : lien ou code à usage unique, expiration 15 minutes",
+      "lot": "phase4a"
+    },
+    {
+      "key": "client_auth.max_links_per_hour",
+      "value": 5,
+      "type": "integer",
+      "status": "a_confirmer",
+      "source": "Hypothèse phase 4 : limite anti-abus des demandes de lien de connexion par compte client",
+      "lot": "phase4a"
     }
   ],
   "carriers": [

@@ -50,6 +50,22 @@ export async function requireInternal(allowed?: readonly AppRole[]): Promise<Int
   return access as InternalAccess;
 }
 
+export type ClientAccess = Access & { role: "client" };
+
+/** Garde de l'espace client (portail, US-4.x) : client connecté et actif ; les données sont filtrées par la RLS. */
+export async function requireClient(): Promise<ClientAccess> {
+  const access = await getAccess();
+  if (!access) redirect("/connexion/client");
+  if (access.role !== "client" || !access.active) redirect(access.role ? "/" : "/acces-refuse");
+  return access as ClientAccess;
+}
+
+/** Variante pour les actions serveur du portail : null si l'utilisateur n'est pas un client actif. */
+export async function getClientAccess(): Promise<ClientAccess | null> {
+  const access = await getAccess();
+  return access && access.role === "client" && access.active ? (access as ClientAccess) : null;
+}
+
 /** Variante pour les actions serveur : renvoie null au lieu de rediriger. */
 export async function getInternalAccess(allowed?: readonly AppRole[]): Promise<InternalAccess | null> {
   const access = await getAccess();
