@@ -88,6 +88,8 @@ export const SETTING_LABELS: Record<string, string> = {
   "numbering.balance_invoice": "Format — facture de solde",
   "numbering.cash_receipt": "Format — reçu espèces",
   "numbering.refund_note": "Format — note de remboursement",
+  "numbering.reminder_letter": "Format — lettre de relance",
+  "numbering.formal_notice": "Format — mise en demeure",
   "numbering.reset": "Remise à zéro des compteurs",
   "auth.mfa_required_roles": "Rôles soumis à la double authentification",
   "company.legal_form": "Forme juridique",
