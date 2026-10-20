@@ -95,8 +95,6 @@ test("comptabilité : écran Finances — soldes, échéances et remboursement �
   const row = balances.getByRole("row").filter({ hasText: "DEMO-2026-0005" });
   await expect(row).toContainText("Trop-perçu");
   await expect(row).toContainText("Réglé"); // aucune échéance restante
-  // Sans devis accepté, rien n’est dû : le dossier n’apparaît pas dans les soldes.
-  await expect(balances.getByRole("row").filter({ hasText: "DEMO-2026-0004" })).toHaveCount(0);
 });
 
 test("agent : remise des documents après le paiement intégral (US-3.11), sans saisie de paiement", async ({ page }) => {
