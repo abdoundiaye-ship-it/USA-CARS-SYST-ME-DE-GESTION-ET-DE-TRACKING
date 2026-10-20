@@ -124,6 +124,8 @@ export type DossierRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** R9 : paiement intégral, propriété transférée (renseigné par la base). */
+  ownership_transferred_at: string | null;
 };
 
 /**
@@ -523,6 +525,48 @@ export type DossierBalance = {
   has_accepted_quote: boolean;
 };
 
+/** US-3.11 : remise des documents (R9). */
+export type DocumentReleaseRow = {
+  id: string;
+  dossier_id: string;
+  client_id: string;
+  released_at: string;
+  beneficiary_kind: "client" | "representative";
+  beneficiary_name: string;
+  id_document_type: IdDocumentType;
+  id_document_number: string;
+  power_of_attorney_document_id: string | null;
+  discharge_document_id: string;
+  notes: string | null;
+  recorded_by: string | null;
+  recorded_at: string;
+};
+
+/** Vue d'ensemble financière d'un dossier (fonction finance_overview, internes uniquement). */
+export type FinanceOverviewRow = {
+  dossier_id: string;
+  reference: string;
+  client_name: string;
+  stage: DossierStage;
+  dossier_status: string;
+  total_due_cents: number;
+  net_paid_cents: number;
+  payment1_remaining_cents: number;
+  balance_remaining_cents: number;
+  payment1_due_at: string | null;
+  balance_due_at: string | null;
+  has_accepted_quote: boolean;
+  quote_expired: boolean;
+  balance_invoice_issued: boolean;
+  proposed_late_fees: number;
+  pending_client_extra_costs: number;
+  open_refunds: number;
+  overdue_refunds: number;
+  ownership_transferred_at: string | null;
+  documents_released: boolean;
+  release_due_at: string | null;
+};
+
 export type DossierConfirmationRow = {
   dossier_id: string;
   code: ConfirmationCode;
@@ -824,6 +868,12 @@ export type Database = {
         Update: never; // via decide_late_fee / cancel_adjustment / acceptances
         Relationships: [];
       };
+      document_releases: {
+        Row: DocumentReleaseRow;
+        Insert: never; // via record_document_release
+        Update: never;
+        Relationships: [];
+      };
       refunds: {
         Row: RefundRow;
         Insert: never; // demandes créées par la base (trop-perçu, excédent de dépôt, lot non remporté)
@@ -990,6 +1040,21 @@ export type Database = {
       };
       cancel_payment: { Args: { p_payment_id: string; p_reason: string }; Returns: undefined };
       dossier_balance: { Args: { p_dossier_id: string }; Returns: DossierBalance[] };
+      finance_overview: { Args: Record<string, never>; Returns: FinanceOverviewRow[] };
+      record_document_release: {
+        Args: {
+          p_dossier_id: string;
+          p_beneficiary_kind: "client" | "representative";
+          p_beneficiary_name: string;
+          p_id_document_type: IdDocumentType;
+          p_id_document_number: string;
+          p_discharge_document_id: string;
+          p_power_of_attorney_document_id?: string | null;
+          p_released_at?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: string;
+      };
       record_payment: {
         Args: {
           p_dossier_id: string;
