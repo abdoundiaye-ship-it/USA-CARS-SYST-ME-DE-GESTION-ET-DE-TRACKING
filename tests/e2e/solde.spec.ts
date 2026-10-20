@@ -86,7 +86,7 @@ test("comptabilité : frais supplémentaires, facture de solde, paiement et trop
 test("agent : situation et documents en consultation, sans saisie de paiement", async ({ page }) => {
   await signIn(page, "ops@exemple.test");
   const settlement = await openSettlement(page);
-  await expect(settlement.getByRole("heading", { name: "Facture de solde" })).toBeVisible();
+  await expect(settlement.getByRole("heading", { name: "Facture de solde", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Émettre la facture de solde" })).toHaveCount(0);
   await expect(page.getByText("Enregistrer un paiement…")).toHaveCount(0);
 });
