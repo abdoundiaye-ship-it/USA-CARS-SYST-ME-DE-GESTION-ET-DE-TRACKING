@@ -8,7 +8,8 @@ test.beforeEach(async ({ request }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "Parcours avec état partagé : exécutés une seule fois (desktop).");
   test.skip(!(await databaseAvailable(request)), "Supabase local non démarré.");
 });
-test.describe.configure({ retries: 0 }); // la facture de solde n'est émise qu'une fois par base
+// Étapes enchaînées sur le même dossier, sans nouvelle tentative : la facture de solde n'est émise qu'une fois.
+test.describe.configure({ mode: "serial", retries: 0 });
 
 const PDF = {
   name: "justificatif.pdf",
@@ -83,10 +84,37 @@ test("comptabilité : frais supplémentaires, facture de solde, paiement et trop
   await expectNoHorizontalScroll(page);
 });
 
-test("agent : situation et documents en consultation, sans saisie de paiement", async ({ page }) => {
+test("comptabilité : écran Finances — soldes, échéances et remboursement à valider", async ({ page }) => {
+  await signIn(page, "compta@exemple.test");
+  await page.goto("/finances");
+  const todo = page.locator("section").filter({ has: page.getByRole("heading", { name: "À traiter", exact: true }) });
+  await expect(todo.getByRole("listitem").filter({ hasText: "DEMO-2026-0005" })).toContainText("200 $US");
+  const balances = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "Soldes des dossiers", exact: true }) });
+  const row = balances.getByRole("row").filter({ hasText: "DEMO-2026-0005" });
+  await expect(row).toContainText("Trop-perçu");
+  await expect(balances.getByRole("row").filter({ hasText: "DEMO-2026-0004" })).toBeVisible();
+});
+
+test("agent : remise des documents après le paiement intégral (US-3.11), sans saisie de paiement", async ({ page }) => {
   await signIn(page, "ops@exemple.test");
   const settlement = await openSettlement(page);
   await expect(settlement.getByRole("heading", { name: "Facture de solde", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Émettre la facture de solde" })).toHaveCount(0);
   await expect(page.getByText("Enregistrer un paiement…")).toHaveCount(0);
+
+  const release = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "Remise des documents", exact: true }) });
+  await expect(release).toContainText("la propriété du véhicule est transférée au client");
+  await release.getByLabel("Numéro de la pièce").fill("DEMO-CNI-0005");
+  await release.getByLabel("Décharge signée du bénéficiaire").setInputFiles({ ...PDF, name: "decharge.pdf" });
+  await release.getByRole("button", { name: "Enregistrer la remise des documents" }).click();
+  await expect(release.getByText("Remis le")).toBeVisible({ timeout: 30_000 });
+  await expect(release.getByRole("link", { name: "Décharge signée" })).toBeVisible();
+  await expect(page.getByText(/Documents remis à /).first()).toBeVisible();
+
+  await page.setViewportSize({ width: 400, height: 800 });
+  await expectNoHorizontalScroll(page);
 });

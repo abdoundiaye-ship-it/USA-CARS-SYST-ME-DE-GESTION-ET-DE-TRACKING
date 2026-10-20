@@ -11,6 +11,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { missingClientInformation } from "@/lib/validation/operations";
 import { BillingSection } from "./billing-section";
 import { FinanceSection } from "./finance-section";
+import { ReleaseSection } from "./release-section";
 import { SettlementSection } from "./settlement-section";
 import { DuplicateDossierForm, AcceptanceForm, RegenerateContractForm, VehicleForm } from "../dossier-forms";
 import {
@@ -50,7 +51,6 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
   const access = await requireInternal(SCREEN_ROLES.dossiers);
   const canWrite = canAccess(access.role, SCREEN_ROLES.operationsWrite);
   const isAdmin = access.role === "admin";
-  const canConfirm = canAccess(access.role, ["admin", "ops", "accounting"]);
   const { id } = await params;
   const query = await searchParams;
   const notice =
@@ -93,6 +93,7 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     { data: refunds },
     { data: balanceRows },
     { data: currentRate },
+    { data: release },
   ] = await Promise.all([
     supabase.from("clients").select("*").eq("id", dossier.client_id).maybeSingle(),
     supabase
@@ -134,6 +135,7 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     supabase.from("refunds").select("*").eq("dossier_id", id).order("requested_at"),
     supabase.rpc("dossier_balance", { p_dossier_id: id }),
     supabase.rpc("fx_rate_as_of", { p_at: new Date().toISOString() }),
+    supabase.from("document_releases").select("*").eq("dossier_id", id).maybeSingle(),
   ]);
   const contractAcceptance = acceptances?.find((a) => a.subject === "contract") ?? null;
   const orderAcceptance = acceptances?.find((a) => a.subject === "purchase_order") ?? null;
@@ -310,12 +312,25 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
           staffName={staffName}
         />
 
-        <ConfirmationsSection
+        <ReleaseSection
           dossier={dossier}
-          confirmations={confirmations ?? []}
-          canConfirm={canConfirm}
+          balance={balanceRows?.[0] ?? null}
+          release={release}
+          clientName={client?.name ?? ""}
+          canWrite={canWrite}
+          today={today}
           staffName={staffName}
         />
+
+        {/* Confirmations manuelles de la phase 2 (P1) : conservées pour les dossiers concernés, en lecture seule. */}
+        {(confirmations?.length ?? 0) > 0 && (
+          <ConfirmationsSection
+            dossier={dossier}
+            confirmations={confirmations ?? []}
+            canConfirm={false}
+            staffName={staffName}
+          />
+        )}
 
         <Card className="flex flex-col gap-4">
           <h2 className="font-semibold">Véhicule</h2>

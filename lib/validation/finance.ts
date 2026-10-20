@@ -270,3 +270,14 @@ export const refundExecutionSchema = z.object({
     .min(2, "Saisissez la référence du remboursement.")
     .max(120, "120 caractères au maximum."),
 });
+
+/** US-3.11 / R9 : remise des documents (bénéficiaire, pièce vérifiée ; procuration et décharge contrôlées par l'action). */
+export const documentReleaseSchema = z.object({
+  dossierId: z.uuid("Dossier inconnu."),
+  beneficiaryKind: z.enum(["client", "representative"], "Indiquez qui reçoit les documents."),
+  beneficiaryName: z.string().trim().min(2, "Saisissez le nom du bénéficiaire.").max(120, "120 caractères au maximum."),
+  idDocumentType: z.enum(["national_id", "passport", "residence_permit", "other"], "Choisissez la pièce vérifiée."),
+  idDocumentNumber: z.string().trim().min(2, "Saisissez le numéro de la pièce.").max(60, "60 caractères au maximum."),
+  releasedOn: z.iso.date("Saisissez la date de la remise."),
+  notes: optionalText(500),
+});

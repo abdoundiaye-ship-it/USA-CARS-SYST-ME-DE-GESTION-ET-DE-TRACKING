@@ -11,6 +11,7 @@ import {
   type Severity,
 } from "@/lib/dashboard";
 import { CONTAINER_STATUS_LABELS, STAGE_LABELS, STAGES } from "@/lib/dossiers/labels";
+import { formatUsd } from "@/lib/format";
 import { currentNumbers } from "@/lib/server/settings-values";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { arrivalLabel } from "@/lib/tracking";
@@ -31,7 +32,10 @@ const SEVERITY: Record<Severity, { tone: "danger" | "warning" | "info"; label: s
   info: { tone: "info", label: "À suivre" },
 };
 
-/** US-2.9 : liste « À traiter » et indicateurs (aucun montant), pour toute l'équipe interne. */
+/**
+ * US-2.9 : liste « À traiter » et indicateurs pour toute l'équipe interne ; depuis le lot 3d, soldes, remboursements,
+ * devis expirés et remise des documents. Seul l'indicateur des soldes dus affiche un montant (décision Q2).
+ */
 export default async function TableauDeBordPage() {
   const access = await requireInternal(SCREEN_ROLES.dashboard);
   const supabase = await createSupabaseServerClient();
@@ -44,6 +48,8 @@ export default async function TableauDeBordPage() {
     { data: etaChanges },
     { data: assignments },
     settings,
+    { data: finance },
+    { data: releases },
   ] = await Promise.all([
     supabase.from("dossiers").select("id, reference, stage, status, updated_at, payment1_due_at, clients(name)"),
     supabase.from("dossier_confirmations").select("dossier_id, code"),
@@ -56,6 +62,8 @@ export default async function TableauDeBordPage() {
       .order("changed_at", { ascending: false }),
     supabase.from("dossier_containers").select("dossier_id, container_id").is("removed_at", null),
     currentNumbers(SETTING_KEYS),
+    supabase.rpc("finance_overview"),
+    supabase.from("document_releases").select("dossier_id"),
   ]);
 
   const containerRows: DashboardContainer[] = (containers ?? []).map((c) => ({
@@ -65,7 +73,11 @@ export default async function TableauDeBordPage() {
   const data = {
     dossiers: (dossiers ?? []).map((d) => ({ ...d, client_name: d.clients?.name ?? null })),
     confirmations: confirmations ?? [],
-    releasedDossierIds: new Set((released ?? []).flatMap((r) => (r.dossier_id ? [r.dossier_id] : []))),
+    releasedDossierIds: new Set([
+      ...(released ?? []).flatMap((r) => (r.dossier_id ? [r.dossier_id] : [])),
+      ...(releases ?? []).map((r) => r.dossier_id),
+    ]),
+    finance: finance ?? [],
     containers: containerRows,
     assignments: assignments ?? [],
   };
@@ -93,12 +105,13 @@ export default async function TableauDeBordPage() {
         <Alert tone="danger">Le tableau de bord n’a pas pu être chargé. Rechargez la page.</Alert>
       ) : (
         <div className="flex flex-col gap-6">
-          <section aria-label="Indicateurs" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <section aria-label="Indicateurs" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             {[
               ["Dossiers actifs", indicators.activeDossiers],
               ["Conteneurs en mer", indicators.containersAtSea],
               [`Arrivées sous ${arrivalWindow} jours`, indicators.arrivalsSoon],
               ["Paiements 1 en retard", indicators.payment1Overdue],
+              ["Soldes restant dus", formatUsd(indicators.balanceDueCents)],
             ].map(([label, value]) => (
               <Card key={label} className="flex flex-col gap-1 p-4">
                 <p className="text-muted text-xs">{label}</p>
