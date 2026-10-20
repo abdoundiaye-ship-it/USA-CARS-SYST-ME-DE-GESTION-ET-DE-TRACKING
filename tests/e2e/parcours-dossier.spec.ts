@@ -56,7 +56,7 @@ test("agent : de l’ouverture à l’arrivée à Dakar (contrat, ordre d’acha
   await order.getByRole("checkbox", { name: /a pris connaissance/ }).check();
   await order.getByRole("checkbox", { name: /a vérifié que l’âge/ }).check();
   await order.getByRole("button", { name: "Enregistrer la décision sur l’ordre d’achat" }).click();
-  await expect(order.getByText(/4 confirmations/)).toBeVisible(); // deux cases manquent
+  await expect(order.getByText(/Le client doit avoir coché les 4 confirmations/)).toBeVisible(); // deux cases manquent
   // Après une erreur, la saisie reste en place, fichier joint compris : il suffit de cocher les cases manquantes.
   for (const name of [/a pris connaissance/, /a vérifié que l’âge/, /lot remporté l’engage/, /droits et taxes/]) {
     await order.getByRole("checkbox", { name }).check();
