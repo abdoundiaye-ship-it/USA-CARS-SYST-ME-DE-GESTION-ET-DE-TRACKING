@@ -1,6 +1,6 @@
 /**
  * Fonction Supabase generate-document — contrat (US-2.2, R14), ordre d'achat (US-2.3, annexe B), devis et
- * facture d'acompte (US-3.3, US-3.4).
+ * factures (US-3.3, US-3.4, US-3.7), reçus espèces et notes de remboursement (US-3.6, US-3.12).
  *
  * Remplit le modèle Word, dépose le fichier dans le bucket privé « documents » et l'enregistre
  * (register_contract_document / register_purchase_order_document / register_financial_document_file).
@@ -22,7 +22,9 @@ import {
   FINANCIAL_TEMPLATE_VERSION,
   renderFinancialDocument,
   type FinancialDocumentInput,
+  type PaymentMode,
 } from "../_shared/financial-document.ts";
+import { RECEIPT_TEMPLATE_VERSION, renderReceipt, type RefundReason } from "../_shared/receipt.ts";
 import { PURCHASE_ORDER_TEMPLATE_VERSION, renderPurchaseOrder } from "../_shared/purchase-order.ts";
 import { SupabaseRest } from "../_shared/rest.ts";
 
@@ -119,17 +121,18 @@ const TERM_KEYS = {
 type FinancialRow = {
   id: string;
   dossier_id: string;
-  doc_type: "quote" | "deposit_invoice";
+  doc_type: "quote" | "deposit_invoice" | "balance_invoice" | "cash_receipt" | "refund_note";
   number: string;
   status: string;
   document_id: string | null;
-  forfait_a_cents: number;
+  forfait_a_cents: number | null;
   forfait_b_cents: number | null;
   insurance_premium_cents: number;
   insurance_choice: "pending" | "accepted" | "refused";
   vat_rate_percent: number | string;
   vat_cents: number;
   insurance_vat_cents: number;
+  adjustments_cents: number;
   total_cents: number;
   deposit_applied_cents: number;
   deposit_excess_cents: number;
@@ -142,40 +145,25 @@ type FinancialRow = {
   issued_at: string;
   valid_until: string | null;
   due_at: string | null;
+  reference_eta: string | null;
+  payment_id: string | null;
+  refund_id: string | null;
 };
 
-/** Devis ou facture d'acompte : uniquement les lignes visibles du client (aucune lecture des coûts internes). */
-async function buildFinancialDocument(api: SupabaseRest, financial: FinancialRow, dossier: Row) {
-  if (financial.document_id) throw new Refusal(409, "Le fichier de ce document est déjà généré.");
-  if (financial.status === "cancelled") throw new Refusal(409, "Ce document est annulé.");
-  const client = await api.first<FinancialDocumentInput["client"]>("clients", {
-    select: "kind,name,notify_phone,notify_email,id_document_type,id_document_number,ninea,rccm",
-    id: `eq.${dossier.client_id}`,
-  });
-  if (!client) throw new Refusal(404, "Client du dossier introuvable.");
-  const contract = await api.first<{ reference: string }>("contracts", {
-    select: "reference",
-    dossier_id: `eq.${dossier.id}`,
-  });
-  const { data: payments } = await api.select<{
-    credited_at: string;
-    mode: FinancialDocumentInput["payments"][number]["mode"];
-    reference: string;
-    amount_cents: number;
-    paid_currency: "USD" | "XOF";
-    amount_xof: number | null;
-    fx_rate: number | string | null;
-  }>("payments", {
-    select: "credited_at,mode,reference,amount_cents,paid_currency,amount_xof,fx_rate",
-    dossier_id: `eq.${dossier.id}`,
-    cancelled_at: "is.null",
-    order: "credited_at.asc",
-  });
-  const { data: accounts } = await api.select<FinancialDocumentInput["accounts"][number]>("official_accounts", {
-    select: "kind,holder_name,bank_name,account_number,iban,phone",
-    status: "eq.active",
-    order: "created_at.asc",
-  });
+type PaymentRow = {
+  purpose: "deposit" | "payment1" | "balance";
+  credited_at: string;
+  mode: PaymentMode;
+  reference: string;
+  amount_cents: number;
+  paid_currency: "USD" | "XOF";
+  amount_xof: number | null;
+  fx_rate: number | string | null;
+  fx_captured_at: string | null;
+};
+
+/** Paramètres communs : identité légale (company.*), valeurs contractuelles, mention PROJET (D1). */
+async function documentSettings(api: SupabaseRest, dossier: Row) {
   const valueOf = await settingsAsOf(
     api,
     [...Object.values(COMPANY_SETTING_KEYS), ...Object.values(TERM_KEYS), "templates.legal_validated"],
@@ -194,27 +182,176 @@ async function buildFinancialDocument(api: SupabaseRest, financial: FinancialRow
       return [field, value];
     }),
   ) as FinancialDocumentInput["terms"];
+  return { company, terms, legalValidated: valueOf("templates.legal_validated") === true };
+}
+
+/** Conteneur en cours du dossier (section 1 du devis / facture) ; lien de suivi du transporteur (R12). */
+async function shippingOf(api: SupabaseRest, dossierId: string): Promise<FinancialDocumentInput["shipping"]> {
+  const assignment = await api.first<{
+    containers: {
+      number: string;
+      bl_number: string | null;
+      vessel: string | null;
+      voyage: string | null;
+      eta: string | null;
+      ata: string | null;
+      carriers: { name: string; tracking_url: string; url_template: string | null } | null;
+    } | null;
+  }>("dossier_containers", {
+    select: "containers(number,bl_number,vessel,voyage,eta,ata,carriers(name,tracking_url,url_template))",
+    dossier_id: `eq.${dossierId}`,
+    removed_at: "is.null",
+  });
+  const c = assignment?.containers;
+  if (!c) return null;
+  const template = c.carriers?.url_template;
+  const trackingUrl = template
+    ? template.replace("{container}", c.number).replace("{bl}", c.bl_number ?? "")
+    : (c.carriers?.tracking_url ?? null);
+  return {
+    carrier: c.carriers?.name ?? "—",
+    container: c.number,
+    vessel: c.vessel,
+    voyage: c.voyage,
+    bl: c.bl_number,
+    eta: c.ata ? null : c.eta ? new Date(`${c.eta}T00:00:00Z`) : null,
+    trackingUrl,
+  };
+}
+
+/** Reçu espèces RC ou note de remboursement RB. */
+async function buildReceiptDocument(api: SupabaseRest, financial: FinancialRow, dossier: Row) {
+  const client = await api.first<{ name: string; notify_phone: string }>("clients", {
+    select: "name,notify_phone",
+    id: `eq.${dossier.client_id}`,
+  });
+  if (!client) throw new Refusal(404, "Client du dossier introuvable.");
+  const contract = await api.first<{ reference: string }>("contracts", {
+    select: "reference",
+    dossier_id: `eq.${dossier.id}`,
+  });
+  const { company, legalValidated } = await documentSettings(api, dossier);
+  const common = {
+    number: financial.number,
+    issuedAt: new Date(financial.issued_at),
+    legalValidated,
+    contractReference: contract?.reference ?? null,
+    company,
+    client,
+    dossierReference: dossier.reference,
+    amountCents: Number(financial.total_cents),
+    rate: { rate: String(financial.fx_rate), capturedAt: new Date(financial.fx_captured_at) },
+  };
+  let bytes: Uint8Array;
+  if (financial.doc_type === "cash_receipt") {
+    const payment = await api.first<PaymentRow>("payments", { select: "*", id: `eq.${financial.payment_id}` });
+    if (!payment) throw new Refusal(404, "Paiement du reçu introuvable.");
+    bytes = renderReceipt({
+      ...common,
+      kind: "cash_receipt",
+      amountXof: payment.paid_currency === "XOF" && payment.amount_xof !== null ? Number(payment.amount_xof) : null,
+      mode: payment.mode,
+      reference: payment.reference,
+      paidAt: new Date(payment.credited_at),
+    });
+  } else {
+    const refund = await api.first<{
+      reason: RefundReason;
+      mode: PaymentMode;
+      payment_reference: string;
+      paid_at: string;
+    }>("refunds", { select: "reason,mode,payment_reference,paid_at", id: `eq.${financial.refund_id}` });
+    if (!refund) throw new Refusal(404, "Remboursement introuvable.");
+    bytes = renderReceipt({
+      ...common,
+      kind: "refund_note",
+      amountXof: null,
+      mode: refund.mode,
+      reference: refund.payment_reference,
+      paidAt: new Date(refund.paid_at),
+      refundReason: refund.reason,
+    });
+  }
+  const prefix = financial.doc_type === "cash_receipt" ? "Recu" : "Note-remboursement";
+  return { bytes, fileName: `${prefix}-${financial.number}.docx`, templateVersion: RECEIPT_TEMPLATE_VERSION };
+}
+
+/** Devis, facture d'acompte ou de solde : uniquement les lignes visibles du client (jamais les coûts internes). */
+async function buildFinancialDocument(api: SupabaseRest, financial: FinancialRow, dossier: Row) {
+  if (financial.document_id) throw new Refusal(409, "Le fichier de ce document est déjà généré.");
+  if (financial.status === "cancelled") throw new Refusal(409, "Ce document est annulé.");
+  if (financial.doc_type === "cash_receipt" || financial.doc_type === "refund_note") {
+    return buildReceiptDocument(api, financial, dossier);
+  }
+  const isBalance = financial.doc_type === "balance_invoice";
+  const client = await api.first<FinancialDocumentInput["client"]>("clients", {
+    select: "kind,name,notify_phone,notify_email,id_document_type,id_document_number,ninea,rccm",
+    id: `eq.${dossier.client_id}`,
+  });
+  if (!client) throw new Refusal(404, "Client du dossier introuvable.");
+  const contract = await api.first<{ reference: string }>("contracts", {
+    select: "reference",
+    dossier_id: `eq.${dossier.id}`,
+  });
+  const { data: payments } = await api.select<PaymentRow>("payments", {
+    select: "purpose,credited_at,mode,reference,amount_cents,paid_currency,amount_xof,fx_rate,fx_captured_at",
+    dossier_id: `eq.${dossier.id}`,
+    cancelled_at: "is.null",
+    order: "credited_at.asc",
+  });
+  const { data: accounts } = await api.select<FinancialDocumentInput["accounts"][number]>("official_accounts", {
+    select: "kind,holder_name,bank_name,account_number,iban,phone",
+    status: "eq.active",
+    order: "created_at.asc",
+  });
+  const { company, terms, legalValidated } = await documentSettings(api, dossier);
+  const shipping = await shippingOf(api, dossier.id);
+
+  // Facture de solde : lignes D reprises, échéance du paiement 1 et son état (facture d'acompte).
+  let adjustments: FinancialDocumentInput["adjustments"] = [];
+  let depositInvoice: { due_at: string | null; status: string } | null = null;
+  if (isBalance) {
+    const { data } = await api.select<{ label: string; amount_cents: number }>("adjustments", {
+      select: "label,amount_cents",
+      financial_document_id: `eq.${financial.id}`,
+      order: "created_at.asc",
+    });
+    adjustments = (data ?? []).map((d) => ({ label: d.label, amountCents: Number(d.amount_cents) }));
+    depositInvoice = await api.first<{ due_at: string | null; status: string }>("financial_documents", {
+      select: "due_at,status",
+      dossier_id: `eq.${dossier.id}`,
+      doc_type: "eq.deposit_invoice",
+      status: "neq.cancelled",
+    });
+  }
+  const listed = (payments ?? []).filter((p) => (isBalance ? p.purpose === "balance" : true));
+  const payment1Due =
+    financial.doc_type === "quote"
+      ? typeof dossier.payment1_due_at === "string"
+        ? dossier.payment1_due_at
+        : null
+      : isBalance
+        ? (depositInvoice?.due_at ?? null)
+        : financial.due_at;
 
   const bytes = renderFinancialDocument({
     docType: financial.doc_type,
     number: financial.number,
     issuedAt: new Date(financial.issued_at),
     validUntil: financial.valid_until ? new Date(financial.valid_until) : null,
-    payment1DueAt:
-      financial.doc_type === "quote"
-        ? typeof dossier.payment1_due_at === "string"
-          ? new Date(dossier.payment1_due_at)
-          : null
-        : financial.due_at
-          ? new Date(financial.due_at)
-          : null,
-    legalValidated: valueOf("templates.legal_validated") === true,
+    payment1DueAt: payment1Due ? new Date(payment1Due) : null,
+    payment1Paid: depositInvoice?.status === "paid",
+    balanceDueAt: isBalance && financial.due_at ? new Date(financial.due_at) : null,
+    referenceEta: financial.reference_eta ? new Date(`${financial.reference_eta}T00:00:00Z`) : null,
+    shipping,
+    adjustments,
+    legalValidated,
     contractReference: contract?.reference ?? null,
     company,
     client,
     dossier: dossier as never,
     amounts: {
-      forfaitACents: Number(financial.forfait_a_cents),
+      forfaitACents: Number(financial.forfait_a_cents ?? 0),
       forfaitBCents: financial.forfait_b_cents === null ? null : Number(financial.forfait_b_cents),
       insurancePremiumCents: Number(financial.insurance_premium_cents),
       insuranceChoice: financial.insurance_choice,
@@ -232,7 +369,7 @@ async function buildFinancialDocument(api: SupabaseRest, financial: FinancialRow
       capturedAt: new Date(financial.fx_captured_at),
     },
     editionRate: { rate: String(financial.edition_fx_rate), capturedAt: new Date(financial.edition_fx_captured_at) },
-    payments: (payments ?? []).map((p) => ({
+    payments: listed.map((p) => ({
       creditedAt: new Date(p.credited_at),
       mode: p.mode,
       reference: p.reference,
@@ -244,7 +381,7 @@ async function buildFinancialDocument(api: SupabaseRest, financial: FinancialRow
     accounts: accounts ?? [],
     terms,
   });
-  const prefix = financial.doc_type === "quote" ? "Devis" : "Facture-acompte";
+  const prefix = financial.doc_type === "quote" ? "Devis" : isBalance ? "Facture-solde" : "Facture-acompte";
   return { bytes, fileName: `${prefix}-${financial.number}.docx`, templateVersion: FINANCIAL_TEMPLATE_VERSION };
 }
 

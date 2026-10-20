@@ -1,5 +1,6 @@
 /**
- * Devis DV (US-3.3) et facture d'acompte FA (US-3.4) : données du modèle templates/devis_facture.docx.
+ * Devis DV (US-3.3), facture d'acompte FA (US-3.4) et facture de solde FS (US-3.7) : données du modèle
+ * templates/devis_facture.docx.
  * Module autonome (Deno et Vitest) — voir docx.ts.
  *
  * CLAUDE.md règle 2 : l'entrée ne contient QUE les lignes visibles du client (forfaits A et B, option C,
@@ -24,7 +25,7 @@ const DASH = "—";
 const CHECKED = "☒";
 const UNCHECKED = "☐";
 
-export type FinancialDocType = "quote" | "deposit_invoice";
+export type FinancialDocType = "quote" | "deposit_invoice" | "balance_invoice";
 export type PaymentMode = "bank_transfer" | "wave" | "orange_money" | "cash";
 export type InsuranceChoice = "pending" | "accepted" | "refused";
 
@@ -41,8 +42,25 @@ export interface FinancialDocumentInput {
   issuedAt: Date;
   /** Devis : fin de validité (X2). */
   validUntil: Date | null;
-  /** Échéance du paiement 1 (R4) : celle du dossier pour le devis, celle de la facture pour FA. */
+  /** Échéance du paiement 1 (R4) : celle du dossier pour le devis, celle de la facture d'acompte sinon. */
   payment1DueAt: Date | null;
+  /** Facture de solde : paiement 1 soldé ? */
+  payment1Paid?: boolean;
+  /** Facture de solde : échéance (R4) et ETA de référence figée à l'émission. */
+  balanceDueAt?: Date | null;
+  referenceEta?: Date | null;
+  /** Expédition (conteneur en cours) : « — » tant qu'elle n'est pas connue. */
+  shipping?: {
+    carrier: string;
+    container: string;
+    vessel: string | null;
+    voyage: string | null;
+    bl: string | null;
+    eta: Date | null;
+    trackingUrl: string | null;
+  } | null;
+  /** Facture de solde : lignes D approuvées (frais supplémentaires, frais de retard, remises). */
+  adjustments?: Array<{ label: string; amountCents: number }>;
   legalValidated: boolean;
   contractReference: string | null;
   company: CompanyIdentity;
@@ -181,14 +199,20 @@ function accountLines(accounts: FinancialDocumentInput["accounts"], kind: "bank"
 export function buildFinancialDocumentData(input: FinancialDocumentInput): Record<string, unknown> {
   const { amounts: a, dossier, client, company, terms } = input;
   const isQuote = input.docType === "quote";
-  const paidCents = input.payments.reduce((sum, p) => sum + p.amountCents, 0);
+  const isBalance = input.docType === "balance_invoice";
+  const listedCents = input.payments.reduce((sum, p) => sum + p.amountCents, 0);
+  // Déjà payé : versements listés (devis, FA) ; facture de solde : paiements imputés sur le solde à l'émission.
+  const paidCents = isBalance ? a.depositAppliedCents : listedCents;
   const withInsuranceCents = a.totalCents + a.insurancePremiumCents + a.insuranceVatCents;
   const optionC = isQuote && a.insurancePremiumCents > 0;
   // Reste à payer : devis = total (hors option C) − versements ; facture = montant dû figé à l'émission.
   const balanceCents = isQuote ? Math.max(a.totalCents - paidCents, 0) : a.amountDueCents;
+  const adjustments = input.adjustments ?? [];
+  const adjustmentsTotal = adjustments.reduce((sum, d) => sum + d.amountCents, 0);
+  const ship = input.shipping ?? null;
 
   const vatRate = Number(a.vatRatePercent);
-  const titre = isQuote ? "DEVIS" : "FACTURE D’ACOMPTE";
+  const titre = isQuote ? "DEVIS" : isBalance ? "FACTURE DE SOLDE" : "FACTURE D’ACOMPTE";
 
   return {
     projet: !input.legalValidated,
@@ -196,7 +220,7 @@ export function buildFinancialDocumentData(input: FinancialDocumentInput): Recor
     titre_document: `${titre} N° ${input.number}`,
     case_devis: box(isQuote),
     case_fa: box(input.docType === "deposit_invoice"),
-    case_fs: UNCHECKED,
+    case_fs: box(isBalance),
     numero: input.number,
     date_document: formatDate(input.issuedAt),
     contrat_reference: text(input.contractReference),
@@ -212,7 +236,7 @@ export function buildFinancialDocumentData(input: FinancialDocumentInput): Recor
     client_telephone: client.notify_phone,
     client_piece: clientPiece(client),
     client_email: text(client.notify_email),
-    // Section 1 — véhicule ; l'expédition n'est pas encore connue au stade du devis et de la facture d'acompte.
+    // Section 1 — véhicule et expédition (« — » tant que le conteneur n'est pas connu ; ETA toujours indicative).
     marque: text(dossier.make),
     modele: text(dossier.model),
     annee: text(dossier.model_year),
@@ -221,26 +245,34 @@ export function buildFinancialDocumentData(input: FinancialDocumentInput): Recor
     lot: text(dossier.lot_number),
     lieu_achat: text(dossier.purchase_location),
     port_depart: dossier.departure_port?.trim() || DASH,
-    transporteur: DASH,
-    conteneur: DASH,
-    navire: DASH,
-    bl: DASH,
-    eta: DASH,
-    lien_suivi: DASH,
+    transporteur: ship?.carrier ?? DASH,
+    conteneur: ship?.container ?? DASH,
+    navire: ship ? [ship.vessel, ship.voyage].filter(Boolean).join(" / ") || DASH : DASH,
+    bl: ship?.bl ?? DASH,
+    eta: ship?.eta ? `${formatDate(ship.eta)} (indicative)` : DASH,
+    lien_suivi: ship?.trackingUrl ?? DASH,
     // Section 2 — lignes A, B, C, D, TVA (R2)
-    montant_a: usd(a.forfaitACents),
-    montant_b: isQuote && a.forfaitBCents !== null ? usd(a.forfaitBCents) : "Facturé au solde",
+    montant_a: isBalance ? "Facturé à l’acompte" : usd(a.forfaitACents),
+    montant_b: (isQuote || isBalance) && a.forfaitBCents !== null ? usd(a.forfaitBCents) : "Facturé au solde",
     montant_c:
       a.insuranceChoice === "refused"
         ? usd(0)
         : isQuote
           ? `${usd(a.insurancePremiumCents)} (option)`
-          : `${usd(a.insurancePremiumCents)} (facturée au solde)`,
+          : isBalance
+            ? usd(a.insurancePremiumCents)
+            : `${usd(a.insurancePremiumCents)} (facturée au solde)`,
     case_c_acceptee: box(a.insuranceChoice === "accepted"),
     case_c_refusee: box(a.insuranceChoice === "refused"),
-    montant_d: DASH,
+    montant_d: !isBalance
+      ? DASH
+      : adjustments.length === 0
+        ? usd(0)
+        : [...adjustments.map((d) => `${d.label} : ${usd(d.amountCents)}`), `Total : ${usd(adjustmentsTotal)}`].join(
+            "\n",
+          ),
     tva_libelle: vatRate > 0 ? `TVA (${a.vatRatePercent.replace(".", ",")} %)` : "TVA (non applicable)",
-    montant_tva: usd(a.vatCents),
+    montant_tva: usd(a.vatCents + (isBalance ? a.insuranceVatCents : 0)),
     total_general: optionC
       ? `${usd(a.totalCents)} hors option C\n${usd(withInsuranceCents)} avec l’assurance`
       : usd(a.totalCents),
@@ -270,19 +302,22 @@ export function buildFinancialDocumentData(input: FinancialDocumentInput): Recor
     // Section 5 — échéancier (R4)
     p1_montant: isQuote
       ? usd(a.forfaitACents) + (paidCents > 0 ? `\ndépôt déjà versé : ${usd(paidCents)}` : "")
-      : usd(a.amountDueCents),
+      : isBalance
+        ? "Selon la facture d’acompte"
+        : usd(a.amountDueCents),
     p1_echeance: input.payment1DueAt ? formatDateTime(input.payment1DueAt) : DASH,
     p1_heures: String(terms.payment1DueHoursAfterWin),
-    p1_statut: `${box(!isQuote && a.amountDueCents === 0)} Payé`,
-    solde_montant:
-      isQuote && a.forfaitBCents !== null
+    p1_statut: `${box(isBalance ? input.payment1Paid === true : !isQuote && a.amountDueCents === 0)} Payé`,
+    solde_montant: isBalance
+      ? usd(a.amountDueCents)
+      : isQuote && a.forfaitBCents !== null
         ? `${usd(a.forfaitBCents)}${optionC ? ` + ${usd(a.insurancePremiumCents)} si l’assurance est acceptée` : ""} + D`
         : "Selon la facture de solde",
-    solde_echeance: DASH,
+    solde_echeance: isBalance && input.balanceDueAt ? formatDateTime(input.balanceDueAt) : DASH,
     solde_heures: String(terms.balanceDueHoursBeforeEta),
-    solde_eta: DASH,
+    solde_eta: isBalance && input.referenceEta ? `${formatDate(input.referenceEta)} (indicative)` : DASH,
     solde_jours: String(terms.balanceRecommendedDaysBeforeEta),
-    solde_statut: `${UNCHECKED} Payé`,
+    solde_statut: `${box(isBalance && a.amountDueCents === 0)} Payé`,
     // Section 6 — comptes officiels actifs
     compte_banque: accountLines(input.accounts, "bank"),
     compte_wave: accountLines(input.accounts, "wave"),
@@ -292,9 +327,13 @@ export function buildFinancialDocumentData(input: FinancialDocumentInput): Recor
       ? `Devis valable ${terms.validityHours} heures au plus, soit jusqu’au ${
           input.validUntil ? formatDateTime(input.validUntil) : DASH
         } (au plus tard à l’échéance du paiement 1), en raison des délais de paiement imposés par les plateformes d’enchères.`
-      : `Facture d’acompte payable au plus tard le ${
-          input.payment1DueAt ? formatDateTime(input.payment1DueAt) : DASH
-        } : totalité du forfait A, dépôt déduit.`,
+      : isBalance
+        ? `Facture de solde payable au plus tard le ${
+            input.balanceDueAt ? formatDateTime(input.balanceDueAt) : DASH
+          }, soit ${terms.balanceDueHoursBeforeEta} heures avant l’ETA de référence (indicative) ; si l’ETA est avancée, l’échéance l’est aussi, avec un préavis minimal.`
+        : `Facture d’acompte payable au plus tard le ${
+            input.payment1DueAt ? formatDateTime(input.payment1DueAt) : DASH
+          } : totalité du forfait A, dépôt déduit.`,
     frais_retard: usd(terms.lateFeeCents),
     frais_retard_jours: String(terms.lateFeePeriodDays),
     remise_heures: String(terms.releaseBusinessHours),

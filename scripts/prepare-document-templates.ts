@@ -8,6 +8,7 @@
  *   - templates/ordre_achat.docx : l'annexe B seule (ordre d'achat et mandat d'enchère), document signé à part ;
  *   - templates/devis_facture.docx : devis DV et factures FA / FS (modèle « Devis / Facture » révisé), avec le logo
  *     en en-tête (décision D4) et les valeurs contractuelles reprises des paramètres (CLAUDE.md règle 4) ;
+ *   - templates/recu.docx : reçu espèces RC et note de remboursement RB (même en-tête, corps d'une page) ;
  *   - supabase/functions/_shared/document-templates.generated.ts : les fichiers en base64, embarqués dans la
  *     fonction Supabase generate-document (sans accès au disque).
  *
@@ -26,6 +27,7 @@ const LOGO = "public/logo-usa-cars.png";
 const OUTPUT_CONTRACT = "templates/contrat_prestation.docx";
 const OUTPUT_PURCHASE_ORDER = "templates/ordre_achat.docx";
 const OUTPUT_FINANCIAL = "templates/devis_facture.docx";
+const OUTPUT_RECEIPT = "templates/recu.docx";
 const OUTPUT_MODULE = "supabase/functions/_shared/document-templates.generated.ts";
 
 /** Remplace le texte d'un élément <w:t> (texte exact) ; `occurrence` : 1 = première, 2 = deuxième… */
@@ -454,9 +456,48 @@ function addLogo(zip: PizZip) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Reçu espèces RC et note de remboursement RB (docs/16 : « à créer, 1 page, même charte ») : corps simple,
+// en-tête (logo) et pied de page du modèle devis / facture.
+// ---------------------------------------------------------------------------
+function receiptParagraph(value: string, { bold = false, size = 20, center = false, after = 120 } = {}): string {
+  return (
+    `<w:p><w:pPr><w:spacing w:after="${after}"/>${center ? '<w:jc w:val="center"/>' : ""}</w:pPr>` +
+    `<w:r><w:rPr>${bold ? "<w:b/>" : ""}<w:sz w:val="${size}"/></w:rPr>` +
+    `<w:t xml:space="preserve">${value}</w:t></w:r></w:p>`
+  );
+}
+
+function tagReceiptDocument(xml: string): string {
+  const bodyStart = xml.indexOf("<w:body>") + "<w:body>".length;
+  const sectionProperties = xml.lastIndexOf("<w:sectPr");
+  const body = [
+    receiptParagraph("{titre_document}", { bold: true, size: 28, center: true, after: 60 }),
+    receiptParagraph(
+      "USA CARS – {usa_forme_juridique} – RCCM : {usa_rccm} – NINEA : {usa_ninea} – {usa_bureau} – Tél. : {usa_telephone}",
+      { size: 16, center: true, after: 240 },
+    ),
+    receiptParagraph("Date : {date_document}"),
+    receiptParagraph("Référence dossier : {dossier_reference}    N° contrat : {contrat_reference}"),
+    receiptParagraph("Client : {client_nom}    Téléphone : {client_telephone}", { after: 240 }),
+    receiptParagraph("{objet}", { bold: true }),
+    receiptParagraph("Montant : {montant_usd} (le montant en USD fait foi)"),
+    receiptParagraph("Équivalent : {montant_fcfa}"),
+    receiptParagraph("Mode : {mode}    Référence : {reference}", { after: 240 }),
+    receiptParagraph("{mention}", { size: 18, after: 480 }),
+    receiptParagraph("Pour USA CARS : {usa_representant}        Signature : __________________", { after: 360 }),
+    receiptParagraph("{libelle_client} : {client_nom}        Signature : __________________"),
+  ].join("");
+  return `${xml.slice(0, bodyStart)}${body}${xml.slice(sectionProperties)}`;
+}
+
 const contract = build("contrat-revise", OUTPUT_CONTRACT, tagDocument, tagHeader);
 const purchaseOrder = build("ordre-achat-revise", OUTPUT_PURCHASE_ORDER, tagPurchaseOrder, tagPurchaseOrderHeader);
 const financial = build("devis-facture-revise", OUTPUT_FINANCIAL, tagFinancialDocument, tagFinancialHeader, {
+  source: FINANCIAL_SOURCE,
+  extra: addLogo,
+});
+const receipt = build("recu", OUTPUT_RECEIPT, tagReceiptDocument, tagFinancialHeader, {
   source: FINANCIAL_SOURCE,
   extra: addLogo,
 });
@@ -473,6 +514,8 @@ writeFileSync(
     `export const PURCHASE_ORDER_TEMPLATE_BASE64 =\n  "${purchaseOrder.bytes.toString("base64")}";`,
     `export const FINANCIAL_TEMPLATE_VERSION = "${financial.version}";`,
     `export const FINANCIAL_TEMPLATE_BASE64 =\n  "${financial.bytes.toString("base64")}";`,
+    `export const RECEIPT_TEMPLATE_VERSION = "${receipt.version}";`,
+    `export const RECEIPT_TEMPLATE_BASE64 =\n  "${receipt.bytes.toString("base64")}";`,
     "",
   ].join("\n"),
   "utf8",

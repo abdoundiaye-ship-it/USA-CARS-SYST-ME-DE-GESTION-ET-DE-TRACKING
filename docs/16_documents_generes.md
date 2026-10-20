@@ -48,3 +48,9 @@ Sections 6 à 8 : comptes officiels actifs, référence à indiquer, conditions,
 - Le générateur ne lit que les lignes visibles du client (`financial_documents`) : aucune requête sur `internal_costs`. Contrôle automatique : test unitaire sur le fichier généré et parcours Playwright qui télécharge le devis et y cherche les coûts internes du dossier.
 - Devis : section 1 (expédition) affichée « — » tant que le conteneur n’est pas connu ; total « hors option C » et « avec l’assurance » ; reste à payer en FCFA au taux du jour d’édition.
 - Facture d’acompte : totalité du forfait A (+ TVA), dépôts imputés, excédent éventuel signalé « à restituer » ; taux de référence du devis.
+
+## Mise en œuvre (lot 3c)
+
+- Facture de solde `FS` : même modèle (case « Facture de solde »), émise après l’embarquement (conteneur affecté avec B/L et ETA) ; lignes B, C si acceptée, D approuvées (détaillées), TVA ; ETA de référence figée (« indicative ») ; section 1 renseignée depuis le conteneur (transporteur, navire, B/L, lien de suivi). Si l’ETA est avancée, l’échéance est avancée (R4) et l’événement est visible du client ; le fichier émis n’est pas regénéré.
+- Reçu espèces `RC` et note de remboursement `RB` : modèle d’une page `templates/recu.docx` (même en-tête avec logo, mention PROJET), montant USD qui fait foi et équivalent FCFA (montant reçu, ou taux du jour), mode, référence, signatures.
+- Les lignes D postérieures à la facture de solde (frais de retard, par exemple) entrent dans le solde du dossier sans modifier la facture émise.

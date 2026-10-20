@@ -10,6 +10,7 @@ import {
   usdCentsToXof,
   type FinancialDocumentInput,
 } from "@/supabase/functions/_shared/financial-document.ts";
+import { buildReceiptData, renderReceipt, type ReceiptInput } from "@/supabase/functions/_shared/receipt.ts";
 
 const quote: FinancialDocumentInput = {
   docType: "quote",
@@ -208,7 +209,7 @@ describe("devis et facture d'acompte — fonction generate-document (US-3.3, US-
       { category: "auction_fees", amount_cents: 87_300 },
       { category: "ocean_freight", amount_cents: 178_100 },
     ] as const;
-    for (const document of [quote, invoice]) {
+    for (const document of [quote, invoice, balanceFixture()]) {
       const text = textOf(renderFinancialDocument(document));
       for (const cost of internalCosts) {
         expect(text).not.toContain(COST_CATEGORY_LABELS[cost.category]);
@@ -216,5 +217,108 @@ describe("devis et facture d'acompte — fonction generate-document (US-3.3, US-
       }
       expect(text.toLowerCase()).not.toMatch(/marge|coût interne|cout interne/);
     }
+  });
+});
+
+function balanceFixture(): FinancialDocumentInput {
+  return balance;
+}
+
+const balance: FinancialDocumentInput = {
+  ...quote,
+  docType: "balance_invoice",
+  number: "FS-2026-0002",
+  validUntil: null,
+  payment1Paid: true,
+  balanceDueAt: new Date("2026-11-18T00:00:00Z"),
+  referenceEta: new Date("2026-11-20T00:00:00Z"),
+  shipping: {
+    carrier: "Transporteur Démo (fictif)",
+    container: "DEMU1234560",
+    vessel: "Navire Démo",
+    voyage: "DEMO-001",
+    bl: "DEMO-BL-0001",
+    eta: new Date("2026-11-20T00:00:00Z"),
+    trackingUrl: "https://exemple.test/suivi/DEMU1234560",
+  },
+  adjustments: [
+    { label: "Stockage portuaire (urgence)", amountCents: 50_000 },
+    { label: "Frais de retard — paiement 1, période 1", amountCents: 10_000 },
+  ],
+  amounts: {
+    ...quote.amounts,
+    insuranceChoice: "accepted",
+    totalCents: 405_000,
+    depositAppliedCents: 0,
+    amountDueCents: 405_000,
+  },
+  payments: [],
+};
+
+describe("facture de solde (US-3.7, R4)", () => {
+  it("B + C acceptée + lignes D, ETA de référence indicative, expédition renseignée", () => {
+    const data = buildFinancialDocumentData(balance);
+    expect(data.titre_document).toBe("FACTURE DE SOLDE N° FS-2026-0002");
+    expect(data.case_fs).toBe("☒");
+    expect(data.montant_a).toBe("Facturé à l’acompte");
+    expect(data.montant_b).toBe(formatUsd(320_000));
+    expect(data.montant_c).toBe(formatUsd(25_000));
+    expect(data.montant_d).toBe(
+      `Stockage portuaire (urgence) : ${formatUsd(50_000)}\nFrais de retard — paiement 1, période 1 : ${formatUsd(10_000)}\nTotal : ${formatUsd(60_000)}`,
+    );
+    expect(data.conteneur).toBe("DEMU1234560");
+    expect(data.eta).toBe("20/11/2026 (indicative)");
+    expect(data.solde_eta).toBe("20/11/2026 (indicative)");
+    expect(data.solde_montant).toBe(formatUsd(405_000));
+    expect(data.p1_statut).toBe("☒ Payé");
+    const text = textOf(renderFinancialDocument(balance));
+    expect(text).toContain("FS-2026-0002");
+    expect(text).not.toMatch(/[{}]|undefined|null|NaN/);
+  });
+});
+
+describe("reçu espèces RC et note de remboursement RB (C7)", () => {
+  const base: ReceiptInput = {
+    kind: "cash_receipt",
+    number: "RC-2026-0001",
+    issuedAt: new Date("2026-10-20T10:00:00Z"),
+    legalValidated: false,
+    contractReference: "UC-2026-0042",
+    company: quote.company,
+    client: { name: "Mamadou Diallo (démo)", notify_phone: "+221770000001" },
+    dossierReference: "UC-2026-0042",
+    amountCents: 600_000,
+    amountXof: 3_600_000,
+    rate: { rate: "600.0000", capturedAt: new Date("2026-10-20T09:00:00Z") },
+    mode: "cash",
+    reference: "ESP-0001",
+    paidAt: new Date("2026-10-20T10:00:00Z"),
+  };
+
+  it("reçu : montant USD qui fait foi, FCFA reçus, aucune balise restante", () => {
+    const data = buildReceiptData(base);
+    expect(data.titre_document).toBe("REÇU DE PAIEMENT EN ESPÈCES N° RC-2026-0001");
+    expect(String(data.montant_fcfa).replace(/\s/g, " ")).toBe(
+      "3 600 000 FCFA reçus (taux du jour : 1 $US = 600,00 FCFA)",
+    );
+    const text = textOf(renderReceipt(base));
+    expect(text).toContain("RC-2026-0001");
+    expect(text).not.toMatch(/[{}]|undefined|null|NaN/);
+  });
+
+  it("note de remboursement : motif et restitution (jamais d'avoir, règle 12)", () => {
+    const data = buildReceiptData({
+      ...base,
+      kind: "refund_note",
+      number: "RB-2026-0001",
+      amountCents: 115_000,
+      amountXof: null,
+      mode: "bank_transfer",
+      refundReason: "overpayment",
+    });
+    expect(data.titre_document).toBe("NOTE DE REMBOURSEMENT N° RB-2026-0001");
+    expect(data.objet).toContain("trop-perçu");
+    expect(String(data.montant_fcfa).replace(/\s/g, " ")).toContain("690 000 FCFA au taux du 20/10/2026");
+    expect(data.mention).toContain("jamais conservé comme avoir");
   });
 });
