@@ -567,6 +567,9 @@ export type FinanceOverviewRow = {
   release_due_at: string | null;
 };
 
+/** Jours fériés au Sénégal (jours ouvrés, décision du 20/10/2026). */
+export type PublicHolidayRow = { day: string; label: string; created_by: string | null; created_at: string };
+
 export type DossierConfirmationRow = {
   dossier_id: string;
   code: ConfirmationCode;
@@ -866,6 +869,12 @@ export type Database = {
         Row: AdjustmentRow;
         Insert: never; // via add_extra_cost / add_discount / propose_late_fees
         Update: never; // via decide_late_fee / cancel_adjustment / acceptances
+        Relationships: [];
+      };
+      public_holidays: {
+        Row: PublicHolidayRow;
+        Insert: Pick<PublicHolidayRow, "day" | "label">;
+        Update: never;
         Relationships: [];
       };
       document_releases: {

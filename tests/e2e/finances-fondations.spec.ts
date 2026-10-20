@@ -52,4 +52,9 @@ test("direction : taux de change et comptes officiels en consultation", async ({
   await expect(page.getByText("Compte bancaire Démo (fictif)")).toBeVisible();
   await expect(page.getByText("Wave Démo (fictif)")).toBeVisible();
   await expect(page.getByRole("button", { name: "Enregistrer le compte" })).toHaveCount(0);
+
+  // Décision J1 : calendrier des jours fériés (jours ouvrés), tenu par l'administrateur.
+  await page.goto("/parametres/jours-feries");
+  await expect(page.getByRole("cell", { name: "Lundi de Pâques" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Ajouter le jour férié" })).toHaveCount(0);
 });

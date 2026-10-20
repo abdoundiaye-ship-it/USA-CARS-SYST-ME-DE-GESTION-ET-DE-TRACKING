@@ -42,6 +42,9 @@ export default async function ParametresPage() {
           <Link href="/parametres/comptes-officiels" className="text-primary text-sm font-medium underline">
             Comptes officiels de paiement →
           </Link>
+          <Link href="/parametres/jours-feries" className="text-primary text-sm font-medium underline">
+            Jours fériés (jours ouvrés) →
+          </Link>
         </div>
       </PageHeader>
 

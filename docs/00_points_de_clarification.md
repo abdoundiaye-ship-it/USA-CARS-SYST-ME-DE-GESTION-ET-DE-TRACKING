@@ -56,6 +56,9 @@ Format pour ajouter une décision : `ID — date — décision`.
 | Q1 | Double validation des comptes officiels | **19/10/2026** : un administrateur crée ou modifie le compte ; l’activation est approuvée par **un administrateur ou la direction**, toujours une autre personne que le créateur. |
 | Q2 | Montants sur le tableau de bord | **19/10/2026** : les agents opérations voient les montants de leurs dossiers (forfaits, soldes) ; la marge consolidée reste réservée à la direction et à l’administrateur. |
 | A4-bis | Double authentification de la direction | **19/10/2026** : la direction approuvant les comptes de paiement (Q1), la double authentification est **exigée aussi pour la direction** (administrateur, comptabilité, direction). Nouvelle version du paramètre `auth.mfa_required_roles`. |
+| J1 | Jours ouvrés (remboursements, remise des documents) | **20/10/2026** : les délais en jours ouvrés excluent les week-ends **et les jours fériés au Sénégal**. Calendrier tenu par l’administrateur (Paramètres → Jours fériés) : fêtes fixes et liées à Pâques pré-remplies ; fêtes à date lunaire (Tamkharit, Maouloud, Korité, Tabaski, Grand Magal de Touba) saisies chaque année à leur annonce. « 48 heures ouvrées » = 2 jours ouvrés. |
+| R9-a | Qui enregistre la remise des documents | **20/10/2026** (hypothèse validée) : l’administrateur et les agents opérations ; la comptabilité et la direction consultent. |
+| F9 | Dossiers sans devis accepté dans les soldes | **20/10/2026** (hypothèse validée) : rien n’est dû tant que le devis n’est pas accepté ; ces dossiers n’apparaissent pas dans les soldes de l’écran Finances. |
 
 ---
 

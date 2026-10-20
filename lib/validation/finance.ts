@@ -281,3 +281,9 @@ export const documentReleaseSchema = z.object({
   releasedOn: z.iso.date("Saisissez la date de la remise."),
   notes: optionalText(500),
 });
+
+/** Jours fériés (décision du 20/10/2026) : date et libellé ; tenus par l'administrateur. */
+export const holidaySchema = z.object({
+  day: z.iso.date("Saisissez la date du jour férié."),
+  label: z.string().trim().min(2, "Saisissez le nom de la fête.").max(80, "80 caractères au maximum."),
+});

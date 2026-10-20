@@ -45,6 +45,7 @@ export const SCREEN_ROLES = {
   quotesWrite: ["admin", "ops", "accounting"],
   invoicesWrite: ["admin", "accounting"],
   paymentsWrite: ["admin", "accounting"],
+  holidaysWrite: ["admin"],
 } as const satisfies Record<string, readonly AppRole[]>;
 
 export function canAccess(role: AppRole | null | undefined, allowed: readonly AppRole[]): boolean {
