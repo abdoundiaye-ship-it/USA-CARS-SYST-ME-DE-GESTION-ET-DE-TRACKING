@@ -34,8 +34,9 @@ export async function freshTotp(secretBase32: string): Promise<string> {
   return totp(secretBase32);
 }
 
-/** Comptes du seed dont le facteur TOTP est déjà vérifié (secret de démonstration, décision A4-bis). */
+/** Comptes du seed dont le facteur TOTP est déjà vérifié (secret de démonstration, décisions A4 et A4-bis). */
 export const DEMO_TOTP_SECRETS: Record<string, string> = {
+  "compta@exemple.test": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
   "direction@exemple.test": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
 };
 

@@ -171,11 +171,13 @@ select 'e0000000-0000-4000-8000-000000000004', 'c0000000-0000-4000-8000-00000000
 from public.fx_rates r where r.rate = 586.52;
 
 -- ---------------------------------------------------------------------------
--- Décision A4-bis : la direction est soumise à la double authentification. Pour les essais LOCAUX et les tests,
--- son compte de démonstration a déjà un facteur TOTP vérifié, de secret connu (à saisir dans une application
--- d'authentification) : JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP. L'administrateur et la comptabilité, eux, configurent
--- leur double authentification à la première connexion (parcours testé).
+-- Décisions A4 et A4-bis : la comptabilité et la direction sont soumises à la double authentification. Pour les
+-- essais LOCAUX et les tests, leurs comptes de démonstration ont déjà un facteur TOTP vérifié, de secret connu (à
+-- saisir dans une application d'authentification) : JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP. L'administrateur, lui,
+-- configure sa double authentification à la première connexion (parcours testé).
 -- ---------------------------------------------------------------------------
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
 values ('d1000000-0000-4000-8000-000000000004', 'd0000000-0000-4000-8000-000000000004', 'Démonstration', 'totp',
+        'verified', now(), now(), 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'),
+       ('d1000000-0000-4000-8000-000000000003', 'd0000000-0000-4000-8000-000000000003', 'Démonstration', 'totp',
         'verified', now(), now(), 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP');

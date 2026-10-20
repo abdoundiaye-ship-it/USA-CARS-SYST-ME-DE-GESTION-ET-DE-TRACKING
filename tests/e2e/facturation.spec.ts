@@ -35,6 +35,7 @@ async function downloadedText(page: Page, href: string): Promise<string> {
 
 // Deux étapes enchaînées sur le même dossier : la seconde n'a de sens que si la première a réussi.
 test.describe.serial("devis puis facture d'acompte", () => {
+  test.describe.configure({ retries: 0 }); // le devis n'est émis qu'une fois par base : pas de nouvelle tentative
   test("agent : devis émis, sans coût interne dans le fichier, accepté avec l'assurance", async ({ page }) => {
     await signIn(page, "ops@exemple.test");
     const billing = await openDossier(page);
