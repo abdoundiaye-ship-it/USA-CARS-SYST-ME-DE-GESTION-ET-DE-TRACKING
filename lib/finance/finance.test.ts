@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   creditedAtOf,
   depositSchema,
+  extraCostSchema,
   forfaitsSchema,
   fxRateSchema,
   internalCostSchema,
+  lateFeeDecisionSchema,
   officialAccountSchema,
+  refundDecisionSchema,
   sectionOf,
 } from "@/lib/validation/finance";
 import { dossierMargin } from "./margin";
@@ -104,5 +107,43 @@ describe("formulaires financiers", () => {
     expect(
       officialAccountSchema.safeParse({ kind: "bank", label: "Banque", holderName: "USA CARS", bankName: "B" }).success,
     ).toBe(false);
+  });
+});
+
+describe("lignes D et remboursements (lot 3c)", () => {
+  const dossierId = "11111111-1111-4111-8111-111111111111";
+  const targetId = "22222222-2222-4222-8222-222222222222";
+
+  it("frais supplémentaires (R7) : montant en centimes, urgence motivée", () => {
+    expect(extraCostSchema.parse({ dossierId, section: "B", label: "Stockage", amount: "350" })).toMatchObject({
+      amount: 35_000,
+      urgent: false,
+    });
+    expect(
+      extraCostSchema.safeParse({ dossierId, section: "B", label: "Stockage", amount: "350", urgent: "on" }).success,
+    ).toBe(false);
+    expect(
+      extraCostSchema.parse({
+        dossierId,
+        section: "B",
+        label: "Stockage",
+        amount: "350",
+        urgent: "on",
+        reason: "Stockage imposé par le port",
+      }).urgent,
+    ).toBe(true);
+  });
+
+  it("frais de retard (C5) et remboursement (C9) : motif exigé pour écarter ou refuser", () => {
+    expect(lateFeeDecisionSchema.safeParse({ dossierId, adjustmentId: targetId, decision: "approve" }).success).toBe(
+      true,
+    );
+    expect(lateFeeDecisionSchema.safeParse({ dossierId, adjustmentId: targetId, decision: "reject" }).success).toBe(
+      false,
+    );
+    expect(
+      refundDecisionSchema.safeParse({ dossierId, refundId: targetId, decision: "reject", reason: "Doublon" }).success,
+    ).toBe(true);
+    expect(refundDecisionSchema.safeParse({ dossierId, refundId: targetId, decision: "reject" }).success).toBe(false);
   });
 });

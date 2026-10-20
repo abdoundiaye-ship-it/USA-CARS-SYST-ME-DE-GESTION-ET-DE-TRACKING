@@ -16,6 +16,7 @@ import {
   issueQuote,
   recordDeposit,
 } from "./billing-actions";
+import { cancelAdjustment, recordPayment } from "./settlement-actions";
 
 type Action = (previous: FormState, formData: FormData) => Promise<FormState>;
 
@@ -79,12 +80,14 @@ export function CancelForm({
   targetId,
   label,
 }: {
-  kind: "document" | "payment";
+  kind: "document" | "payment" | "adjustment";
   dossierId: string;
   targetId: string;
   label: string;
 }) {
-  const { state, pending, formProps } = useFormAction(kind === "document" ? cancelFinancialDocument : cancelPayment);
+  const { state, pending, formProps } = useFormAction(
+    kind === "document" ? cancelFinancialDocument : kind === "payment" ? cancelPayment : cancelAdjustment,
+  );
   const e = state.fieldErrors ?? {};
   return (
     <details>
@@ -106,17 +109,25 @@ export function CancelForm({
   );
 }
 
-/** US-3.4 : dépôt reçu (I2) — montant en USD ou en FCFA, compte officiel actif du même moyen de paiement. */
+/**
+ * US-3.4 : dépôt reçu (I2) ; US-3.6 : paiement 1 et solde (`kind="payment"`, justificatif obligatoire sauf espèces —
+ * un reçu RC est alors généré). Montant en USD ou en FCFA, compte officiel actif du même moyen de paiement.
+ */
 export function DepositForm({
   dossierId,
   accounts,
   today,
+  kind = "deposit",
 }: {
   dossierId: string;
   accounts: Pick<OfficialAccountRow, "id" | "kind" | "label">[];
   today: string;
+  kind?: "deposit" | "payment";
 }) {
-  const { state, pending, formProps } = useFormAction(recordDeposit, { resetOnSuccess: true });
+  const isPayment = kind === "payment";
+  const { state, pending, formProps } = useFormAction(isPayment ? recordPayment : recordDeposit, {
+    resetOnSuccess: true,
+  });
   const [mode, setMode] = useState<PaymentMode>((state.data?.mode as PaymentMode | undefined) ?? "bank_transfer");
   const [currency, setCurrency] = useState(state.data?.currency ?? "USD");
   const e = state.fieldErrors ?? {};
@@ -126,7 +137,7 @@ export function DepositForm({
       <FormMessage state={state} />
       <input type="hidden" name="dossierId" value={dossierId} />
       <div className="grid gap-3 sm:grid-cols-3">
-        <Field id="deposit-mode" label="Mode de paiement" error={e.mode}>
+        <Field id={`${kind}-mode`} label="Mode de paiement" error={e.mode}>
           {(aria) => (
             <Select {...aria} name="mode" value={mode} onChange={(event) => setMode(event.target.value as PaymentMode)}>
               {Object.entries(PAYMENT_MODE_LABELS).map(([value, label]) => (
@@ -138,7 +149,7 @@ export function DepositForm({
           )}
         </Field>
         <Field
-          id="deposit-account"
+          id={`${kind}-account`}
           label="Compte officiel crédité"
           hint={mode === "cash" ? "Facultatif pour les espèces." : undefined}
           error={e.accountId}
@@ -154,7 +165,7 @@ export function DepositForm({
             </Select>
           )}
         </Field>
-        <Field id="deposit-creditedOn" label="Date de crédit" error={e.creditedOn}>
+        <Field id={`${kind}-creditedOn`} label="Date de crédit" error={e.creditedOn}>
           {(aria) => (
             <Input
               {...aria}
@@ -166,7 +177,7 @@ export function DepositForm({
             />
           )}
         </Field>
-        <Field id="deposit-currency" label="Devise reçue" error={e.currency}>
+        <Field id={`${kind}-currency`} label="Devise reçue" error={e.currency}>
           {(aria) => (
             <Select {...aria} name="currency" value={currency} onChange={(event) => setCurrency(event.target.value)}>
               <option value="USD">Dollars (USD)</option>
@@ -175,7 +186,7 @@ export function DepositForm({
           )}
         </Field>
         <Field
-          id="deposit-amount"
+          id={`${kind}-amount`}
           label={currency === "XOF" ? "Montant reçu (FCFA)" : "Montant reçu (USD)"}
           hint={currency === "XOF" ? "Converti en USD au taux du jour du paiement." : undefined}
           error={e.amount}
@@ -189,14 +200,20 @@ export function DepositForm({
             />
           )}
         </Field>
-        <Field id="deposit-reference" label="Référence du paiement" error={e.reference}>
+        <Field id={`${kind}-reference`} label="Référence du paiement" error={e.reference}>
           {(aria) => <Input {...aria} name="reference" defaultValue={state.data?.reference ?? ""} />}
         </Field>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
-          id="deposit-proof"
-          label="Justificatif (facultatif)"
+          id={`${kind}-proof`}
+          label={
+            isPayment
+              ? mode === "cash"
+                ? "Justificatif (facultatif : reçu généré)"
+                : "Justificatif"
+              : "Justificatif (facultatif)"
+          }
           hint="PDF, JPEG, PNG, WebP ou HEIC — 20 Mo au plus"
           error={e.proof}
         >
@@ -209,13 +226,13 @@ export function DepositForm({
             />
           )}
         </Field>
-        <Field id="deposit-notes" label="Remarque (facultatif)" error={e.notes}>
+        <Field id={`${kind}-notes`} label="Remarque (facultatif)" error={e.notes}>
           {(aria) => <Textarea {...aria} name="notes" rows={2} defaultValue={state.data?.notes ?? ""} />}
         </Field>
       </div>
       <div>
         <Button type="submit" pending={pending}>
-          Enregistrer le dépôt
+          {isPayment ? "Enregistrer le paiement" : "Enregistrer le dépôt"}
         </Button>
       </div>
     </form>

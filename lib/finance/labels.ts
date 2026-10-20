@@ -1,4 +1,6 @@
 import type {
+  AdjustmentKind,
+  AdjustmentStatus,
   CostCategory,
   CostSection,
   FinancialDocStatus,
@@ -6,6 +8,8 @@ import type {
   InsuranceChoice,
   OfficialAccountKind,
   PaymentMode,
+  RefundReason,
+  RefundStatus,
 } from "@/lib/supabase/database.types";
 
 /** Libellés financiers (vocabulaire du devis révisé et du contrat). */
@@ -76,4 +80,32 @@ export const ACCOUNT_KIND_OF_MODE: Record<PaymentMode, OfficialAccountKind> = {
   wave: "wave",
   orange_money: "orange_money",
   cash: "cash_office",
+};
+
+export const ADJUSTMENT_KIND_LABELS: Record<AdjustmentKind, string> = {
+  extra_cost: "Frais supplémentaires",
+  late_fee: "Frais de retard",
+  discount: "Remise",
+};
+
+export const ADJUSTMENT_STATUS_LABELS: Record<AdjustmentStatus, string> = {
+  proposed: "Proposé (à valider)",
+  pending_client_approval: "Accord du client attendu",
+  approved: "Ajouté au solde",
+  rejected: "Écarté",
+  cancelled: "Annulé",
+};
+
+export const REFUND_REASON_LABELS: Record<RefundReason, string> = {
+  overpayment: "Trop-perçu",
+  deposit_excess: "Excédent de dépôt",
+  lot_not_won: "Lot non remporté",
+  cancellation: "Annulation",
+};
+
+export const REFUND_STATUS_LABELS: Record<RefundStatus, string> = {
+  requested: "À valider (administrateur)",
+  approved: "Validé, à exécuter",
+  paid: "Remboursé",
+  rejected: "Refusé",
 };

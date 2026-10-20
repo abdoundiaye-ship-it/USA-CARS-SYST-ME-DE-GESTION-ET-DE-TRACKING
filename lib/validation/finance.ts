@@ -200,3 +200,73 @@ export const deactivateAccountSchema = z.object({
   accountId: z.uuid("Compte inconnu."),
   reason: z.string().trim().min(5, "Indiquez le motif (5 caractères au moins).").max(300),
 });
+
+/** US-3.6 : paiement 1 et solde — mêmes champs que le dépôt (justificatif contrôlé par l'action, sauf espèces). */
+export const paymentSchema = depositSchema;
+
+/** US-3.9 / R7 : frais supplémentaires justifiés ; l'urgence (stockage, port, transporteur) exige un motif. */
+export const extraCostSchema = z
+  .object({
+    dossierId: z.uuid("Dossier inconnu."),
+    section: z.enum(["A", "B"], "Indiquez le forfait concerné."),
+    label: z.string().trim().min(2, "Décrivez les frais.").max(120, "120 caractères au maximum."),
+    amount: usd("Saisissez le montant.").pipe(z.number()),
+    urgent: z.string().optional(),
+    reason: optionalText(300),
+  })
+  .transform((value, ctx) => {
+    const urgent = value.urgent === "on";
+    if (urgent && (value.reason ?? "").length < 5) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["reason"],
+        message: "Urgence : indiquez le motif (5 caractères au moins).",
+      });
+      return z.NEVER;
+    }
+    return { ...value, urgent };
+  });
+
+export const discountSchema = z.object({
+  dossierId: z.uuid("Dossier inconnu."),
+  label: z.string().trim().min(2, "Indiquez le motif de la remise.").max(120, "120 caractères au maximum."),
+  amount: usd("Saisissez le montant de la remise.").pipe(z.number()),
+});
+
+/** C5 : frais de retard proposés, validés ou écartés (motif) par la comptabilité. */
+export const lateFeeDecisionSchema = z
+  .object({
+    dossierId: z.uuid("Dossier inconnu."),
+    adjustmentId: z.uuid("Ligne inconnue."),
+    decision: z.enum(["approve", "reject"], "Décision inconnue."),
+    note: optionalText(300),
+  })
+  .refine((v) => v.decision === "approve" || (v.note ?? "").length >= 5, {
+    path: ["note"],
+    message: "Indiquez pourquoi ces frais sont écartés (5 caractères au moins).",
+  });
+
+/** C9 : validation d'un remboursement par l'administrateur (motif en cas de refus). */
+export const refundDecisionSchema = z
+  .object({
+    dossierId: z.uuid("Dossier inconnu."),
+    refundId: z.uuid("Remboursement inconnu."),
+    decision: z.enum(["approve", "reject"], "Décision inconnue."),
+    reason: optionalText(300),
+  })
+  .refine((v) => v.decision === "approve" || (v.reason ?? "").length >= 5, {
+    path: ["reason"],
+    message: "Indiquez le motif du refus (5 caractères au moins).",
+  });
+
+/** US-3.12 : exécution d'un remboursement validé (date, référence ; justificatif contrôlé par l'action). */
+export const refundExecutionSchema = z.object({
+  dossierId: z.uuid("Dossier inconnu."),
+  refundId: z.uuid("Remboursement inconnu."),
+  paidOn: z.iso.date("Saisissez la date du remboursement."),
+  reference: z
+    .string()
+    .trim()
+    .min(2, "Saisissez la référence du remboursement.")
+    .max(120, "120 caractères au maximum."),
+});

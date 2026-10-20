@@ -191,7 +191,7 @@ export function AcceptanceForm({
   insurancePremium,
 }: {
   dossierId: string;
-  subject: "contract" | "purchase_order" | "quote";
+  subject: "contract" | "purchase_order" | "quote" | "extra_cost";
   subjectId: string;
   today: string;
   /** Devis : prime de l'option C affichée avec le choix d'assurance (X1). */
@@ -202,7 +202,8 @@ export function AcceptanceForm({
   const e = state.fieldErrors ?? {};
   const isOrder = subject === "purchase_order";
   const isQuote = subject === "quote";
-  const noun = isOrder ? "l’ordre d’achat" : isQuote ? "le devis" : "le contrat";
+  const isExtraCost = subject === "extra_cost";
+  const noun = isOrder ? "l’ordre d’achat" : isQuote ? "le devis" : isExtraCost ? "les frais" : "le contrat";
   const id = (name: string) => `${subject}-${name}`; // deux formulaires peuvent coexister sur la fiche
   return (
     <form {...formProps} className="flex flex-col gap-4" noValidate>
@@ -345,7 +346,9 @@ export function AcceptanceForm({
                 ? "Ordre d’achat signé scanné"
                 : isQuote
                   ? "Devis signé scanné"
-                  : "Contrat signé scanné"
+                  : isExtraCost
+                    ? "Accord écrit du client scanné"
+                    : "Contrat signé scanné"
           }
           hint="PDF, JPEG, PNG, WebP ou HEIC — 20 Mo au plus"
           error={e.proof}
@@ -370,7 +373,9 @@ export function AcceptanceForm({
             ? "Enregistrer la décision sur l’ordre d’achat"
             : isQuote
               ? "Enregistrer la décision sur le devis"
-              : "Enregistrer la décision du client"}
+              : isExtraCost
+                ? "Enregistrer la décision sur les frais"
+                : "Enregistrer la décision du client"}
         </Button>
       </div>
     </form>

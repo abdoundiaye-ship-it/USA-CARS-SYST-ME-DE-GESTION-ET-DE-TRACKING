@@ -6,7 +6,7 @@ import {
   INSURANCE_CHOICE_LABELS,
   PAYMENT_MODE_LABELS,
 } from "@/lib/finance/labels";
-import { formatDateTime, formatUsd, formatXof } from "@/lib/format";
+import { formatDate, formatDateTime, formatUsd, formatXof } from "@/lib/format";
 import { usdCentsToXof } from "@/lib/money/fx";
 import type {
   AcceptanceRow,
@@ -59,12 +59,27 @@ function Amounts({ doc }: { doc: FinancialDocumentRow }) {
           [`TVA (${String(doc.vat_rate_percent).replace(".", ",")} %)`, formatUsd(doc.vat_cents)],
           ["Total hors assurance", formatUsd(doc.total_cents)],
         ]
-      : [
-          ["A — Acquisition (totalité du forfait)", formatUsd(doc.forfait_a_cents ?? 0)],
-          [`TVA (${String(doc.vat_rate_percent).replace(".", ",")} %)`, formatUsd(doc.vat_cents)],
-          ["Dépôt imputé", `− ${formatUsd(doc.deposit_applied_cents)}`],
-          ["Reste à payer (paiement 1)", formatUsd(doc.amount_due_cents)],
-        ];
+      : doc.doc_type === "balance_invoice"
+        ? [
+            ["B — Logistique et maritime (forfait)", formatUsd(doc.forfait_b_cents ?? 0)],
+            [
+              `C — Assurance : ${INSURANCE_CHOICE_LABELS[doc.insurance_choice].toLowerCase()}`,
+              formatUsd(doc.insurance_premium_cents),
+            ],
+            ["D — Ajustements", formatUsd(doc.adjustments_cents)],
+            [
+              `TVA (${String(doc.vat_rate_percent).replace(".", ",")} %)`,
+              formatUsd(doc.vat_cents + doc.insurance_vat_cents),
+            ],
+            ["Déjà payé (au-delà du paiement 1)", `− ${formatUsd(doc.deposit_applied_cents)}`],
+            ["Solde à payer", formatUsd(doc.amount_due_cents)],
+          ]
+        : [
+            ["A — Acquisition (totalité du forfait)", formatUsd(doc.forfait_a_cents ?? 0)],
+            [`TVA (${String(doc.vat_rate_percent).replace(".", ",")} %)`, formatUsd(doc.vat_cents)],
+            ["Dépôt imputé", `− ${formatUsd(doc.deposit_applied_cents)}`],
+            ["Reste à payer (paiement 1)", formatUsd(doc.amount_due_cents)],
+          ];
   return (
     <Table caption={`Montants ${doc.number}`}>
       <tbody>
@@ -79,7 +94,7 @@ function Amounts({ doc }: { doc: FinancialDocumentRow }) {
   );
 }
 
-function FinancialDocumentCard({
+export function FinancialDocumentCard({
   doc,
   now,
   acceptance,
@@ -127,6 +142,7 @@ function FinancialDocumentCard({
         ({doc.fx_source}, relevé le {formatDateTime(doc.fx_captured_at)})
         {isQuote && doc.valid_until && ` · valable jusqu’au ${formatDateTime(doc.valid_until)}`}
         {!isQuote && doc.due_at && ` · échéance ${formatDateTime(doc.due_at)}`}
+        {doc.reference_eta && ` · ETA de référence ${formatDate(doc.reference_eta)} (indicative)`}
       </p>
       <Amounts doc={doc} />
       {!isQuote && (

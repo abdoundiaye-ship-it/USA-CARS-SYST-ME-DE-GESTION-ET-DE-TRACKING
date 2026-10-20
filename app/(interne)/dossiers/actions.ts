@@ -124,7 +124,12 @@ export async function regenerateContract(_previous: FormState, formData: FormDat
   return success("Contrat généré. Téléchargez la nouvelle version pour la faire signer.");
 }
 
-const SUBJECT_LABELS = { contract: "du contrat", purchase_order: "de l’ordre d’achat", quote: "du devis" } as const;
+const SUBJECT_LABELS = {
+  contract: "du contrat",
+  purchase_order: "de l’ordre d’achat",
+  quote: "du devis",
+  extra_cost: "des frais supplémentaires",
+} as const;
 
 /**
  * R15 : décision du client sur le contrat (US-2.2), l'ordre d'achat (US-2.3) ou le devis (US-3.3, avec le choix
@@ -132,10 +137,21 @@ const SUBJECT_LABELS = { contract: "du contrat", purchase_order: "de l’ordre d
  * version en vigueur et son empreinte, les 4 confirmations de l'annexe B et la validité du devis.
  */
 export async function recordAcceptance(_previous: FormState, formData: FormData): Promise<FormState> {
-  const quote = formData.get("subject") === "quote";
-  if (!(await getInternalAccess(quote ? SCREEN_ROLES.quotesWrite : SCREEN_ROLES.operationsWrite))) {
+  // Devis : admin, agent, comptabilité ; frais supplémentaires : admin, comptabilité ; sinon admin et agent.
+  const requested = formData.get("subject");
+  const allowed =
+    requested === "quote"
+      ? SCREEN_ROLES.quotesWrite
+      : requested === "extra_cost"
+        ? SCREEN_ROLES.invoicesWrite
+        : SCREEN_ROLES.operationsWrite;
+  if (!(await getInternalAccess(allowed))) {
     return failure(
-      quote ? "Action réservée à l’administrateur, aux agents opérations et à la comptabilité." : WRITERS_ONLY,
+      requested === "quote"
+        ? "Action réservée à l’administrateur, aux agents opérations et à la comptabilité."
+        : requested === "extra_cost"
+          ? "Action réservée à l’administrateur et à la comptabilité."
+          : WRITERS_ONLY,
     );
   }
 

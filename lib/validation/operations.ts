@@ -180,7 +180,7 @@ export const ACKNOWLEDGEMENT_KEYS = ["vehicle_info", "import_age", "binding_win"
 export const acceptanceSchema = z
   .object({
     dossierId: z.uuid("Dossier inconnu."),
-    subject: z.enum(["contract", "purchase_order", "quote"], "Document inconnu."),
+    subject: z.enum(["contract", "purchase_order", "quote", "extra_cost"], "Document inconnu."),
     subjectId: z.uuid("Document inconnu."),
     method: z.enum(["scanned_paper", "whatsapp"], "Choisissez la méthode d’acceptation."),
     decision: z.enum(["accepted", "refused"], "Indiquez si le client accepte ou refuse."),
