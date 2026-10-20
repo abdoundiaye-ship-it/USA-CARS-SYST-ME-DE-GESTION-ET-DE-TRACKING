@@ -52,7 +52,9 @@ export type DossierEventKind =
   | "eta_changed"
   | "tracking_event"
   | "financial_document"
-  | "payment_recorded";
+  | "payment_recorded"
+  | "adjustment"
+  | "refund";
 export type ContainerStatus =
   | "booking_confirmed"
   | "departure_planned"
@@ -423,6 +425,12 @@ export type FinancialDocumentRow = {
   cancelled_by: string | null;
   issued_by: string | null;
   updated_at: string;
+  /** Facture de solde : total des lignes D, ETA de référence figée (R4). */
+  adjustments_cents: number;
+  reference_eta: string | null;
+  /** Reçu espèces : paiement ; note de remboursement : remboursement. */
+  payment_id: string | null;
+  refund_id: string | null;
 };
 
 export type PaymentMode = "bank_transfer" | "wave" | "orange_money" | "cash";
@@ -449,6 +457,70 @@ export type PaymentRow = {
   cancelled_reason: string | null;
   cancelled_at: string | null;
   cancelled_by: string | null;
+  receipt_id: string | null;
+};
+
+export type AdjustmentKind = "extra_cost" | "late_fee" | "discount";
+export type AdjustmentStatus = "proposed" | "pending_client_approval" | "approved" | "rejected" | "cancelled";
+/** Ligne D (R2) : frais supplémentaires (R7), frais de retard (R5), remises. */
+export type AdjustmentRow = {
+  id: string;
+  dossier_id: string;
+  client_id: string;
+  kind: AdjustmentKind;
+  label: string;
+  section: "A" | "B" | null;
+  amount_cents: number;
+  status: AdjustmentStatus;
+  urgent: boolean;
+  reason: string | null;
+  proof_document_id: string | null;
+  late_fee_target: "payment1" | "balance" | null;
+  late_fee_period: number | null;
+  financial_document_id: string | null;
+  decided_at: string | null;
+  decided_by: string | null;
+  decision_note: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type RefundReason = "overpayment" | "deposit_excess" | "lot_not_won" | "cancellation";
+export type RefundStatus = "requested" | "approved" | "paid" | "rejected";
+export type RefundRow = {
+  id: string;
+  dossier_id: string;
+  client_id: string;
+  reason: RefundReason;
+  amount_cents: number;
+  mode: PaymentMode;
+  beneficiary: string;
+  status: RefundStatus;
+  requested_at: string;
+  requested_by: string | null;
+  due_by: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  rejection_reason: string | null;
+  paid_at: string | null;
+  payment_reference: string | null;
+  proof_document_id: string | null;
+  fx_rate: number | null;
+  refund_note_id: string | null;
+};
+
+/** Situation financière d'un dossier (fonction dossier_balance). */
+export type DossierBalance = {
+  a_total_cents: number;
+  total_due_cents: number;
+  paid_cents: number;
+  refunded_cents: number;
+  net_paid_cents: number;
+  payment1_remaining_cents: number;
+  balance_remaining_cents: number;
+  pending_refunds_cents: number;
+  adjustments_cents: number;
+  has_accepted_quote: boolean;
 };
 
 export type DossierConfirmationRow = {
@@ -742,8 +814,20 @@ export type Database = {
       };
       payments: {
         Row: PaymentRow;
-        Insert: never; // via record_deposit
+        Insert: never; // via record_deposit / record_payment
         Update: never; // via cancel_payment
+        Relationships: [];
+      };
+      adjustments: {
+        Row: AdjustmentRow;
+        Insert: never; // via add_extra_cost / add_discount / propose_late_fees
+        Update: never; // via decide_late_fee / cancel_adjustment / acceptances
+        Relationships: [];
+      };
+      refunds: {
+        Row: RefundRow;
+        Insert: never; // demandes créées par la base (trop-perçu, excédent de dépôt, lot non remporté)
+        Update: never; // via decide_refund / execute_refund
         Relationships: [];
       };
       audit_log: {
@@ -905,6 +989,44 @@ export type Database = {
         Returns: string;
       };
       cancel_payment: { Args: { p_payment_id: string; p_reason: string }; Returns: undefined };
+      dossier_balance: { Args: { p_dossier_id: string }; Returns: DossierBalance[] };
+      record_payment: {
+        Args: {
+          p_dossier_id: string;
+          p_paid_currency: "USD" | "XOF";
+          p_amount_cents: number | null;
+          p_amount_xof: number | null;
+          p_mode: PaymentMode;
+          p_official_account_id: string | null;
+          p_reference: string;
+          p_credited_at: string;
+          p_proof_document_id?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: string;
+      };
+      issue_balance_invoice: { Args: { p_dossier_id: string }; Returns: string };
+      propose_late_fees: { Args: Record<string, never>; Returns: number };
+      add_extra_cost: {
+        Args: {
+          p_dossier_id: string;
+          p_section: "A" | "B";
+          p_label: string;
+          p_amount_cents: number;
+          p_proof_document_id: string;
+          p_urgent?: boolean;
+          p_reason?: string | null;
+        };
+        Returns: string;
+      };
+      add_discount: { Args: { p_dossier_id: string; p_label: string; p_amount_cents: number }; Returns: string };
+      decide_late_fee: { Args: { p_adjustment_id: string; p_approve: boolean; p_note?: string | null }; Returns: undefined };
+      cancel_adjustment: { Args: { p_adjustment_id: string; p_reason: string }; Returns: undefined };
+      decide_refund: { Args: { p_refund_id: string; p_approve: boolean; p_reason?: string | null }; Returns: undefined };
+      execute_refund: {
+        Args: { p_refund_id: string; p_paid_at: string; p_reference: string; p_proof_document_id: string };
+        Returns: string;
+      };
       log_audit: {
         Args: {
           p_action: string;

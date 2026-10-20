@@ -171,6 +171,57 @@ select 'e0000000-0000-4000-8000-000000000004', 'c0000000-0000-4000-8000-00000000
 from public.fx_rates r where r.rate = 586.52;
 
 -- ---------------------------------------------------------------------------
+-- Phase 3, lot 3c — dossier en mer, prêt pour la facture de solde : devis DEMO accepté (assurance acceptée),
+-- paiement 1 réglé, conteneur avec B/L et ETA. Numéros « DEMO-… » (hors séquences réelles, CLAUDE.md règle 8).
+-- ---------------------------------------------------------------------------
+insert into public.dossiers (
+  id, reference, client_id, owner_id, created_by, stage, status, platform, lot_number, vin, make, model, model_year,
+  vehicle_category, purchase_location, departure_port, auction_result, hammer_price_cents, lot_won_notified_at,
+  payment1_due_at, created_at
+) values (
+  'e0000000-0000-4000-8000-000000000005', 'DEMO-2026-0005', 'c0000000-0000-4000-8000-000000000002',
+  'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'ocean', 'at_sea', 'copart',
+  'DEMO-LOT-1005', '1DEMXXX0000000005', 'Hyundai', 'Tucson', 2021, 'passenger', 'Savannah, GA (démo)', 'Houston',
+  'won', 900000, now() - interval '20 days', now() - interval '19 days', now() - interval '25 days'
+);
+
+insert into public.dossier_forfaits (dossier_id, forfait_a_cents, forfait_b_cents, insurance_cents, updated_by) values
+  ('e0000000-0000-4000-8000-000000000005', 1050000, 300000, 20000, 'd0000000-0000-4000-8000-000000000002');
+
+insert into public.financial_documents (
+  id, dossier_id, client_id, doc_type, number, status, forfait_a_cents, forfait_b_cents, insurance_premium_cents,
+  insurance_choice, total_cents, amount_due_cents, fx_rate_id, fx_rate, fx_source, fx_captured_at, edition_fx_rate,
+  edition_fx_captured_at, issued_at, valid_until, decided_at, issued_by
+)
+select 'b0000000-0000-4000-8000-000000000005', 'e0000000-0000-4000-8000-000000000005',
+       'c0000000-0000-4000-8000-000000000002', 'quote', 'DEMO-DV-0005', 'accepted', 1050000, 300000, 20000, 'accepted',
+       1350000, 1350000, r.id, r.rate, r.source, r.captured_at, r.rate, r.captured_at, now() - interval '20 days',
+       now() - interval '19 days', now() - interval '20 days', 'd0000000-0000-4000-8000-000000000002'
+from public.fx_rates r where r.rate = 586.52;
+
+insert into public.financial_documents (
+  id, dossier_id, client_id, doc_type, number, status, quote_id, forfait_a_cents, insurance_premium_cents,
+  insurance_choice, total_cents, amount_due_cents, fx_rate_id, fx_rate, fx_source, fx_captured_at, edition_fx_rate,
+  edition_fx_captured_at, issued_at, due_at, issued_by
+)
+select 'b0000000-0000-4000-8000-000000000006', 'e0000000-0000-4000-8000-000000000005',
+       'c0000000-0000-4000-8000-000000000002', 'deposit_invoice', 'DEMO-FA-0005', 'paid',
+       'b0000000-0000-4000-8000-000000000005', 1050000, 20000, 'accepted', 1050000, 1050000, r.id, r.rate, r.source,
+       r.captured_at, r.rate, r.captured_at, now() - interval '20 days', now() - interval '19 days',
+       'd0000000-0000-4000-8000-000000000003'
+from public.fx_rates r where r.rate = 586.52;
+
+insert into public.payments (dossier_id, client_id, purpose, amount_cents, paid_currency, fx_rate_id, fx_rate, fx_captured_at,
+                             fx_rate_same_day, mode, official_account_id, reference, credited_at, recorded_by)
+select 'e0000000-0000-4000-8000-000000000005', 'c0000000-0000-4000-8000-000000000002', 'payment1', 1050000, 'USD',
+       r.id, r.rate, r.captured_at, false, 'bank_transfer', 'a0000000-0000-4000-8000-000000000001', 'DEMO-VIR-0005',
+       now() - interval '19 days 2 hours', 'd0000000-0000-4000-8000-000000000003'
+from public.fx_rates r where r.rate = 586.52;
+
+insert into public.dossier_containers (dossier_id, container_id, assigned_by) values
+  ('e0000000-0000-4000-8000-000000000005', 'f1000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000002');
+
+-- ---------------------------------------------------------------------------
 -- Décisions A4 et A4-bis : la comptabilité et la direction sont soumises à la double authentification. Pour les
 -- essais LOCAUX et les tests, leurs comptes de démonstration ont déjà un facteur TOTP vérifié, de secret connu (à
 -- saisir dans une application d'authentification) : JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP. L'administrateur, lui,
