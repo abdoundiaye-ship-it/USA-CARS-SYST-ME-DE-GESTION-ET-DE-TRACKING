@@ -66,6 +66,15 @@ export const SETTINGS_LOTS: Record<string, SettingsLot> = {
       "-- ne pas modifier à la main. Valeurs modifiables ensuite dans l’écran Paramètres.",
     ],
   },
+  phase4a: {
+    migrationPath: "supabase/migrations/20261020100400_parametres_portail.sql",
+    effectiveFrom: "2026-10-20T00:00:00Z",
+    header: [
+      "-- Phase 4, lot 4a — connexion des clients au portail (lien à usage unique, R16).",
+      "-- GÉNÉRÉ par `pnpm settings:generate` depuis specs/parametres_contractuels.json (lot « phase4a ») :",
+      "-- ne pas modifier à la main. Valeurs modifiables ensuite dans l’écran Paramètres.",
+    ],
+  },
 };
 
 /** Paramètres du JSON regroupés par lot. */

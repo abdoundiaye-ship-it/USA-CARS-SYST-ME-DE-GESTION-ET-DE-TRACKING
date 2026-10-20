@@ -79,6 +79,8 @@ export const SETTING_LABELS: Record<string, string> = {
   "contract.scope": "Portée du contrat",
   "acceptance.methods": "Méthodes d’acceptation",
   "client_auth.link_channels": "Canaux d’envoi du lien de connexion client",
+  "client_auth.link_ttl_minutes": "Validité du lien de connexion client (minutes)",
+  "client_auth.max_links_per_hour": "Liens de connexion demandables par heure et par client",
   "notifications.channels": "Canaux de notification",
   "numbering.dossier": "Format — référence dossier",
   "numbering.quote": "Format — devis",
