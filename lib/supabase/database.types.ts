@@ -54,7 +54,8 @@ export type DossierEventKind =
   | "financial_document"
   | "payment_recorded"
   | "adjustment"
-  | "refund";
+  | "refund"
+  | "arrival_notified";
 export type ContainerStatus =
   | "booking_confirmed"
   | "departure_planned"
@@ -241,6 +242,10 @@ export type PurchaseOrderRow = {
   updated_at: string;
 };
 
+export type ArrivalNoticeChannel = "phone" | "whatsapp" | "email" | "in_person";
+
+export type CarrierApiStatus = "non_etudie" | "non_verifie" | "demande" | "obtenu" | "refuse";
+
 export type CarrierRow = {
   id: string;
   code: string;
@@ -248,6 +253,8 @@ export type CarrierRow = {
   tracking_url: string;
   url_template: string | null;
   link_type: "officiel" | "tiers";
+  /** État de l'accès API (décision F2-a : liens seulement tant qu'aucun accès n'est obtenu). */
+  api_status: CarrierApiStatus;
   note: string | null;
   active: boolean;
   created_by: string | null;
@@ -1066,6 +1073,10 @@ export type Database = {
       record_container_departure: { Args: { p_container_id: string; p_departed_on: string }; Returns: undefined };
       record_container_arrival: { Args: { p_container_id: string; p_ata: string }; Returns: undefined };
       mark_container_checked: { Args: { p_container_id: string }; Returns: undefined };
+      record_arrival_notice: {
+        Args: { p_dossier_id: string; p_channel: ArrivalNoticeChannel; p_note?: string | null };
+        Returns: undefined;
+      };
       fx_rate_as_of: {
         Args: { p_at: string };
         Returns: { id: string; rate: number; source: string; captured_at: string }[];

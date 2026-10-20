@@ -153,6 +153,7 @@ export async function addTrackingEvent(_previous: FormState, formData: FormData)
   const { error } = await supabase.from("tracking_events").insert({
     container_id: parsed.data.containerId,
     kind: parsed.data.kind,
+    source: parsed.data.source,
     occurred_at: new Date(`${parsed.data.occurredOn}T12:00:00Z`).toISOString(),
     label: parsed.data.label,
     location: parsed.data.location,

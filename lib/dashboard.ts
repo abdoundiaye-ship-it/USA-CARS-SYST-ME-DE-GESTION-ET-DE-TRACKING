@@ -36,6 +36,8 @@ export interface DashboardContainer {
   last_checked_at: string | null;
   /** Dernière modification de l'ETA (hors première saisie), d'après l'historique. */
   eta_changed_at: string | null;
+  /** Saisie de l'ATA (événement « Arrivée ») : point de départ du délai d'information du client. */
+  arrival_recorded_at?: string | null;
 }
 
 export interface DashboardThresholds {
@@ -43,6 +45,10 @@ export interface DashboardThresholds {
   recentEtaChangeDays: number;
   maxDaysWithoutCheck: number;
   unclaimedReminderDays: number;
+  /** Contrat art. 17 : le client est informé de l'arrivée dans ce délai (heures après la saisie de l'ATA). */
+  arrivalNotifyHours: number;
+  /** R10 : enlèvement attendu ce nombre de jours après la remise des documents. */
+  pickupDaysAfterDocuments: number;
 }
 
 /** Situation financière d'un dossier (fonction finance_overview, lot 3d). */
@@ -72,6 +78,10 @@ export interface DashboardData {
   releasedDossierIds: Set<string>;
   containers: DashboardContainer[];
   assignments: { dossier_id: string; container_id: string }[];
+  /** Dossiers dont le client a été informé de l'arrivée (message envoyé, ou information enregistrée par l'agent). */
+  arrivalNotifiedDossierIds?: Set<string>;
+  /** Remises des documents (R9) : date de remise, point de départ du délai d'enlèvement. */
+  releases?: { dossier_id: string; released_at: string }[];
 }
 
 export type Severity = "danger" | "warning" | "info";
@@ -83,6 +93,8 @@ export interface TodoItem {
     | "balance_overdue"
     | "refund_overdue"
     | "unclaimed"
+    | "arrival_not_notified"
+    | "pickup_overdue"
     | "tracking_check"
     | "documents_to_release"
     | "quote_expired"
@@ -102,13 +114,17 @@ const RANK: Record<TodoItem["kind"], number> = {
   balance_overdue: 2,
   refund_overdue: 3,
   unclaimed: 4,
-  tracking_check: 5,
-  documents_to_release: 6,
-  quote_expired: 7,
-  finance_to_validate: 8,
-  eta_changed: 9,
-  stale: 10,
+  arrival_not_notified: 5,
+  pickup_overdue: 6,
+  tracking_check: 7,
+  documents_to_release: 8,
+  quote_expired: 9,
+  finance_to_validate: 10,
+  eta_changed: 11,
+  stale: 12,
 };
+
+const HOUR = 60 * 60 * 1000;
 
 const daysBetween = (from: string | Date, to: Date) => Math.floor((to.getTime() - new Date(from).getTime()) / DAY);
 
@@ -140,8 +156,39 @@ export function buildTodoList(data: DashboardData, thresholds: DashboardThreshol
         since: payment1Due,
       });
     }
+    // Contrat art. 17 : client informé de l'arrivée sous `arrival.notify_within_hours` heures après la saisie de l'ATA.
+    const container = containerOf(d.id);
+    if (container?.ata && !data.arrivalNotifiedDossierIds?.has(d.id)) {
+      const recordedAt = container.arrival_recorded_at ?? `${container.ata}T12:00:00Z`;
+      const deadline = new Date(new Date(recordedAt).getTime() + thresholds.arrivalNotifyHours * HOUR);
+      if (deadline < now) {
+        items.push({
+          severity: "warning",
+          kind: "arrival_not_notified",
+          label: `Client non informé de l’arrivée du ${formatDate(container.ata)}`,
+          subject: d.reference,
+          href,
+          since: deadline.toISOString(),
+        });
+      }
+    }
+    // R10 : enlèvement attendu `pickup.days_after_documents` jours après la remise des documents.
+    const release = data.releases?.find((r) => r.dossier_id === d.id);
+    if (release && d.status !== "collected") {
+      const expected = new Date(new Date(release.released_at).getTime() + thresholds.pickupDaysAfterDocuments * DAY);
+      if (expected < now) {
+        items.push({
+          severity: "warning",
+          kind: "pickup_overdue",
+          label: `Enlèvement attendu depuis le ${formatDate(expected.toISOString())}`,
+          subject: d.reference,
+          href,
+          since: expected.toISOString(),
+        });
+      }
+    }
     if (d.stage === "dakar") {
-      const ata = containerOf(d.id)?.ata;
+      const ata = container?.ata;
       if (ata && d.status !== "collected" && daysBetween(ata, now) > thresholds.unclaimedReminderDays) {
         items.push({
           severity: "danger",

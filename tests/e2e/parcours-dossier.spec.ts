@@ -220,9 +220,11 @@ test("agent : de l’ouverture à l’arrivée à Dakar (contrat, ordre d’acha
   await expect(page.getByText("ETA indicative modifiée : 20/11/2026 → 25/11/2026")).toBeVisible();
   await page.getByText("Ajouter un événement…").click();
   await page.getByLabel("Type").selectOption("transshipment");
+  await page.getByLabel("Source de l’information").selectOption("manual"); // R12 : source distinguée
   await page.getByLabel("Description").fill("Transbordement à Algeciras (démo)");
   await page.getByRole("button", { name: "Ajouter l’événement" }).click();
   await expect(page.getByText("Transbordement à Algeciras (démo)").first()).toBeVisible();
+  await expect(page.getByText(/· Saisie manuelle · visible du client/).first()).toBeVisible();
   await page.getByRole("button", { name: "Vérifié aujourd’hui" }).click();
   await expect(page.getByText(/Dernière vérification : \d{2}\/\d{2}\/\d{4}/)).toBeVisible();
   await page.getByLabel("Date d’arrivée réelle (ATA)").fill("2026-10-18");
@@ -238,6 +240,17 @@ test("agent : de l’ouverture à l’arrivée à Dakar (contrat, ordre d’acha
   ).toBeVisible();
   await stage.getByRole("button", { name: "Passer à l’étape Dakar" }).click();
   await expect(page.getByText("Documents à finaliser").first()).toBeVisible();
+
+  // Contrat art. 17 : sans message réellement envoyé, l'agent enregistre l'information donnée au client.
+  const arrival = page.locator("section").filter({ has: page.getByRole("heading", { name: "Arrivée à Dakar" }) });
+  await expect(arrival.getByText("Le client n’a pas encore été informé de l’arrivée")).toBeVisible();
+  await arrival.getByLabel("Client informé par").selectOption("phone");
+  await arrival.getByLabel("Précision (facultatif)").fill("Appel du client (démo)");
+  await arrival.getByRole("button", { name: "Enregistrer l’information du client" }).click();
+  await expect(
+    page.getByText("Client informé de l’arrivée par téléphone : Appel du client (démo)").first(),
+  ).toBeVisible();
+  await expect(arrival.getByText("Le client n’a pas encore été informé de l’arrivée")).toHaveCount(0);
 
   await page.setViewportSize({ width: 400, height: 800 });
   await expectNoHorizontalScroll(page);

@@ -7,8 +7,10 @@ import { requireInternal } from "@/lib/auth/access";
 import { canAccess, SCREEN_ROLES } from "@/lib/auth/roles";
 import { CONTRACT_STATUS_LABELS, PLATFORM_LABELS, STAGE_LABELS, VEHICLE_CATEGORY_LABELS } from "@/lib/dossiers/labels";
 import { formatDate, formatDateTime, formatInteger } from "@/lib/format";
+import { currentNumbers } from "@/lib/server/settings-values";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { missingClientInformation } from "@/lib/validation/operations";
+import { ArrivalSection } from "./arrival-section";
 import { BillingSection } from "./billing-section";
 import { FinanceSection } from "./finance-section";
 import { ReleaseSection } from "./release-section";
@@ -94,6 +96,9 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     { data: balanceRows },
     { data: currentRate },
     { data: release },
+    { data: arrivalMessages },
+    { data: arrivalNotices },
+    arrivalSettings,
   ] = await Promise.all([
     supabase.from("clients").select("*").eq("id", dossier.client_id).maybeSingle(),
     supabase
@@ -136,6 +141,19 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     supabase.rpc("dossier_balance", { p_dossier_id: id }),
     supabase.rpc("fx_rate_as_of", { p_at: new Date().toISOString() }),
     supabase.from("document_releases").select("*").eq("dossier_id", id).maybeSingle(),
+    supabase
+      .from("notifications")
+      .select("id, channel, status, created_at, sent_at")
+      .eq("dossier_id", id)
+      .eq("template", "arrived")
+      .order("created_at"),
+    supabase
+      .from("dossier_events")
+      .select("id, label, occurred_at, actor_id")
+      .eq("dossier_id", id)
+      .eq("kind", "arrival_notified")
+      .order("occurred_at"),
+    currentNumbers(["arrival.notify_within_hours", "pickup.days_after_documents"] as const),
   ]);
   const contractAcceptance = acceptances?.find((a) => a.subject === "contract") ?? null;
   const orderAcceptance = acceptances?.find((a) => a.subject === "purchase_order") ?? null;
@@ -146,6 +164,7 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
   const vehicle = [dossier.make, dossier.model, dossier.model_year].filter(Boolean).join(" ");
   const today = new Date().toISOString().slice(0, 10); // Africa/Dakar = UTC+0
   const ageCheck = (ageRows?.[0] ?? null) as AgeCheck | null;
+  const currentContainer = containerAssignments?.find((a) => a.removed_at === null)?.containers ?? null;
 
   return (
     <>
@@ -267,6 +286,18 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
           assignments={containerAssignments ?? []}
           options={openContainers ?? []}
           canWrite={canWrite}
+        />
+
+        <ArrivalSection
+          dossier={dossier}
+          container={currentContainer}
+          messages={arrivalMessages ?? []}
+          notices={arrivalNotices ?? []}
+          release={release}
+          notifyHours={arrivalSettings["arrival.notify_within_hours"]}
+          pickupDays={arrivalSettings["pickup.days_after_documents"]}
+          canWrite={canWrite}
+          staffName={staffName}
         />
 
         <FinanceSection

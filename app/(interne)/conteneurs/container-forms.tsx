@@ -205,7 +205,7 @@ export function TrackingEventForm({ containerId, today }: { containerId: string;
     <form {...formProps} className="flex flex-col gap-3" noValidate>
       <FormMessage state={state} />
       <input type="hidden" name="containerId" value={containerId} />
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field id="event-kind" label="Type" error={e.kind}>
           {(aria) => (
             <Select {...aria} name="kind" defaultValue={state.data?.kind ?? "note"}>
@@ -218,6 +218,14 @@ export function TrackingEventForm({ containerId, today }: { containerId: string;
         <Field id="event-date" label="Date" error={e.occurredOn}>
           {(aria) => (
             <Input {...aria} name="occurredOn" type="date" max={today} defaultValue={state.data?.occurredOn ?? today} />
+          )}
+        </Field>
+        <Field id="event-source" label="Source de l’information" error={e.source}>
+          {(aria) => (
+            <Select {...aria} name="source" defaultValue={state.data?.source ?? "carrier_link"}>
+              <option value="carrier_link">Lien du transporteur (vu sur son site)</option>
+              <option value="manual">Saisie manuelle (autre information)</option>
+            </Select>
           )}
         </Field>
         <Field id="event-location" label="Lieu (facultatif)" error={e.location}>

@@ -14,8 +14,16 @@ export async function saveCarrier(_previous: FormState, formData: FormData): Pro
   }
   const parsed = carrierSchema.safeParse(formObject(formData));
   if (!parsed.success) return withValues(invalid(parsed.error), formData);
-  const { carrierId, code, name, trackingUrl, urlTemplate, linkType, note, active } = parsed.data;
-  const row = { code, name, tracking_url: trackingUrl, url_template: urlTemplate, link_type: linkType, note };
+  const { carrierId, code, name, trackingUrl, urlTemplate, linkType, apiStatus, note, active } = parsed.data;
+  const row = {
+    code,
+    name,
+    tracking_url: trackingUrl,
+    url_template: urlTemplate,
+    link_type: linkType,
+    api_status: apiStatus,
+    note,
+  };
 
   const supabase = await createSupabaseServerClient();
   const { error } = carrierId

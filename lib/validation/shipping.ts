@@ -46,6 +46,7 @@ export const carrierSchema = z.object({
       "Lien direct : adresse https:// contenant {container} ou {bl} (laisser vide sinon).",
     ),
   linkType: z.enum(["officiel", "tiers"], "Indiquez si le lien est officiel ou un service tiers."),
+  apiStatus: z.enum(["non_etudie", "non_verifie", "demande", "obtenu", "refuse"], "Indiquez l’état de l’accès API."),
   note: optionalText(500),
   active: z
     .enum(["on"])
@@ -99,6 +100,7 @@ export const containerDateSchema = z.object({
 export const trackingEventSchema = z.object({
   containerId: z.uuid("Conteneur inconnu."),
   kind: z.enum(["transshipment", "delay", "note"], "Choisissez le type d’événement."),
+  source: z.enum(["manual", "carrier_link"], "Indiquez la source de l’information."),
   occurredOn: isoDate("Saisissez la date de l’événement."),
   label: z.string().trim().min(3, "Décrivez l’événement.").max(200, "200 caractères au maximum."),
   location: optionalText(80),
@@ -106,6 +108,13 @@ export const trackingEventSchema = z.object({
     .enum(["on"])
     .optional()
     .transform((v) => v === "on"),
+});
+
+/** Contrat art. 17 : information du client sur l'arrivée, donnée par l'agent hors notification automatique. */
+export const arrivalNoticeSchema = z.object({
+  dossierId: z.uuid("Dossier inconnu."),
+  channel: z.enum(["phone", "whatsapp", "email", "in_person"], "Indiquez comment le client a été informé."),
+  note: optionalText(300),
 });
 
 export const assignContainerSchema = z.object({

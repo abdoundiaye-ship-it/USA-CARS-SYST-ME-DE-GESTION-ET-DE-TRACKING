@@ -1,5 +1,8 @@
 import type {
   AcceptanceMethod,
+  ArrivalNoticeChannel,
+  CarrierApiStatus,
+  TrackingEventRow,
   ConfirmationCode,
   ContainerStatus,
   EtaSource,
@@ -146,6 +149,30 @@ export const ETA_SOURCE_LABELS: Record<EtaSource, string> = {
   carrier_site: "Site de suivi du transporteur",
   carrier_notice: "Avis du transporteur (e-mail, courrier)",
   manual: "Estimation de l’agent",
+};
+
+/** Source d'un événement de suivi (R12) ; les saisies manuelles sont distinguées à l'affichage. */
+export const TRACKING_SOURCE_LABELS: Record<TrackingEventRow["source"], string> = {
+  manual: "Saisie manuelle",
+  carrier_link: "Lien du transporteur",
+  api: "API du transporteur",
+};
+
+/** État de l'accès API d'un transporteur (cahier des charges §5.1, décision F2-a). */
+export const CARRIER_API_STATUS_LABELS: Record<CarrierApiStatus, string> = {
+  non_etudie: "Non étudié",
+  non_verifie: "Non vérifié",
+  demande: "Demandé",
+  obtenu: "Obtenu",
+  refuse: "Refusé",
+};
+
+/** Moyen par lequel l'agent a informé le client de l'arrivée (contrat art. 17). */
+export const ARRIVAL_NOTICE_CHANNEL_LABELS: Record<ArrivalNoticeChannel, string> = {
+  phone: "Téléphone",
+  whatsapp: "WhatsApp (message de l’agent)",
+  email: "E-mail (message de l’agent)",
+  in_person: "En personne",
 };
 
 export const TRACKING_EVENT_LABELS: Record<TrackingEventKind, string> = {

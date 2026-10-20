@@ -24,6 +24,8 @@ const SETTING_KEYS = [
   "tracking.max_days_without_check_in_transit",
   "unclaimed.reminder_days_after_arrival",
   "balance.recommended_days_before_eta",
+  "arrival.notify_within_hours",
+  "pickup.days_after_documents",
 ] as const;
 
 const SEVERITY: Record<Severity, { tone: "danger" | "warning" | "info"; label: string }> = {
@@ -50,6 +52,9 @@ export default async function TableauDeBordPage() {
     settings,
     { data: finance },
     { data: releases },
+    { data: arrivalEvents },
+    { data: arrivalMessages },
+    { data: arrivalNotices },
   ] = await Promise.all([
     supabase.from("dossiers").select("id, reference, stage, status, updated_at, payment1_due_at, clients(name)"),
     supabase.from("dossier_confirmations").select("dossier_id, code"),
@@ -63,12 +68,16 @@ export default async function TableauDeBordPage() {
     supabase.from("dossier_containers").select("dossier_id, container_id").is("removed_at", null),
     currentNumbers(SETTING_KEYS),
     supabase.rpc("finance_overview"),
-    supabase.from("document_releases").select("dossier_id"),
+    supabase.from("document_releases").select("dossier_id, released_at"),
+    supabase.from("tracking_events").select("container_id, created_at").eq("kind", "arrival"),
+    supabase.from("notifications").select("dossier_id").eq("template", "arrived").eq("status", "sent"),
+    supabase.from("dossier_events").select("dossier_id").eq("kind", "arrival_notified"),
   ]);
 
   const containerRows: DashboardContainer[] = (containers ?? []).map((c) => ({
     ...c,
     eta_changed_at: etaChanges?.find((e) => e.container_id === c.id)?.changed_at ?? null,
+    arrival_recorded_at: arrivalEvents?.find((e) => e.container_id === c.id)?.created_at ?? null,
   }));
   const data = {
     dossiers: (dossiers ?? []).map((d) => ({ ...d, client_name: d.clients?.name ?? null })),
@@ -80,6 +89,12 @@ export default async function TableauDeBordPage() {
     finance: finance ?? [],
     containers: containerRows,
     assignments: assignments ?? [],
+    // Message « arrivée » réellement envoyé (un envoi simulé n'informe pas le client) ou information par l'agent.
+    arrivalNotifiedDossierIds: new Set([
+      ...(arrivalMessages ?? []).flatMap((m) => (m.dossier_id ? [m.dossier_id] : [])),
+      ...(arrivalNotices ?? []).map((e) => e.dossier_id),
+    ]),
+    releases: releases ?? [],
   };
   const unset = Number.POSITIVE_INFINITY; // paramètre absent : la règle ne se déclenche pas
   const todo = buildTodoList(data, {
@@ -87,6 +102,8 @@ export default async function TableauDeBordPage() {
     recentEtaChangeDays: settings["dashboard.recent_eta_change_days"] ?? -1,
     maxDaysWithoutCheck: settings["tracking.max_days_without_check_in_transit"] ?? unset,
     unclaimedReminderDays: settings["unclaimed.reminder_days_after_arrival"] ?? unset,
+    arrivalNotifyHours: settings["arrival.notify_within_hours"] ?? unset,
+    pickupDaysAfterDocuments: settings["pickup.days_after_documents"] ?? unset,
   });
   const arrivalWindow = settings["balance.recommended_days_before_eta"] ?? 7;
   const indicators = buildIndicators(data, arrivalWindow, todo);

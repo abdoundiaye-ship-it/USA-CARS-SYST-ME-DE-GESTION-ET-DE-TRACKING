@@ -10,7 +10,14 @@ import {
 } from "./dashboard";
 
 const now = new Date("2026-10-19T12:00:00Z");
-const thresholds = { staleDossierDays: 7, recentEtaChangeDays: 3, maxDaysWithoutCheck: 3, unclaimedReminderDays: 30 };
+const thresholds = {
+  staleDossierDays: 7,
+  recentEtaChangeDays: 3,
+  maxDaysWithoutCheck: 3,
+  unclaimedReminderDays: 30,
+  arrivalNotifyHours: 24,
+  pickupDaysAfterDocuments: 15,
+};
 
 const dossier = (over: Partial<DashboardDossier>): DashboardDossier => ({
   id: over.reference ?? "d",
@@ -77,11 +84,55 @@ describe("liste « À traiter » (US-2.9)", () => {
       containers: [container({ id: "x", ata: "2026-09-10", status: "arrived" })],
       assignments: [{ dossier_id: "k", container_id: "x" }],
       confirmations: [{ dossier_id: "k", code: "balance_paid" }],
+      arrivalNotifiedDossierIds: new Set(["k"]),
     };
     expect(buildTodoList(data, thresholds, now).map((i) => i.kind)).toEqual(["unclaimed", "documents_to_release"]);
     expect(buildTodoList({ ...data, releasedDossierIds: new Set(["k"]) }, thresholds, now).map((i) => i.kind)).toEqual([
       "unclaimed",
     ]);
+  });
+
+  it("arrivée : client non informé au-delà du délai (art. 17), sauf message envoyé ou information par l’agent", () => {
+    const d = dossier({ id: "n", reference: "N", stage: "dakar", status: "documents_pending" });
+    const arrived = (recordedAt: string): DashboardData => ({
+      ...empty,
+      dossiers: [d],
+      containers: [container({ id: "x", ata: "2026-10-17", status: "arrived", arrival_recorded_at: recordedAt })],
+      assignments: [{ dossier_id: "n", container_id: "x" }],
+    });
+    // Saisie de l'ATA il y a 25 h : délai de 24 h dépassé.
+    expect(buildTodoList(arrived("2026-10-18T11:00:00Z"), thresholds, now)[0]).toMatchObject({
+      kind: "arrival_not_notified",
+      severity: "warning",
+      label: "Client non informé de l’arrivée du 17/10/2026",
+      href: "/dossiers/n",
+    });
+    // Saisie il y a 23 h : encore dans le délai.
+    expect(buildTodoList(arrived("2026-10-18T13:00:00Z"), thresholds, now)).toEqual([]);
+    const informed = { ...arrived("2026-10-18T11:00:00Z"), arrivalNotifiedDossierIds: new Set(["n"]) };
+    expect(buildTodoList(informed, thresholds, now)).toEqual([]);
+    // Paramètre absent : aucune alerte.
+    const unset = { ...thresholds, arrivalNotifyHours: Number.POSITIVE_INFINITY };
+    expect(buildTodoList(arrived("2026-10-01T11:00:00Z"), unset, now)).toEqual([]);
+  });
+
+  it("enlèvement attendu N jours après la remise des documents (R10), jusqu’au statut « Enlevé »", () => {
+    const data = (status: string): DashboardData => ({
+      ...empty,
+      dossiers: [dossier({ id: "p", reference: "P", stage: "dakar", status })],
+      releasedDossierIds: new Set(["p"]),
+      releases: [{ dossier_id: "p", released_at: "2026-10-03T10:00:00Z" }],
+    });
+    expect(buildTodoList(data("documents_released"), thresholds, now)[0]).toMatchObject({
+      kind: "pickup_overdue",
+      label: "Enlèvement attendu depuis le 18/10/2026",
+    });
+    expect(buildTodoList(data("collected"), thresholds, now)).toEqual([]);
+    const later = {
+      ...data("documents_released"),
+      releases: [{ dossier_id: "p", released_at: "2026-10-05T10:00:00Z" }],
+    };
+    expect(buildTodoList(later, thresholds, now)).toEqual([]);
   });
 
   it("conteneur en mer non vérifié et ETA modifiée récemment ; tri par gravité", () => {

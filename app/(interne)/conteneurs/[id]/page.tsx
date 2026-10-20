@@ -5,7 +5,12 @@ import { Alert, Badge, Card, EmptyState, PageHeader } from "@/components/ui/feed
 import { Table, Td, Th } from "@/components/ui/table";
 import { requireInternal } from "@/lib/auth/access";
 import { canAccess, SCREEN_ROLES } from "@/lib/auth/roles";
-import { CONTAINER_STATUS_LABELS, ETA_SOURCE_LABELS, STAGE_LABELS } from "@/lib/dossiers/labels";
+import {
+  CONTAINER_STATUS_LABELS,
+  ETA_SOURCE_LABELS,
+  STAGE_LABELS,
+  TRACKING_SOURCE_LABELS,
+} from "@/lib/dossiers/labels";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { maxDaysWithoutCheck } from "@/lib/server/tracking-settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -202,11 +207,15 @@ export default async function ConteneurPage({ params, searchParams }: PageProps<
           ) : (
             <ol className="flex flex-col gap-3">
               {events.map((e) => (
-                <li key={e.id} className="border-border border-l-2 pl-3 text-sm">
+                <li
+                  key={e.id}
+                  className={`border-l-2 pl-3 text-sm ${e.source === "manual" ? "border-warning border-dashed" : "border-border"}`}
+                >
                   <p className="font-medium">{e.label}</p>
                   <p className="text-muted text-xs">
                     {formatDate(e.occurred_at)}
-                    {e.location && ` · ${e.location}`} · {e.visible_client ? "visible du client" : "interne"}
+                    {e.location && ` · ${e.location}`} · {TRACKING_SOURCE_LABELS[e.source]} ·{" "}
+                    {e.visible_client ? "visible du client" : "interne"}
                   </p>
                 </li>
               ))}

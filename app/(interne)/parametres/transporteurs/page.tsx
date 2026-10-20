@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Alert, Badge, Card, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { requireInternal } from "@/lib/auth/access";
 import { SCREEN_ROLES } from "@/lib/auth/roles";
+import { CARRIER_API_STATUS_LABELS } from "@/lib/dossiers/labels";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { CarrierForm } from "./carrier-form";
 
@@ -50,6 +51,7 @@ export default async function TransporteursPage() {
                 <Badge tone={carrier.link_type === "tiers" ? "warning" : "info"}>
                   {carrier.link_type === "tiers" ? "Service tiers" : "Lien officiel"}
                 </Badge>
+                {carrier.api_status === "obtenu" && <Badge tone="success">API obtenue</Badge>}
                 {!carrier.active && <Badge>Inactif</Badge>}
               </div>
               {isAdmin ? (
@@ -63,6 +65,10 @@ export default async function TransporteursPage() {
                   <div>
                     <dt className="text-muted">Lien direct</dt>
                     <dd className="break-all">{carrier.url_template ?? "— (référence à saisir sur la page)"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted">Accès API</dt>
+                    <dd>{CARRIER_API_STATUS_LABELS[carrier.api_status]}</dd>
                   </div>
                 </dl>
               )}
