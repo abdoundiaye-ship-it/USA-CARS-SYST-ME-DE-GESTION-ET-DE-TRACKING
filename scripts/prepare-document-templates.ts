@@ -9,6 +9,7 @@
  *   - templates/devis_facture.docx : devis DV et factures FA / FS (modèle « Devis / Facture » révisé), avec le logo
  *     en en-tête (décision D4) et les valeurs contractuelles reprises des paramètres (CLAUDE.md règle 4) ;
  *   - templates/recu.docx : reçu espèces RC et note de remboursement RB (même en-tête, corps d'une page) ;
+ *   - templates/courrier.docx : lettre de relance LR et mise en demeure MD (procédure « véhicule non réclamé ») ;
  *   - supabase/functions/_shared/document-templates.generated.ts : les fichiers en base64, embarqués dans la
  *     fonction Supabase generate-document (sans accès au disque).
  *
@@ -28,6 +29,7 @@ const OUTPUT_CONTRACT = "templates/contrat_prestation.docx";
 const OUTPUT_PURCHASE_ORDER = "templates/ordre_achat.docx";
 const OUTPUT_FINANCIAL = "templates/devis_facture.docx";
 const OUTPUT_RECEIPT = "templates/recu.docx";
+const OUTPUT_LETTER = "templates/courrier.docx";
 const OUTPUT_MODULE = "supabase/functions/_shared/document-templates.generated.ts";
 
 /** Remplace le texte d'un élément <w:t> (texte exact) ; `occurrence` : 1 = première, 2 = deuxième… */
@@ -491,6 +493,34 @@ function tagReceiptDocument(xml: string): string {
   return `${xml.slice(0, bodyStart)}${body}${xml.slice(sectionProperties)}`;
 }
 
+// ---------------------------------------------------------------------------
+// Courriers de la procédure « véhicule non réclamé » (US-5.3) : lettre de relance et mise en demeure, même charte
+// que le reçu ; le corps est une liste de paragraphes répétée (boucle docxtemplater).
+// ---------------------------------------------------------------------------
+function tagLetterDocument(xml: string): string {
+  const bodyStart = xml.indexOf("<w:body>") + "<w:body>".length;
+  const sectionProperties = xml.lastIndexOf("<w:sectPr");
+  const body = [
+    receiptParagraph("{titre_document}", { bold: true, size: 28, center: true, after: 60 }),
+    receiptParagraph(
+      "USA CARS – {usa_forme_juridique} – RCCM : {usa_rccm} – NINEA : {usa_ninea} – {usa_bureau} – Tél. : {usa_telephone}",
+      { size: 16, center: true, after: 360 },
+    ),
+    receiptParagraph("Dakar, le {date_document}", { after: 240 }),
+    receiptParagraph("{client_nom}", { bold: true, after: 0 }),
+    receiptParagraph("{client_adresse}", { after: 0 }),
+    receiptParagraph("Tél. : {client_telephone}", { after: 240 }),
+    receiptParagraph("{references}", { size: 18 }),
+    receiptParagraph("Objet : {objet}", { bold: true, after: 240 }),
+    receiptParagraph("Madame, Monsieur,"),
+    receiptParagraph("{#paragraphes}{texte}{/paragraphes}", { after: 160 }),
+    receiptParagraph("Veuillez agréer, Madame, Monsieur, l’expression de nos salutations distinguées.", { after: 480 }),
+    receiptParagraph("Pour USA CARS : {usa_representant}, {usa_qualite}"),
+    receiptParagraph("Signature : __________________"),
+  ].join("");
+  return `${xml.slice(0, bodyStart)}${body}${xml.slice(sectionProperties)}`;
+}
+
 const contract = build("contrat-revise", OUTPUT_CONTRACT, tagDocument, tagHeader);
 const purchaseOrder = build("ordre-achat-revise", OUTPUT_PURCHASE_ORDER, tagPurchaseOrder, tagPurchaseOrderHeader);
 const financial = build("devis-facture-revise", OUTPUT_FINANCIAL, tagFinancialDocument, tagFinancialHeader, {
@@ -498,6 +528,10 @@ const financial = build("devis-facture-revise", OUTPUT_FINANCIAL, tagFinancialDo
   extra: addLogo,
 });
 const receipt = build("recu", OUTPUT_RECEIPT, tagReceiptDocument, tagFinancialHeader, {
+  source: FINANCIAL_SOURCE,
+  extra: addLogo,
+});
+const letter = build("courrier", OUTPUT_LETTER, tagLetterDocument, tagFinancialHeader, {
   source: FINANCIAL_SOURCE,
   extra: addLogo,
 });
@@ -516,6 +550,8 @@ writeFileSync(
     `export const FINANCIAL_TEMPLATE_BASE64 =\n  "${financial.bytes.toString("base64")}";`,
     `export const RECEIPT_TEMPLATE_VERSION = "${receipt.version}";`,
     `export const RECEIPT_TEMPLATE_BASE64 =\n  "${receipt.bytes.toString("base64")}";`,
+    `export const LETTER_TEMPLATE_VERSION = "${letter.version}";`,
+    `export const LETTER_TEMPLATE_BASE64 =\n  "${letter.bytes.toString("base64")}";`,
     "",
   ].join("\n"),
   "utf8",

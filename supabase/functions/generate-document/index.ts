@@ -1,6 +1,7 @@
 /**
  * Fonction Supabase generate-document — contrat (US-2.2, R14), ordre d'achat (US-2.3, annexe B), devis et
- * factures (US-3.3, US-3.4, US-3.7), reçus espèces et notes de remboursement (US-3.6, US-3.12).
+ * factures (US-3.3, US-3.4, US-3.7), reçus espèces et notes de remboursement (US-3.6, US-3.12), courriers de la
+ * procédure « véhicule non réclamé » (US-5.3 : lettre de relance, mise en demeure).
  *
  * Remplit le modèle Word, dépose le fichier dans le bucket privé « documents » et l'enregistre
  * (register_contract_document / register_purchase_order_document / register_financial_document_file).
@@ -25,12 +26,18 @@ import {
   type PaymentMode,
 } from "../_shared/financial-document.ts";
 import { RECEIPT_TEMPLATE_VERSION, renderReceipt, type RefundReason } from "../_shared/receipt.ts";
+import {
+  LETTER_TEMPLATE_VERSION,
+  renderLetter,
+  type LetterKind,
+  type LetterReason,
+} from "../_shared/unclaimed-letter.ts";
 import { PURCHASE_ORDER_TEMPLATE_VERSION, renderPurchaseOrder } from "../_shared/purchase-order.ts";
 import { SupabaseRest } from "../_shared/rest.ts";
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const KINDS = ["contract", "purchase_order", "financial_document"] as const;
+const KINDS = ["contract", "purchase_order", "financial_document", "unclaimed_letter"] as const;
 type Kind = (typeof KINDS)[number];
 
 class Refusal extends Error {
@@ -385,6 +392,90 @@ async function buildFinancialDocument(api: SupabaseRest, financial: FinancialRow
   return { bytes, fileName: `${prefix}-${financial.number}.docx`, templateVersion: FINANCIAL_TEMPLATE_VERSION };
 }
 
+type LetterRow = {
+  id: string;
+  dossier_id: string;
+  kind: LetterKind;
+  number: string;
+  status: string;
+  arrival_date: string;
+  reason: LetterReason;
+  amount_due_cents: number;
+  late_fees_cents: number;
+  fx_rate: number | string;
+  fx_captured_at: string;
+  cure_days: number | null;
+  issued_at: string;
+  document_id: string | null;
+};
+
+/** Lettre de relance ou mise en demeure : montants figés à l'émission, délais du contrat du dossier (X7). */
+async function buildLetterDocument(api: SupabaseRest, letter: LetterRow, dossier: Row) {
+  if (letter.document_id) throw new Refusal(409, "Le fichier de ce courrier est déjà généré.");
+  if (letter.status === "cancelled") throw new Refusal(409, "Ce courrier est annulé.");
+  const client = await api.first<{ name: string; address: string | null; notify_phone: string }>("clients", {
+    select: "name,address,notify_phone",
+    id: `eq.${dossier.client_id}`,
+  });
+  if (!client) throw new Refusal(404, "Client du dossier introuvable.");
+  const contract = await api.first<{ reference: string }>("contracts", {
+    select: "reference",
+    dossier_id: `eq.${dossier.id}`,
+  });
+  const reminder =
+    letter.kind === "formal_notice"
+      ? await api.first<{ number: string; sent_at: string }>("unclaimed_letters", {
+          select: "number,sent_at",
+          dossier_id: `eq.${dossier.id}`,
+          kind: "eq.reminder",
+          status: "eq.sent",
+        })
+      : null;
+  if (letter.kind === "formal_notice" && !reminder) throw new Refusal(409, "Lettre de relance envoyée introuvable.");
+  const valueOf = await settingsAsOf(
+    api,
+    [
+      ...Object.values(COMPANY_SETTING_KEYS),
+      "templates.legal_validated",
+      "unclaimed.formal_notice_days_after_arrival",
+      "unclaimed.procedure_months_after_arrival",
+    ],
+    dossier.params_as_of,
+  );
+  const company = Object.fromEntries(
+    Object.entries(COMPANY_SETTING_KEYS).map(([field, key]) => {
+      const value = valueOf(key);
+      return [field, typeof value === "string" ? value : ""];
+    }),
+  ) as unknown as CompanyIdentity;
+  const formalNoticeDays = Number(valueOf("unclaimed.formal_notice_days_after_arrival"));
+  const procedureMonths = Number(valueOf("unclaimed.procedure_months_after_arrival"));
+  if (!Number.isFinite(formalNoticeDays) || !Number.isFinite(procedureMonths)) {
+    throw new Refusal(500, "Paramètres de la procédure « véhicule non réclamé » manquants.");
+  }
+  const bytes = renderLetter({
+    kind: letter.kind,
+    number: letter.number,
+    issuedAt: new Date(letter.issued_at),
+    legalValidated: valueOf("templates.legal_validated") === true,
+    company,
+    client,
+    dossier: dossier as never,
+    contractReference: contract?.reference ?? null,
+    arrivalDate: new Date(`${letter.arrival_date}T00:00:00Z`),
+    reason: letter.reason,
+    amountDueCents: Number(letter.amount_due_cents),
+    lateFeesCents: Number(letter.late_fees_cents),
+    rate: { rate: String(letter.fx_rate), capturedAt: new Date(letter.fx_captured_at) },
+    formalNoticeDays,
+    procedureMonths,
+    cureDays: letter.cure_days === null ? null : Number(letter.cure_days),
+    reminder: reminder ? { number: reminder.number, sentAt: new Date(reminder.sent_at) } : null,
+  });
+  const prefix = letter.kind === "reminder" ? "Relance" : "Mise-en-demeure";
+  return { bytes, fileName: `${prefix}-${letter.number}.docx`, templateVersion: LETTER_TEMPLATE_VERSION };
+}
+
 Deno.serve(async (request) => {
   if (request.method !== "POST") return reply(405, { message: "Méthode non autorisée." });
   const authorization = request.headers.get("Authorization");
@@ -393,8 +484,9 @@ Deno.serve(async (request) => {
   let dossierId: unknown;
   let kind: unknown;
   let financialDocumentId: unknown;
+  let letterId: unknown;
   try {
-    ({ dossierId, kind, financialDocumentId } = await request.json());
+    ({ dossierId, kind, financialDocumentId, letterId } = await request.json());
   } catch {
     return reply(400, { message: "Requête invalide." });
   }
@@ -403,6 +495,8 @@ Deno.serve(async (request) => {
     if (typeof financialDocumentId !== "string" || !UUID.test(financialDocumentId)) {
       return reply(400, { message: "Document inconnu." });
     }
+  } else if (kind === "unclaimed_letter") {
+    if (typeof letterId !== "string" || !UUID.test(letterId)) return reply(400, { message: "Courrier inconnu." });
   } else if (typeof dossierId !== "string" || !UUID.test(dossierId)) {
     return reply(400, { message: "Dossier inconnu." });
   }
@@ -411,15 +505,21 @@ Deno.serve(async (request) => {
 
   try {
     // Mêmes règles que la base : contrat et ordre d'achat (administrateur, agent opérations) ; devis et factures
-    // (administrateur, agent opérations, comptabilité — la base vérifie à nouveau à l'enregistrement).
+    // (administrateur, agent opérations, comptabilité) ; courriers (administrateur, direction, comptabilité, U3) —
+    // la base vérifie à nouveau à l'enregistrement.
     const financialKind = kind === "financial_document";
-    const { data: canWrite } = await api.rpc<boolean>(financialKind ? "is_quote_writer" : "is_operations_writer");
+    const letterKind = kind === "unclaimed_letter";
+    const { data: canWrite } = await api.rpc<boolean>(
+      letterKind ? "is_recovery_writer" : financialKind ? "is_quote_writer" : "is_operations_writer",
+    );
     if (canWrite !== true) {
       throw new Refusal(
         403,
-        financialKind
-          ? "Action réservée à l’administrateur, aux agents opérations et à la comptabilité."
-          : "Action réservée à l’administrateur et aux agents opérations.",
+        letterKind
+          ? "Action réservée à l’administrateur, à la direction et à la comptabilité."
+          : financialKind
+            ? "Action réservée à l’administrateur, aux agents opérations et à la comptabilité."
+            : "Action réservée à l’administrateur et aux agents opérations.",
       );
     }
 
@@ -432,23 +532,31 @@ Deno.serve(async (request) => {
       if (!financial) throw new Refusal(404, "Document introuvable.");
       dossierId = financial.dossier_id;
     }
+    let letter: LetterRow | null = null;
+    if (letterKind) {
+      letter = await api.first<LetterRow>("unclaimed_letters", { select: "*", id: `eq.${letterId}` });
+      if (!letter) throw new Refusal(404, "Courrier introuvable.");
+      dossierId = letter.dossier_id;
+    }
     const dossier = await api.first<Row>("dossiers", { select: "*", id: `eq.${dossierId}` });
     if (!dossier) throw new Refusal(404, "Dossier introuvable.");
 
     let built: { bytes: Uint8Array; fileName: string; templateVersion: string };
     try {
-      built = financial
-        ? await buildFinancialDocument(api, financial, dossier)
-        : kind === "contract"
-          ? await buildContract(api, dossier)
-          : await buildPurchaseOrder(api, dossier);
+      built = letter
+        ? await buildLetterDocument(api, letter, dossier)
+        : financial
+          ? await buildFinancialDocument(api, financial, dossier)
+          : kind === "contract"
+            ? await buildContract(api, dossier)
+            : await buildPurchaseOrder(api, dossier);
     } catch (error) {
       if (error instanceof Refusal) throw error;
       console.error("generate-document: rendu impossible", error);
       throw new Refusal(500, "Le document n’a pas pu être généré à partir du modèle.");
     }
 
-    const folder = financial ? financial.doc_type : kind;
+    const folder = letter ? "unclaimed_letter" : financial ? financial.doc_type : kind;
     const path = `dossiers/${dossier.id}/${folder}/${crypto.randomUUID()}-${built.fileName}`;
     const uploadError = await api.upload("documents", path, built.bytes, DOCX_MIME);
     if (uploadError) {
@@ -463,12 +571,17 @@ Deno.serve(async (request) => {
       p_sha256: await sha256Hex(built.bytes),
       p_template_version: built.templateVersion,
     };
-    const { data: id, error } = financial
-      ? await api.rpc<string>("register_financial_document_file", { p_financial_document_id: financial.id, ...file })
-      : await api.rpc<string>(kind === "contract" ? "register_contract_document" : "register_purchase_order_document", {
-          p_dossier_id: dossier.id,
-          ...file,
-        });
+    const { data: id, error } = letter
+      ? await api.rpc<string>("register_unclaimed_letter_file", { p_letter_id: letter.id, ...file })
+      : financial
+        ? await api.rpc<string>("register_financial_document_file", { p_financial_document_id: financial.id, ...file })
+        : await api.rpc<string>(
+            kind === "contract" ? "register_contract_document" : "register_purchase_order_document",
+            {
+              p_dossier_id: dossier.id,
+              ...file,
+            },
+          );
     if (error || !id) {
       // 22023 : règle métier (véhicule incomplet, trop âgé, décision déjà enregistrée…) — message destiné à l'agent.
       const rule = error?.code === "22023";

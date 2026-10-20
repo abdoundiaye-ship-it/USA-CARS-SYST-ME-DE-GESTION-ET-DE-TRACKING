@@ -21,6 +21,8 @@ Règles communes :
 | `arrived` | ATA saisie (arrivée à Dakar) | nom, réf. dossier, date d’arrivée |
 | `documents_ready` | Paiement intégral : documents à remettre | nom, réf. dossier |
 | `payment_overdue` | Relance : échéance dépassée et non réglée | nom, réf. dossier, échéance, montant USD restant |
+| `unclaimed_reminder` | Phase 5 — envoi de la lettre de relance enregistré (art. 22, U4) | nom, réf. dossier, n° du courrier |
+| `formal_notice` | Phase 5 — envoi de la mise en demeure enregistré (art. 21, U4) | nom, réf. dossier, n° du courrier, date limite de régularisation |
 
 ## Textes
 
@@ -59,3 +61,15 @@ Règles communes :
 ### `payment_overdue` — relance
 - **Objet :** Échéance dépassée — dossier {{2}}
 - **Texte :** Bonjour {{1}}, sauf erreur de notre part, le {{3}} du dossier {{2}} n’est pas encore réglé (reste dû : {{4}}). Merci de régulariser au plus vite pour éviter des frais de retard, conformément au contrat. Détail et comptes officiels : {{lien}}. USA CARS — Dakar.
+
+## Phase 5 — courriers « véhicule non réclamé » (à valider par USA CARS)
+
+Envoyés quand l’agent enregistre l’envoi du courrier (décision U4) : le message informe le client qu’un courrier lui a été adressé et qu’il le trouve dans son espace ; il ne remplace pas le courrier et ne contient ni pièce jointe ni coordonnées de paiement.
+
+### `unclaimed_reminder` — lettre de relance adressée
+- **Objet :** Courrier de relance {{3}} — dossier {{2}}
+- **Texte :** Bonjour {{1}}, votre véhicule (dossier {{2}}) est arrivé à Dakar et n’a pas encore été réglé ou enlevé. Nous vous avons adressé la lettre de relance {{3}}, disponible dans votre espace : {{lien}}. Merci de prendre contact avec nous pour régulariser. USA CARS — Dakar.
+
+### `formal_notice` — mise en demeure adressée
+- **Objet :** Mise en demeure {{3}} — dossier {{2}}
+- **Texte :** Bonjour {{1}}, nous vous avons adressé la mise en demeure {{3}} concernant le dossier {{2}} : régularisation attendue au plus tard le {{4}}, conformément aux articles 21 et 22 du contrat. Le courrier est disponible dans votre espace : {{lien}}. USA CARS — Dakar.
