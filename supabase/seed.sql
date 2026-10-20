@@ -222,6 +222,24 @@ insert into public.dossier_containers (dossier_id, container_id, assigned_by) va
   ('e0000000-0000-4000-8000-000000000005', 'f1000000-0000-4000-8000-000000000001', 'd0000000-0000-4000-8000-000000000002');
 
 -- ---------------------------------------------------------------------------
+-- Phase 4, lot 4a — dossier du premier client (accès portail : client@exemple.test), lot remporté, prêt pour
+-- un devis à accepter dans le portail.
+-- ---------------------------------------------------------------------------
+insert into public.dossiers (
+  id, reference, client_id, owner_id, created_by, stage, status, platform, lot_number, vin, make, model, model_year,
+  vehicle_category, purchase_location, departure_port, auction_result, hammer_price_cents, lot_won_notified_at,
+  payment1_due_at
+) values (
+  'e0000000-0000-4000-8000-000000000006', 'DEMO-2026-0006', 'c0000000-0000-4000-8000-000000000001',
+  'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'purchase', 'won', 'copart',
+  'DEMO-LOT-1006', '1DEMXXX0000000006', 'Kia', 'Sportage', 2021, 'passenger', 'Atlanta, GA (démo)', 'Savannah',
+  'won', 870000, now() - interval '1 hour', now() + interval '23 hours'
+);
+
+insert into public.dossier_forfaits (dossier_id, forfait_a_cents, forfait_b_cents, insurance_cents, updated_by) values
+  ('e0000000-0000-4000-8000-000000000006', 1020000, 310000, 22000, 'd0000000-0000-4000-8000-000000000002');
+
+-- ---------------------------------------------------------------------------
 -- Décisions A4 et A4-bis : la comptabilité et la direction sont soumises à la double authentification. Pour les
 -- essais LOCAUX et les tests, leurs comptes de démonstration ont déjà un facteur TOTP vérifié, de secret connu (à
 -- saisir dans une application d'authentification) : JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP. L'administrateur, lui,

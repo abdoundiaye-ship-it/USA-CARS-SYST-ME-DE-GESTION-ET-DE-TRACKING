@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { emailField } from "./common";
+import { normalizePhone } from "./operations";
 
 export const PASSWORD_MIN_LENGTH = 12;
 
@@ -35,4 +36,23 @@ export const newPasswordSchema = z
   .refine((v) => v.password === v.confirmation, {
     path: ["confirmation"],
     message: "Les deux mots de passe ne sont pas identiques.",
+  });
+
+/** US-4.1 : demande d'un lien de connexion client — adresse e-mail ou numéro WhatsApp (format international). */
+export const clientLinkRequestSchema = z
+  .object({ identifier: z.string().trim().min(3, "Saisissez votre adresse e-mail ou votre numéro WhatsApp.") })
+  .transform((value, ctx) => {
+    if (value.identifier.includes("@")) {
+      const email = z.email().safeParse(value.identifier.toLowerCase());
+      if (email.success) return { email: email.data } as const;
+    } else {
+      const phone = normalizePhone(value.identifier);
+      if (phone) return { phone } as const;
+    }
+    ctx.addIssue({
+      code: "custom",
+      path: ["identifier"],
+      message: "Adresse e-mail ou numéro WhatsApp invalide (ex. +221 77 123 45 67).",
+    });
+    return z.NEVER;
   });

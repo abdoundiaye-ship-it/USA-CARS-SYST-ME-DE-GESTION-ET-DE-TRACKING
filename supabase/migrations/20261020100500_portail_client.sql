@@ -57,6 +57,17 @@ begin
 end;
 $$;
 
+-- Comptes du portail d'un client (fiche client) : internes uniquement ; dernière connexion comprise.
+create function public.client_portal_accounts(p_client_id uuid)
+returns table (user_id uuid, email text, active boolean, created_at timestamptz, last_sign_in_at timestamptz)
+language sql stable security definer set search_path = '' as $$
+  select p.id, p.email, p.active, p.created_at, u.last_sign_in_at
+  from public.profiles p
+  join auth.users u on u.id = p.id
+  where p.client_id = p_client_id and p.role = 'client' and public.is_internal()
+  order by p.created_at;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Téléchargement par le client de ses documents visibles (US-4.3) : lien signé, bucket privé.
 -- ---------------------------------------------------------------------------
@@ -138,7 +149,9 @@ $$;
 
 revoke execute on function public.register_client_portal_access(uuid, uuid, text) from public, anon;
 revoke execute on function public.portal_fx_rate() from public, anon;
+revoke execute on function public.client_portal_accounts(uuid) from public, anon;
 revoke execute on function public.accept_in_portal(text, uuid, text, text, text, inet, text) from public, anon;
 grant execute on function public.register_client_portal_access(uuid, uuid, text) to authenticated;
 grant execute on function public.portal_fx_rate() to authenticated;
+grant execute on function public.client_portal_accounts(uuid) to authenticated;
 grant execute on function public.accept_in_portal(text, uuid, text, text, text, inet, text) to authenticated;

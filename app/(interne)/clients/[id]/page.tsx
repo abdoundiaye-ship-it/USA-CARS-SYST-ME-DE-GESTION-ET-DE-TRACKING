@@ -4,12 +4,15 @@ import { notFound } from "next/navigation";
 import { Alert, Badge, Card, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Table, Td, Th } from "@/components/ui/table";
 import { requireInternal } from "@/lib/auth/access";
+import { isTechnicalEmail } from "@/lib/portal";
 import { canAccess, SCREEN_ROLES } from "@/lib/auth/roles";
 import { CLIENT_KIND_LABELS, ID_DOCUMENT_LABELS, STAGE_LABELS } from "@/lib/dossiers/labels";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { missingClientInformation } from "@/lib/validation/operations";
 import { ClientForm } from "../client-form";
+
+import { PortalAccessForm } from "../portal-access";
 
 export const metadata: Metadata = { title: "Fiche client" };
 
@@ -31,6 +34,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
   const statusLabel = (stage: string, code: string) =>
     statuses?.find((s) => s.stage === stage && s.code === code)?.label ?? code;
   const missing = missingClientInformation(client);
+  const { data: portalAccounts } = await supabase.rpc("client_portal_accounts", { p_client_id: id });
 
   return (
     <>
@@ -50,6 +54,33 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
         {missing.length > 0 && (
           <Alert tone="warning">Fiche à compléter avant de passer à l’étape Achat : {missing.join(", ")}.</Alert>
         )}
+
+        <Card className="flex flex-col gap-3">
+          <h2 className="font-semibold">Accès au portail client</h2>
+          {!portalAccounts?.length ? (
+            <p className="text-muted text-sm">
+              Le client n’a pas encore d’accès. Il se connectera par un lien à usage unique reçu par e-mail et par
+              WhatsApp.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1 text-sm">
+              {portalAccounts.map((a) => (
+                <li key={a.user_id}>
+                  {isTechnicalEmail(a.email) ? "Connexion par WhatsApp uniquement (pas d’e-mail)" : a.email}
+                  {!a.active && <Badge tone="danger">Désactivé</Badge>}
+                  <span className="text-muted">
+                    {" "}
+                    · ouvert le {formatDate(a.created_at)} ·{" "}
+                    {a.last_sign_in_at
+                      ? `dernière connexion le ${formatDateTime(a.last_sign_in_at)}`
+                      : "jamais connecté"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {canWrite && <PortalAccessForm clientId={client.id} hasAccount={(portalAccounts?.length ?? 0) > 0} />}
+        </Card>
 
         <Card>
           <h2 className="mb-4 font-semibold">Dossiers du client</h2>

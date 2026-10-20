@@ -30,7 +30,7 @@ export async function signIn(_previous: FormState, formData: FormData): Promise<
 
   const suite = safeNextPath(parsed.data.suite);
   if (access.mfa_required) redirect(`/connexion/mfa?suite=${encodeURIComponent(suite)}` as Route);
-  if (access.role === "client") redirect("/acces-refuse");
+  if (access.role === "client") redirect("/espace");
   redirect(suite as Route);
 }
 

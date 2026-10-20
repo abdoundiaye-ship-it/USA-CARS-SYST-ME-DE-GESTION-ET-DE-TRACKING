@@ -23,6 +23,9 @@ export default async function ConnexionPage({ searchParams }: PageProps<"/connex
         <Link href="/connexion/mot-de-passe-oublie" className="text-primary text-sm underline underline-offset-2">
           Mot de passe oublié ?
         </Link>
+        <Link href="/connexion/client" className="text-primary text-sm underline underline-offset-2">
+          Vous êtes client ? Accédez à votre espace
+        </Link>
       </div>
     </AuthShell>
   );

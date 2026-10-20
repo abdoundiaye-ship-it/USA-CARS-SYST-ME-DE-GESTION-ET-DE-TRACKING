@@ -570,6 +570,19 @@ export type FinanceOverviewRow = {
 /** Jours fériés au Sénégal (jours ouvrés, décision du 20/10/2026). */
 export type PublicHolidayRow = { day: string; label: string; created_by: string | null; created_at: string };
 
+/** Lien de connexion client à usage unique (empreinte seule ; accès serveur, clé service_role). */
+export type ClientLoginTokenRow = {
+  id: string;
+  user_id: string;
+  client_id: string;
+  token_hash: string;
+  channel: "email" | "whatsapp" | "invitation";
+  created_by: string | null;
+  created_at: string;
+  expires_at: string;
+  used_at: string | null;
+};
+
 export type DossierConfirmationRow = {
   dossier_id: string;
   code: ConfirmationCode;
@@ -871,6 +884,13 @@ export type Database = {
         Update: never; // via decide_late_fee / cancel_adjustment / acceptances
         Relationships: [];
       };
+      client_login_tokens: {
+        Row: ClientLoginTokenRow;
+        Insert: Pick<ClientLoginTokenRow, "user_id" | "client_id" | "token_hash" | "channel" | "expires_at"> &
+          Partial<Pick<ClientLoginTokenRow, "created_by">>;
+        Update: Partial<Pick<ClientLoginTokenRow, "used_at">>;
+        Relationships: [];
+      };
       public_holidays: {
         Row: PublicHolidayRow;
         Insert: Pick<PublicHolidayRow, "day" | "label">;
@@ -1050,6 +1070,33 @@ export type Database = {
       cancel_payment: { Args: { p_payment_id: string; p_reason: string }; Returns: undefined };
       dossier_balance: { Args: { p_dossier_id: string }; Returns: DossierBalance[] };
       finance_overview: { Args: Record<string, never>; Returns: FinanceOverviewRow[] };
+      register_client_portal_access: {
+        Args: { p_user_id: string; p_client_id: string; p_email: string };
+        Returns: undefined;
+      };
+      client_portal_accounts: {
+        Args: { p_client_id: string };
+        Returns: {
+          user_id: string;
+          email: string;
+          active: boolean;
+          created_at: string;
+          last_sign_in_at: string | null;
+        }[];
+      };
+      portal_fx_rate: { Args: Record<string, never>; Returns: { rate: number; source: string; captured_at: string }[] };
+      accept_in_portal: {
+        Args: {
+          p_subject: "quote" | "extra_cost";
+          p_subject_id: string;
+          p_decision: "accepted" | "refused";
+          p_document_sha256: string;
+          p_session: string;
+          p_ip: string | null;
+          p_insurance_choice?: "accepted" | "refused" | null;
+        };
+        Returns: string;
+      };
       record_document_release: {
         Args: {
           p_dossier_id: string;

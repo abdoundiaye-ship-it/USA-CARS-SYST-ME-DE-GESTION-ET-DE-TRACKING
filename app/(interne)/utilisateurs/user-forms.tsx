@@ -1,42 +1,13 @@
 "use client";
 
-import { useActionState, useId, useState } from "react";
+import { useActionState, useState } from "react";
+import { AccessLink } from "@/components/access-link";
 import { FormMessage } from "@/components/form-message";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
 import { INTERNAL_ROLES, ROLE_LABELS, type InternalRole } from "@/lib/auth/roles";
 import { initialFormState } from "@/lib/forms";
 import { changeRole, generateAccessLink, inviteUser, resendInvite, setUserActive } from "./actions";
-
-/** Lien d’accès affiché une seule fois, avec copie dans le presse-papiers. */
-function AccessLink({ link }: { link: string }) {
-  const [copied, setCopied] = useState(false);
-  const id = useId();
-  return (
-    <div className="flex flex-col gap-2">
-      <label htmlFor={id} className="text-sm font-medium">
-        Lien d’accès
-      </label>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <Input id={id} readOnly value={link} onFocus={(e) => e.currentTarget.select()} className="font-mono text-xs" />
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(link);
-              setCopied(true);
-            } catch {
-              setCopied(false);
-            }
-          }}
-        >
-          {copied ? "Lien copié" : "Copier le lien"}
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 export function InviteUserForm() {
   const [state, action, pending] = useActionState(inviteUser, initialFormState);
