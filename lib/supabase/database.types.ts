@@ -30,7 +30,10 @@ export type DocumentKind =
   | "deposit_invoice"
   | "balance_invoice"
   | "cash_receipt"
-  | "refund_note";
+  | "refund_note"
+  | "reminder_letter"
+  | "formal_notice"
+  | "letter_sending_proof";
 export type ContractStatus = "pending" | "accepted" | "refused";
 export type AcceptanceSubject = "contract" | "purchase_order" | "quote" | "extra_cost";
 export type AcceptanceDecision = "accepted" | "refused";
@@ -55,7 +58,9 @@ export type DossierEventKind =
   | "payment_recorded"
   | "adjustment"
   | "refund"
-  | "arrival_notified";
+  | "arrival_notified"
+  | "unclaimed_letter"
+  | "unclaimed_procedure";
 export type ContainerStatus =
   | "booking_confirmed"
   | "departure_planned"
@@ -533,6 +538,79 @@ export type DossierBalance = {
 };
 
 /** US-3.11 : remise des documents (R9). */
+/** Phase 5 — procédure « véhicule non réclamé » (US-5.3, art. 21–22). */
+export type UnclaimedLetterKind = "reminder" | "formal_notice";
+export type UnclaimedLetterStatus = "issued" | "sent" | "cancelled";
+export type UnclaimedLetterReason = "unpaid" | "not_collected" | "unpaid_not_collected";
+export type LetterSendingChannel = "hand" | "email" | "whatsapp" | "courier";
+export type ProcedureClosingStatus = "completed" | "archived" | "claim" | "dispute" | "suspended";
+export type UnclaimedNextStep = "none" | "reminder" | "formal_notice" | "procedure" | "procedure_open" | "closed";
+
+export type UnclaimedLetterRow = {
+  id: string;
+  dossier_id: string;
+  client_id: string;
+  kind: UnclaimedLetterKind;
+  number: string;
+  status: UnclaimedLetterStatus;
+  arrival_date: string;
+  reason: UnclaimedLetterReason;
+  amount_due_cents: number;
+  late_fees_cents: number;
+  fx_rate: number;
+  fx_captured_at: string;
+  cure_days: number | null;
+  cure_deadline: string | null;
+  issued_at: string;
+  issued_by: string | null;
+  document_id: string | null;
+  document_sha256: string | null;
+  template_version: string | null;
+  sent_at: string | null;
+  sent_channel: LetterSendingChannel | null;
+  sent_note: string | null;
+  sent_proof_document_id: string | null;
+  sent_by: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  cancelled_reason: string | null;
+};
+
+export type UnclaimedProcedureRow = {
+  id: string;
+  dossier_id: string;
+  opened_at: string;
+  opened_by: string | null;
+  open_reason: string;
+  closed_at: string | null;
+  closed_by: string | null;
+  outcome: string | null;
+  closing_status: ProcedureClosingStatus | null;
+};
+
+/** Compte à rebours d'un dossier arrivé (fonction unclaimed_overview). */
+export type UnclaimedOverviewRow = {
+  dossier_id: string;
+  reference: string;
+  arrival_date: string;
+  days_since_arrival: number;
+  amount_due_cents: number;
+  collected: boolean;
+  applies: boolean;
+  reminder_due_on: string;
+  formal_notice_due_on: string;
+  procedure_possible_on: string;
+  min_cure_days: number;
+  reminder_status: UnclaimedLetterStatus | null;
+  reminder_sent_at: string | null;
+  formal_notice_status: UnclaimedLetterStatus | null;
+  formal_notice_sent_at: string | null;
+  cure_deadline: string | null;
+  procedure_opened_at: string | null;
+  procedure_closed_at: string | null;
+  next_step: UnclaimedNextStep;
+};
+
 export type DocumentReleaseRow = {
   id: string;
   dossier_id: string;
@@ -600,7 +678,9 @@ export type NotificationTemplate =
   | "arrived"
   | "documents_ready"
   | "payment_overdue"
-  | "test_message";
+  | "test_message"
+  | "unclaimed_reminder"
+  | "formal_notice";
 export type NotificationStatus = "queued" | "sending" | "sent" | "simulated" | "failed";
 /** File d'attente et journal des notifications (US-4.5). */
 export type NotificationRow = {
@@ -963,6 +1043,18 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      unclaimed_letters: {
+        Row: UnclaimedLetterRow;
+        Insert: never; // via issue_unclaimed_letter
+        Update: never; // via register_unclaimed_letter_file, record_letter_sent, cancel_unclaimed_letter
+        Relationships: [];
+      };
+      unclaimed_procedures: {
+        Row: UnclaimedProcedureRow;
+        Insert: never; // via open_unclaimed_procedure
+        Update: never; // via close_unclaimed_procedure
+        Relationships: [];
+      };
       refunds: {
         Row: RefundRow;
         Insert: never; // demandes créées par la base (trop-perçu, excédent de dépôt, lot non remporté)
@@ -1134,6 +1226,43 @@ export type Database = {
       cancel_payment: { Args: { p_payment_id: string; p_reason: string }; Returns: undefined };
       dossier_balance: { Args: { p_dossier_id: string }; Returns: DossierBalance[] };
       finance_overview: { Args: Record<string, never>; Returns: FinanceOverviewRow[] };
+      unclaimed_overview: { Args: { p_dossier_id?: string | null }; Returns: UnclaimedOverviewRow[] };
+      is_recovery_writer: { Args: Record<string, never>; Returns: boolean };
+      issue_unclaimed_letter: {
+        Args: { p_dossier_id: string; p_kind: UnclaimedLetterKind; p_cure_days?: number | null };
+        Returns: string;
+      };
+      register_unclaimed_letter_file: {
+        Args: {
+          p_letter_id: string;
+          p_storage_path: string;
+          p_file_name: string;
+          p_size_bytes: number;
+          p_sha256: string;
+          p_template_version: string;
+        };
+        Returns: string;
+      };
+      record_letter_sent: {
+        Args: {
+          p_letter_id: string;
+          p_sent_on: string;
+          p_channel: LetterSendingChannel;
+          p_note: string | null;
+          p_proof_storage_path: string;
+          p_proof_file_name: string;
+          p_proof_mime_type: string;
+          p_proof_size_bytes: number;
+          p_proof_sha256: string;
+        };
+        Returns: undefined;
+      };
+      cancel_unclaimed_letter: { Args: { p_letter_id: string; p_reason: string }; Returns: undefined };
+      open_unclaimed_procedure: { Args: { p_dossier_id: string; p_reason: string }; Returns: undefined };
+      close_unclaimed_procedure: {
+        Args: { p_dossier_id: string; p_outcome: string; p_closing_status: ProcedureClosingStatus };
+        Returns: undefined;
+      };
       register_client_portal_access: {
         Args: { p_user_id: string; p_client_id: string; p_email: string };
         Returns: undefined;

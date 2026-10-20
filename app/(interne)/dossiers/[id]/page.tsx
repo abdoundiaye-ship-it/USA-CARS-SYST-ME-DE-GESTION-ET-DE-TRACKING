@@ -15,6 +15,7 @@ import { BillingSection } from "./billing-section";
 import { FinanceSection } from "./finance-section";
 import { ReleaseSection } from "./release-section";
 import { SettlementSection } from "./settlement-section";
+import { UnclaimedSection } from "./unclaimed-section";
 import { DuplicateDossierForm, AcceptanceForm, RegenerateContractForm, VehicleForm } from "../dossier-forms";
 import {
   AcceptanceSummary,
@@ -99,6 +100,9 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     { data: arrivalMessages },
     { data: arrivalNotices },
     arrivalSettings,
+    { data: unclaimedRows },
+    { data: unclaimedLetters },
+    { data: unclaimedProcedure },
   ] = await Promise.all([
     supabase.from("clients").select("*").eq("id", dossier.client_id).maybeSingle(),
     supabase
@@ -154,6 +158,9 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
       .eq("kind", "arrival_notified")
       .order("occurred_at"),
     currentNumbers(["arrival.notify_within_hours", "pickup.days_after_documents"] as const),
+    supabase.rpc("unclaimed_overview", { p_dossier_id: id }),
+    supabase.from("unclaimed_letters").select("*").eq("dossier_id", id).order("issued_at"),
+    supabase.from("unclaimed_procedures").select("*").eq("dossier_id", id).maybeSingle(),
   ]);
   const contractAcceptance = acceptances?.find((a) => a.subject === "contract") ?? null;
   const orderAcceptance = acceptances?.find((a) => a.subject === "purchase_order") ?? null;
@@ -349,6 +356,17 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
           release={release}
           clientName={client?.name ?? ""}
           canWrite={canWrite}
+          today={today}
+          staffName={staffName}
+        />
+
+        <UnclaimedSection
+          dossierId={dossier.id}
+          overview={unclaimedRows?.[0] ?? null}
+          letters={unclaimedLetters ?? []}
+          procedure={unclaimedProcedure}
+          canWriteLetters={canAccess(access.role, SCREEN_ROLES.recoveryWrite)}
+          canWriteProcedure={canAccess(access.role, SCREEN_ROLES.procedureWrite)}
           today={today}
           staffName={staffName}
         />

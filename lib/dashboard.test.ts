@@ -8,6 +8,7 @@ import {
   type DashboardDossier,
   type DashboardFinance,
 } from "./dashboard";
+import type { UnclaimedNextStep } from "@/lib/supabase/database.types";
 
 const now = new Date("2026-10-19T12:00:00Z");
 const thresholds = {
@@ -133,6 +134,39 @@ describe("liste « À traiter » (US-2.9)", () => {
       releases: [{ dossier_id: "p", released_at: "2026-10-05T10:00:00Z" }],
     };
     expect(buildTodoList(later, thresholds, now)).toEqual([]);
+  });
+
+  it("véhicule non réclamé (R11) : étape suivante à son échéance, jamais avant ni sans objet", () => {
+    type UnclaimedRow = NonNullable<DashboardData["unclaimed"]>[number];
+    const base: Omit<UnclaimedRow, "next_step"> = {
+      dossier_id: "u",
+      reference: "U",
+      applies: true,
+      reminder_due_on: "2026-09-16",
+      formal_notice_due_on: "2026-10-16",
+      procedure_possible_on: "2026-12-17",
+      reminder_status: null,
+      formal_notice_status: null,
+      cure_deadline: null,
+    };
+    const todo = (row: Partial<UnclaimedRow> & { next_step: UnclaimedNextStep }) =>
+      buildTodoList({ ...empty, unclaimed: [{ ...base, ...row }] }, thresholds, now).map((i) => i.label);
+    expect(todo({ next_step: "reminder" })).toEqual([
+      "Véhicule non réclamé : lettre de relance à envoyer (échéance du 16/09/2026)",
+    ]);
+    expect(todo({ next_step: "reminder", reminder_status: "issued" })).toEqual([
+      "Lettre de relance émise : envoi à enregistrer",
+    ]);
+    expect(todo({ next_step: "formal_notice", reminder_status: "sent" })).toEqual([
+      "Véhicule non réclamé : mise en demeure à envoyer (échéance du 16/10/2026)",
+    ]);
+    // Mise en demeure pas encore due, procédure avant 4 mois : rien.
+    expect(todo({ next_step: "formal_notice", formal_notice_due_on: "2026-10-30" })).toEqual([]);
+    expect(todo({ next_step: "procedure", cure_deadline: "2026-10-10" })).toEqual([]);
+    expect(todo({ next_step: "procedure", cure_deadline: "2026-10-10", procedure_possible_on: "2026-10-18" })).toEqual([
+      "Procédure « véhicule non réclamé » possible depuis le 18/10/2026",
+    ]);
+    expect(todo({ next_step: "reminder", applies: false })).toEqual([]);
   });
 
   it("conteneur en mer non vérifié et ETA modifiée récemment ; tri par gravité", () => {

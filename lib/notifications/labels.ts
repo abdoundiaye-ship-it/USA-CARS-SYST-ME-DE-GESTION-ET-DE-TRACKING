@@ -12,6 +12,8 @@ export const NOTIFICATION_TEMPLATE_LABELS: Record<NotificationTemplate, string> 
   documents_ready: "Documents prêts",
   payment_overdue: "Relance",
   test_message: "Message de test",
+  unclaimed_reminder: "Lettre de relance adressée",
+  formal_notice: "Mise en demeure adressée",
 };
 
 export const NOTIFICATION_STATUS_LABELS: Record<NotificationStatus, string> = {

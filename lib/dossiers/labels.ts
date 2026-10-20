@@ -1,6 +1,9 @@
 import type {
   AcceptanceMethod,
   ArrivalNoticeChannel,
+  LetterSendingChannel,
+  ProcedureClosingStatus,
+  UnclaimedLetterKind,
   CarrierApiStatus,
   TrackingEventRow,
   ConfirmationCode,
@@ -84,6 +87,30 @@ export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
   balance_invoice: "Facture de solde",
   cash_receipt: "Reçu espèces",
   refund_note: "Note de remboursement",
+  reminder_letter: "Lettre de relance",
+  formal_notice: "Mise en demeure",
+  letter_sending_proof: "Preuve d’envoi d’un courrier (interne)",
+};
+
+/** Procédure « véhicule non réclamé » (US-5.3, art. 21–22). */
+export const UNCLAIMED_LETTER_LABELS: Record<UnclaimedLetterKind, string> = {
+  reminder: "Lettre de relance",
+  formal_notice: "Mise en demeure",
+};
+
+export const LETTER_SENDING_CHANNEL_LABELS: Record<LetterSendingChannel, string> = {
+  hand: "Remise en main propre",
+  email: "E-mail",
+  whatsapp: "WhatsApp",
+  courier: "Coursier ou courrier",
+};
+
+export const PROCEDURE_CLOSING_STATUS_LABELS: Record<ProcedureClosingStatus, string> = {
+  completed: "Terminé (situation régularisée)",
+  archived: "Archivé",
+  claim: "Réclamation",
+  dispute: "Litige",
+  suspended: "Suspendu",
 };
 
 /** Types de documents téléversés par l'équipe (les autres sont générés ou enregistrés par l'application). */

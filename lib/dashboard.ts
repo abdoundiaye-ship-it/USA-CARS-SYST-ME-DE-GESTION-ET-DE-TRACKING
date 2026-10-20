@@ -4,6 +4,7 @@ import type {
   ContainerStatus,
   DossierStage,
   FinanceOverviewRow,
+  UnclaimedOverviewRow,
 } from "@/lib/supabase/database.types";
 import { trackingCheckOverdue } from "@/lib/tracking";
 
@@ -82,6 +83,20 @@ export interface DashboardData {
   arrivalNotifiedDossierIds?: Set<string>;
   /** Remises des documents (R9) : date de remise, point de départ du délai d'enlèvement. */
   releases?: { dossier_id: string; released_at: string }[];
+  /** Procédure « véhicule non réclamé » (lot 5b, fonction unclaimed_overview) ; absente : règle simple du lot 2d. */
+  unclaimed?: Pick<
+    UnclaimedOverviewRow,
+    | "dossier_id"
+    | "reference"
+    | "applies"
+    | "next_step"
+    | "reminder_due_on"
+    | "formal_notice_due_on"
+    | "procedure_possible_on"
+    | "reminder_status"
+    | "formal_notice_status"
+    | "cure_deadline"
+  >[];
 }
 
 export type Severity = "danger" | "warning" | "info";
@@ -189,7 +204,12 @@ export function buildTodoList(data: DashboardData, thresholds: DashboardThreshol
     }
     if (d.stage === "dakar") {
       const ata = container?.ata;
-      if (ata && d.status !== "collected" && daysBetween(ata, now) > thresholds.unclaimedReminderDays) {
+      if (
+        !data.unclaimed &&
+        ata &&
+        d.status !== "collected" &&
+        daysBetween(ata, now) > thresholds.unclaimedReminderDays
+      ) {
         items.push({
           severity: "danger",
           kind: "unclaimed",
@@ -285,6 +305,40 @@ export function buildTodoList(data: DashboardData, thresholds: DashboardThreshol
         href,
         since: now.toISOString(),
       });
+    }
+  }
+
+  // US-5.3 (R11) : étape suivante de la procédure « véhicule non réclamé », à son échéance.
+  const today = now.toISOString().slice(0, 10); // Africa/Dakar = UTC
+  for (const u of data.unclaimed ?? []) {
+    if (!u.applies) continue;
+    const href = `/dossiers/${u.dossier_id}` as const;
+    const push = (label: string, since: string) =>
+      items.push({ severity: "danger", kind: "unclaimed", label, subject: u.reference, href, since });
+    if (u.next_step === "reminder" && today >= u.reminder_due_on) {
+      push(
+        u.reminder_status === "issued"
+          ? "Lettre de relance émise : envoi à enregistrer"
+          : `Véhicule non réclamé : lettre de relance à envoyer (échéance du ${formatDate(u.reminder_due_on)})`,
+        u.reminder_due_on,
+      );
+    } else if (u.next_step === "formal_notice" && today >= u.formal_notice_due_on) {
+      push(
+        u.formal_notice_status === "issued"
+          ? "Mise en demeure émise : envoi à enregistrer"
+          : `Véhicule non réclamé : mise en demeure à envoyer (échéance du ${formatDate(u.formal_notice_due_on)})`,
+        u.formal_notice_due_on,
+      );
+    } else if (
+      u.next_step === "procedure" &&
+      u.cure_deadline !== null &&
+      u.cure_deadline < today &&
+      today >= u.procedure_possible_on
+    ) {
+      push(
+        `Procédure « véhicule non réclamé » possible depuis le ${formatDate(u.procedure_possible_on)}`,
+        u.procedure_possible_on,
+      );
     }
   }
 

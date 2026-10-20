@@ -55,6 +55,7 @@ export default async function TableauDeBordPage() {
     { data: arrivalEvents },
     { data: arrivalMessages },
     { data: arrivalNotices },
+    { data: unclaimed },
   ] = await Promise.all([
     supabase.from("dossiers").select("id, reference, stage, status, updated_at, payment1_due_at, clients(name)"),
     supabase.from("dossier_confirmations").select("dossier_id, code"),
@@ -72,6 +73,7 @@ export default async function TableauDeBordPage() {
     supabase.from("tracking_events").select("container_id, created_at").eq("kind", "arrival"),
     supabase.from("notifications").select("dossier_id").eq("template", "arrived").eq("status", "sent"),
     supabase.from("dossier_events").select("dossier_id").eq("kind", "arrival_notified"),
+    supabase.rpc("unclaimed_overview", {}),
   ]);
 
   const containerRows: DashboardContainer[] = (containers ?? []).map((c) => ({
@@ -95,6 +97,7 @@ export default async function TableauDeBordPage() {
       ...(arrivalNotices ?? []).map((e) => e.dossier_id),
     ]),
     releases: releases ?? [],
+    unclaimed: unclaimed ?? [],
   };
   const unset = Number.POSITIVE_INFINITY; // paramètre absent : la règle ne se déclenche pas
   const todo = buildTodoList(data, {
