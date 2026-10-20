@@ -46,6 +46,10 @@ export const SCREEN_ROLES = {
   invoicesWrite: ["admin", "accounting"],
   paymentsWrite: ["admin", "accounting"],
   holidaysWrite: ["admin"],
+  // Phase 4 — notifications : journal pour toute l'équipe ; renvoi par admin, agent, comptabilité ; test : admin.
+  notifications: INTERNAL_ROLES,
+  notificationsWrite: ["admin", "ops", "accounting"],
+  notificationsTest: ["admin"],
 } as const satisfies Record<string, readonly AppRole[]>;
 
 export function canAccess(role: AppRole | null | undefined, allowed: readonly AppRole[]): boolean {

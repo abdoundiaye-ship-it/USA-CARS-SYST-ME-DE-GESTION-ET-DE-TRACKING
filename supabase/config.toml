@@ -426,3 +426,10 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 enabled = true
 verify_jwt = true
 import_map = "./functions/generate-document/deno.json"
+
+# Envoi des notifications : appelée par la base (pg_net) et par le serveur de l'application avec la clé
+# service_role ; la fonction vérifie elle-même la clé (les clés « secret » récentes ne sont pas des JWT).
+[functions.send-notifications]
+enabled = true
+verify_jwt = false
+import_map = "./functions/send-notifications/deno.json"

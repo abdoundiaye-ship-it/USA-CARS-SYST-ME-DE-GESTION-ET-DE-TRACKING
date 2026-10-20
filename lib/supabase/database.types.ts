@@ -583,6 +583,38 @@ export type ClientLoginTokenRow = {
   used_at: string | null;
 };
 
+export type NotificationTemplate =
+  | "login_link"
+  | "lot_won"
+  | "quote_issued"
+  | "payment_due_reminder"
+  | "vessel_departed"
+  | "eta_changed"
+  | "arrived"
+  | "documents_ready"
+  | "payment_overdue"
+  | "test_message";
+export type NotificationStatus = "queued" | "sending" | "sent" | "simulated" | "failed";
+/** File d'attente et journal des notifications (US-4.5). */
+export type NotificationRow = {
+  id: string;
+  client_id: string | null;
+  dossier_id: string | null;
+  template: NotificationTemplate;
+  channel: "email" | "whatsapp";
+  recipient: string;
+  variables: Json;
+  dedupe_key: string | null;
+  status: NotificationStatus;
+  attempts: number;
+  last_error: string | null;
+  provider_message_id: string | null;
+  redirected_to: string | null;
+  created_by: string | null;
+  created_at: string;
+  sent_at: string | null;
+};
+
 export type DossierConfirmationRow = {
   dossier_id: string;
   code: ConfirmationCode;
@@ -884,6 +916,27 @@ export type Database = {
         Update: never; // via decide_late_fee / cancel_adjustment / acceptances
         Relationships: [];
       };
+      notifications: {
+        Row: NotificationRow;
+        Insert: never; // via enqueue_notification et les déclencheurs
+        Update: never; // via retry_notification et la fonction d'envoi
+        Relationships: [
+          {
+            foreignKeyName: "notifications_dossier_id_fkey";
+            columns: ["dossier_id"];
+            isOneToOne: false;
+            referencedRelation: "dossiers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       client_login_tokens: {
         Row: ClientLoginTokenRow;
         Insert: Pick<ClientLoginTokenRow, "user_id" | "client_id" | "token_hash" | "channel" | "expires_at"> &
@@ -1084,6 +1137,19 @@ export type Database = {
           last_sign_in_at: string | null;
         }[];
       };
+      enqueue_notification: {
+        Args: {
+          p_client_id: string;
+          p_dossier_id: string | null;
+          p_template: NotificationTemplate;
+          p_variables?: Json;
+          p_dedupe_key?: string | null;
+        };
+        Returns: number;
+      };
+      queue_payment_notifications: { Args: Record<string, never>; Returns: number };
+      retry_notification: { Args: { p_id: string }; Returns: undefined };
+      queue_test_notification: { Args: Record<string, never>; Returns: number };
       portal_fx_rate: { Args: Record<string, never>; Returns: { rate: number; source: string; captured_at: string }[] };
       accept_in_portal: {
         Args: {

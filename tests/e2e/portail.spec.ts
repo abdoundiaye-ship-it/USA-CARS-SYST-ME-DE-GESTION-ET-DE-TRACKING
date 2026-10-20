@@ -45,6 +45,12 @@ test("agent : devis émis sur DEMO-2026-0006, lien de connexion envoyé au clien
   await expect(link).toBeVisible({ timeout: 60_000 }); // création du compte au besoin, puis du lien
   loginLink = await link.inputValue();
   expect(loginLink).toMatch(/\/connexion\/lien\/[A-Za-z0-9_-]{30,}$/);
+
+  // US-4.5 : le lien part par e-mail et par WhatsApp (envoi simulé sans fournisseur), visible dans le journal.
+  await page.goto("/notifications");
+  const rows = page.getByRole("row").filter({ hasText: "Lien de connexion" }).filter({ hasText: "Mamadou Diallo" });
+  await expect(rows).toHaveCount(2);
+  await expect(rows.first()).not.toContainText("/connexion/lien/"); // le lien n'apparaît jamais dans le journal
 });
 
 test("client : connexion par le lien, devis accepté dans le portail avec l’assurance", async ({ browser }) => {

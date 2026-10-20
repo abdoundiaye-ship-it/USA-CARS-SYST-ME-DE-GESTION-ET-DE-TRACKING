@@ -340,7 +340,7 @@ revoke execute on function public.queue_payment_notifications() from public, ano
 revoke execute on function public.retry_notification(uuid) from public, anon;
 revoke execute on function public.queue_test_notification() from public, anon;
 revoke execute on function public.dispatch_notifications() from public, anon, authenticated;
-grant execute on function public.enqueue_notification(uuid, uuid, text, jsonb, text) to authenticated;
+grant execute on function public.enqueue_notification(uuid, uuid, text, jsonb, text) to authenticated, service_role;
 grant execute on function public.queue_payment_notifications() to authenticated;
 grant execute on function public.retry_notification(uuid) to authenticated;
 grant execute on function public.queue_test_notification() to authenticated;

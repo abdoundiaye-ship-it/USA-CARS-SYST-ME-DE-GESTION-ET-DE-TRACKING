@@ -15,6 +15,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
     { href: "/conteneurs", label: "Conteneurs" },
     { href: "/documents", label: "Documents" },
     ...(canAccess(access.role, SCREEN_ROLES.finances) ? [{ href: "/finances" as const, label: "Finances" }] : []),
+    { href: "/notifications", label: "Notifications" },
     ...(canAccess(access.role, SCREEN_ROLES.users) ? [{ href: "/utilisateurs" as const, label: "Utilisateurs" }] : []),
     { href: "/parametres", label: "Paramètres" },
     ...(canAccess(access.role, SCREEN_ROLES.audit) ? [{ href: "/audit" as const, label: "Journal d’audit" }] : []),
