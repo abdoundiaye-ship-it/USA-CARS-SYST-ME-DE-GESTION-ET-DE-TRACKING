@@ -3,26 +3,10 @@
 import type { Route } from "next";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { z } from "zod";
 import { getClientAccess } from "@/lib/auth/access";
 import { failure, formObject, invalid, success, type FormState } from "@/lib/forms";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-/** R15 / US-4.2 / US-4.4 : décision du client dans le portail, sur la version affichée du document. */
-const portalDecisionSchema = z
-  .object({
-    dossierId: z.uuid("Dossier inconnu."),
-    subject: z.enum(["quote", "extra_cost"], "Document inconnu."),
-    subjectId: z.uuid("Document inconnu."),
-    sha256: z.string().regex(/^[0-9a-f]{64}$/, "Version du document inconnue."),
-    decision: z.enum(["accepted", "refused"], "Indiquez votre décision."),
-    insuranceChoice: z.enum(["accepted", "refused"]).optional(),
-    consent: z.literal("on", "Cochez la case pour confirmer votre décision."),
-  })
-  .refine((v) => v.subject !== "quote" || v.decision !== "accepted" || v.insuranceChoice !== undefined, {
-    path: ["insuranceChoice"],
-    message: "Indiquez si vous souhaitez l’assurance transport (option C).",
-  });
+import { portalDecisionSchema } from "@/lib/validation/portal";
 
 /** Identifiant de la session de connexion (preuve R15), lu dans le jeton d'accès. */
 async function sessionId(): Promise<string | null> {
