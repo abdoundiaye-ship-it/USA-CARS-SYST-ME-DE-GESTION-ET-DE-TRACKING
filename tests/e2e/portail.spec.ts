@@ -55,8 +55,8 @@ test("client : connexion par le lien, devis accepté dans le portail avec l’as
   await page.getByRole("button", { name: "Accéder à mon espace" }).click();
   await page.waitForURL(/\/espace$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Mes dossiers");
-  await expect(page.getByText("Dossier DEMO-2026-0006")).toBeVisible();
-  await expect(page.getByText("Dossier DEMO-2026-0001")).toBeVisible();
+  await expect(page.getByText("Dossier DEMO-2026-0006", { exact: true })).toBeVisible();
+  await expect(page.getByText("Dossier DEMO-2026-0001", { exact: true })).toBeVisible();
   await expect(page.getByText("DEMO-2026-0003")).toHaveCount(0); // dossier d'un autre client
 
   await page.getByRole("link", { name: "Voir le dossier DEMO-2026-0006" }).click();
