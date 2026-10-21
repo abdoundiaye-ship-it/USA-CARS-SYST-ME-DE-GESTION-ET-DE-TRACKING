@@ -92,6 +92,15 @@ describe("courriers « véhicule non réclamé » (US-5.3, art. 21–22)", () =>
     expect(text).not.toMatch(/[{}]|undefined|null|NaN/);
   });
 
+  it("chaque paragraphe du corps est un paragraphe Word distinct", () => {
+    const xml = new PizZip(renderLetter(notice)).file("word/document.xml")!.asText();
+    const paragraphs = xml
+      .split("</w:p>")
+      .map((p) => (p.match(/<w:t[^>]*>[^<]*<\/w:t>/g) ?? []).map((t) => t.replace(/<[^>]+>/g, "")).join(""));
+    const body = buildLetterData(notice).paragraphes as { texte: string }[];
+    for (const { texte } of body) expect(paragraphs).toContain(texte);
+  });
+
   it("aucune coordonnée de paiement : seulement le rappel des canaux officiels (règle 7)", () => {
     const all = (buildLetterData(notice).paragraphes as { texte: string }[]).map((p) => p.texte).join(" ");
     expect(all).toContain("compte officiel listé à l’annexe D");

@@ -513,7 +513,10 @@ function tagLetterDocument(xml: string): string {
     receiptParagraph("{references}", { size: 18 }),
     receiptParagraph("Objet : {objet}", { bold: true, after: 240 }),
     receiptParagraph("Madame, Monsieur,"),
-    receiptParagraph("{#paragraphes}{texte}{/paragraphes}", { after: 160 }),
+    // Boucle sur des paragraphes entiers : balises d'ouverture et de fermeture seules dans leur paragraphe.
+    receiptParagraph("{#paragraphes}", { after: 0 }),
+    receiptParagraph("{texte}", { after: 160 }),
+    receiptParagraph("{/paragraphes}", { after: 0 }),
     receiptParagraph("Veuillez agréer, Madame, Monsieur, l’expression de nos salutations distinguées.", { after: 480 }),
     receiptParagraph("Pour USA CARS : {usa_representant}, {usa_qualite}"),
     receiptParagraph("Signature : __________________"),
