@@ -21,6 +21,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import PizZip from "pizzip";
+import { xmlStructureError } from "../lib/documents/well-formed-xml";
 
 const SOURCE = "reference/templates/USA_CARS_Contrat_Prestation_Services_Senegal_-_Revise.docx";
 const FINANCIAL_SOURCE = "reference/templates/USA_CARS_Devis_Facture_Client_-_Revise.docx";
@@ -188,6 +189,13 @@ function build(
   zip.file("word/document.xml", documentXml);
   zip.file("word/header1.xml", headerXml);
   extra?.(zip);
+  for (const [part, xml] of [
+    ["word/document.xml", documentXml],
+    ["word/header1.xml", headerXml],
+  ] as const) {
+    const error = xmlStructureError(xml);
+    if (error) throw new Error(`${output} : ${part} mal formé (${error}) — Word refuserait d’ouvrir le fichier.`);
+  }
   const bytes = zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
   mkdirSync(dirname(resolve(output)), { recursive: true });
   writeFileSync(resolve(output), bytes);
@@ -432,7 +440,8 @@ function tagFinancialHeader(xml: string): string {
   const usa = xml.indexOf('<w:t xml:space="preserve">USA </w:t></w:r>');
   const carsEnd = xml.indexOf("<w:t>CARS</w:t></w:r>") + "<w:t>CARS</w:t></w:r>".length;
   if (usa < 0 || carsEnd < usa) throw new Error("Nom « USA CARS » introuvable dans l’en-tête du devis.");
-  const start = xml.lastIndexOf("<w:r", usa);
+  // Début de la balise de run (<w:r> ou <w:r …>), jamais <w:rPr> qui commence par les mêmes caractères.
+  const start = Math.max(xml.lastIndexOf("<w:r>", usa), xml.lastIndexOf("<w:r ", usa));
   let out = `${xml.slice(0, start)}${LOGO_RUN}${xml.slice(carsEnd)}`;
   out = replaceText(out, " | DEVIS", " | {titre_entete}");
   out = out.replace('<w:t xml:space="preserve"> / FACTURE CLIENT</w:t>', '<w:t xml:space="preserve"></w:t>');
