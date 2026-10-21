@@ -214,7 +214,7 @@ test("agent : de l’ouverture à l’arrivée à Dakar (contrat, ordre d’acha
   await page.getByRole("button", { name: "Enregistrer le départ" }).click();
   await expect(page.getByText("En transit").first()).toBeVisible();
   await page.getByLabel("Nouvelle ETA indicative").fill("2026-11-25");
-  await page.getByLabel("Source").selectOption("carrier_site");
+  await page.getByLabel("Source", { exact: true }).selectOption("carrier_site");
   await page.getByRole("button", { name: "Enregistrer l’ETA indicative" }).click();
   await expect(page.getByText("ETA indicative : 25/11/2026")).toBeVisible();
   await expect(page.getByText("ETA indicative modifiée : 20/11/2026 → 25/11/2026")).toBeVisible();
