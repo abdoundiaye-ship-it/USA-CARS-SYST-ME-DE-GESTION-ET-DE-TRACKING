@@ -132,6 +132,8 @@ export type DossierRow = {
   updated_at: string;
   /** R9 : paiement intégral, propriété transférée (renseigné par la base). */
   ownership_transferred_at: string | null;
+  /** Clôture (Terminé, Archivé, Annulé) : départ des durées de conservation (renseignée par la base, G2-a). */
+  closed_at: string | null;
 };
 
 /**
@@ -156,6 +158,7 @@ type DossierEditable = Omit<
   | "price_override_reason"
   | "price_override_by"
   | "cancelled_reason"
+  | "closed_at"
 >;
 
 export type DocumentRow = {
@@ -586,6 +589,19 @@ export type UnclaimedProcedureRow = {
   closed_by: string | null;
   outcome: string | null;
   closing_status: ProcedureClosingStatus | null;
+};
+
+/** Ligne d'un rapport (colonnes définies dans supabase/functions/_shared/reports.ts). */
+export type ReportRow = Record<string, string | number | boolean | null>;
+
+/** Page « Confidentialité » du portail (G1-a) : coordonnées officielles et durées de conservation (G2-a). */
+export type PrivacyNotice = {
+  office_address: string | null;
+  email: string | null;
+  phone: string | null;
+  retention_years: number | null;
+  retention_years_accounting: number | null;
+  validated: boolean;
 };
 
 /** Compte à rebours d'un dossier arrivé (fonction unclaimed_overview). */
@@ -1227,6 +1243,15 @@ export type Database = {
       dossier_balance: { Args: { p_dossier_id: string }; Returns: DossierBalance[] };
       finance_overview: { Args: Record<string, never>; Returns: FinanceOverviewRow[] };
       unclaimed_overview: { Args: { p_dossier_id?: string | null }; Returns: UnclaimedOverviewRow[] };
+      // Phase 6 — rapports (US-6.1) : lignes décrites par supabase/functions/_shared/reports.ts.
+      report_active_dossiers: { Args: Record<string, never>; Returns: ReportRow[] };
+      report_delays: { Args: Record<string, never>; Returns: ReportRow[] };
+      report_receivables: { Args: { p_as_of?: string | null }; Returns: ReportRow[] };
+      report_transit_times: { Args: { p_from: string; p_to: string }; Returns: ReportRow[] };
+      report_margins: { Args: { p_from: string; p_to: string }; Returns: ReportRow[] };
+      report_retention: { Args: { p_as_of?: string | null }; Returns: ReportRow[] };
+      privacy_notice: { Args: Record<string, never>; Returns: PrivacyNotice | null };
+      log_report_export: { Args: { p_report: string; p_filters?: Json }; Returns: undefined };
       is_recovery_writer: { Args: Record<string, never>; Returns: boolean };
       issue_unclaimed_letter: {
         Args: { p_dossier_id: string; p_kind: UnclaimedLetterKind; p_cure_days?: number | null };

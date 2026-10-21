@@ -522,6 +522,22 @@
       "status": "a_confirmer",
       "source": "Hypothèse phase 5 : numérotation des mises en demeure (contrat art. 21)",
       "lot": "phase5"
+    },
+    {
+      "key": "data.retention_years_accounting",
+      "value": 10,
+      "type": "integer",
+      "status": "a_confirmer",
+      "source": "Décision G2-a du 21/10/2026 (valeur par défaut) : pièces comptables, contrat art. 33",
+      "lot": "phase6"
+    },
+    {
+      "key": "data.privacy_notice_validated",
+      "value": false,
+      "type": "boolean",
+      "status": "confirme",
+      "source": "Décision G1-a du 21/10/2026 : page « Confidentialité » marquée PROJET tant que faux",
+      "lot": "phase6"
     }
   ],
   "carriers": [

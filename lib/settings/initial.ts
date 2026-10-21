@@ -84,6 +84,15 @@ export const SETTINGS_LOTS: Record<string, SettingsLot> = {
       "-- ne pas modifier à la main. Valeurs modifiables ensuite dans l’écran Paramètres.",
     ],
   },
+  phase6: {
+    migrationPath: "supabase/migrations/20261021100100_parametres_donnees_personnelles.sql",
+    effectiveFrom: "2026-10-21T00:00:00Z",
+    header: [
+      "-- Phase 6, lot 6b — données personnelles : conservation des pièces comptables (G2-a), page Confidentialité (G1-a).",
+      "-- GÉNÉRÉ par `pnpm settings:generate` depuis specs/parametres_contractuels.json (lot « phase6 ») :",
+      "-- ne pas modifier à la main. Valeurs modifiables ensuite dans l’écran Paramètres.",
+    ],
+  },
 };
 
 /** Paramètres du JSON regroupés par lot. */

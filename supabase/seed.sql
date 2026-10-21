@@ -275,6 +275,12 @@ select 'e0000000-0000-4000-8000-000000000007', 'c0000000-0000-4000-8000-00000000
        now() - interval '119 days 2 hours', 'd0000000-0000-4000-8000-000000000003'
 from public.fx_rates r where r.rate = 586.52;
 
+-- Coûts internes fictifs (marge par véhicule, phase 6) : jamais visibles du client (CLAUDE.md règle 2).
+insert into public.internal_costs (dossier_id, section, category, label, amount_cents, status, created_by) values
+  ('e0000000-0000-4000-8000-000000000007', 'A', 'hammer_price', 'Prix d’adjudication COPART (démo)', 800000, 'final', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000007', 'A', 'auction_fees', 'Frais COPART (démo)', 95000, 'final', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000007', 'B', 'ocean_freight', 'Fret maritime (démo)', 160000, 'estimated', 'd0000000-0000-4000-8000-000000000002');
+
 insert into public.containers (id, number, carrier_id, bl_number, vessel, voyage, port_of_loading, etd, eta, created_by) values
   ('f1000000-0000-4000-8000-000000000003', 'DEMU2468135', 'f0000000-0000-4000-8000-000000000001', 'DEMO-BL-0007',
    'Navire Démo', 'DEMO-007', 'Houston', current_date - 95, current_date - 66, 'd0000000-0000-4000-8000-000000000002');
@@ -284,6 +290,21 @@ update public.containers
 
 insert into public.dossier_containers (dossier_id, container_id, assigned_by) values
   ('e0000000-0000-4000-8000-000000000007', 'f1000000-0000-4000-8000-000000000003', 'd0000000-0000-4000-8000-000000000002');
+
+-- ---------------------------------------------------------------------------
+-- Phase 6, lot 6b — dossier du second client, terminé (clôturé aujourd'hui) : rapport « Conservation des données »
+-- (durées atteintes dans 5 et 10 ans, G2-a). Fictif (DEMO-).
+-- ---------------------------------------------------------------------------
+insert into public.dossiers (
+  id, reference, client_id, owner_id, created_by, stage, status, platform, lot_number, vin, make, model, model_year,
+  vehicle_category, purchase_location, departure_port, auction_result, hammer_price_cents, lot_won_notified_at,
+  payment1_due_at, created_at
+) values (
+  'e0000000-0000-4000-8000-000000000008', 'DEMO-2026-0008', 'c0000000-0000-4000-8000-000000000002',
+  'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'closing', 'completed', 'iaa',
+  'DEMO-LOT-1008', '1DEMXXX0000000008', 'Hyundai', 'Tucson', 2019, 'passenger', 'Newark, NJ (démo)', 'New York',
+  'won', 650000, now() - interval '150 days', now() - interval '149 days', now() - interval '155 days'
+);
 
 -- ---------------------------------------------------------------------------
 -- Décisions A4 et A4-bis : la comptabilité et la direction sont soumises à la double authentification. Pour les

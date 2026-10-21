@@ -68,6 +68,12 @@ Format pour ajouter une décision : `ID — date — décision`.
 | U2 | Textes des courriers de relance et de mise en demeure | **20/10/2026** : rédigés par Claude Code d’après les articles 21–22, marqués « PROJET » jusqu’à validation par USA CARS (ou son avocat, D1). |
 | U3 | Qui émet les courriers et ouvre la procédure | **20/10/2026** : l’administrateur, la direction et la comptabilité émettent les courriers et enregistrent leur envoi ; les agents opérations consultent. L’ouverture de la procédure à 4 mois (statut « Non réclamé ») est réservée à l’administrateur et à la direction, avec motif. Aucune action automatique sur la propriété du véhicule (R11). |
 | U4 | Envoi des courriers | **20/10/2026** : l’agent envoie le courrier (remise en main propre, e-mail, WhatsApp, coursier) et enregistre l’envoi (date, canal, preuve) ; le courrier devient alors visible dans l’espace client et le client reçoit une notification l’en informant (sans pièce jointe ni coordonnées de paiement). |
+| G1-a | Formalités CDP | **21/10/2026** (plan de la phase 6 validé) : la déclaration auprès de la Commission de protection des données personnelles est faite par USA CARS ; l’application fournit une page « Confidentialité » dans l’espace client, rédigée par Claude Code d’après l’article 33 et marquée « PROJET » jusqu’à validation. |
+| G2-a | Durées de conservation | **21/10/2026** (valeur par défaut, **à confirmer**) : 10 ans après la clôture pour les pièces comptables, 5 ans pour les autres données ; paramètres modifiables, rapport des dossiers concernés, purge toujours manuelle. À reporter dans l’article 33 du contrat (durée laissée en blanc). |
+| G3-a | Sauvegardes | **21/10/2026** : sauvegarde **chaque nuit par GitHub Actions**, **chiffrée**, de la base et des fichiers (documents), conservée 30 jours ; procédure de restauration testée et documentée. Pas d’offre payante Supabase pour l’instant. |
+| P6-1 | Format des exports | **21/10/2026** : fichiers **Excel (.xlsx)**, générés par une fonction Supabase (limite de calcul de Cloudflare gratuit). |
+| P6-2 | Environnement de formation | **21/10/2026** (valeur par défaut) : second projet Supabase gratuit et copie de l’application réservés à la formation, avec les données fictives (jamais en production) ; projet créé par USA CARS. |
+| P6-3 | Réclamations après l’enlèvement | **21/10/2026** : ajoutées à la phase 6 (lot 6d) — saisie par l’agent ou le client, réserves et photos, délai `claim.business_days_after_pickup` jours ouvrés (au-delà : « hors délai »), suivi visible du client (`docs/12`). |
 
 ---
 
@@ -97,9 +103,9 @@ I1 et I2 ont été confirmées le 17/10/2026, I4 le 19/10/2026 (voir section 1).
 | F2 | Demander un accès API Maersk / MSC ? | Phase 5 (API) | Liens seulement ; API reportée (voir F2-a). |
 | F3 | Fréquence de vérification manuelle du suivi. | — | Alerte après 3 jours sans vérification en transit. |
 | F4 | Exemples réels anonymisés de numéros de conteneur et de B/L. | Phase 5 | Contrôle ISO 6346 ; B/L en texte libre. |
-| G1 | Formalités CDP (données personnelles). | Production | Avant la mise en production. |
-| G2 | Durées de conservation après clôture. | Production | 10 ans (comptable), 5 ans (autres), à confirmer. |
-| G3 | Sauvegardes (fréquence, rétention), restauration. | Production | Quotidienne, 7 jours minimum. |
+| G1 | Formalités CDP (données personnelles). | Production | Avant la mise en production (voir G1-a). |
+| G2 | Durées de conservation après clôture. | Production | 10 ans (comptable), 5 ans (autres), à confirmer (voir G2-a). |
+| G3 | Sauvegardes (fréquence, rétention), restauration. | Production | Quotidienne, 7 jours minimum (voir G3-a). |
 | G4 | Publication au JO du décret sur la limite d’âge (10 / 15 ans). | — | 10 / 15 ans, paramétrables. |
 | T1 | Transport seul (B5) : quel contrat ? Le contrat actuel (40 articles) est construit autour de l’achat (ordre d’achat, enchère, forfait A). | Reporté (transport seul exclu le 19/10/2026) | Même contrat avec une variante « transport seul » sans les articles d’acquisition, marquée « PROJET » jusqu’à validation par l’avocat (D1). Pas d’ordre d’achat ; R14 devient : un dossier = un véhicule = un contrat. |
 | T2 | Transport seul : quels montants et quand les payer ? | Reporté (transport seul exclu le 19/10/2026) | Pas de forfait A ni de dépôt ; forfait B (logistique + maritime), option C et ajustements D inchangés. Paiement 1 = totalité du forfait B **avant l’enlèvement aux États-Unis** ; solde = ajustements éventuels, avant la remise des documents. |
