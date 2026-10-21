@@ -588,6 +588,9 @@ export type UnclaimedProcedureRow = {
   closing_status: ProcedureClosingStatus | null;
 };
 
+/** Ligne d'un rapport (colonnes définies dans supabase/functions/_shared/reports.ts). */
+export type ReportRow = Record<string, string | number | boolean | null>;
+
 /** Compte à rebours d'un dossier arrivé (fonction unclaimed_overview). */
 export type UnclaimedOverviewRow = {
   dossier_id: string;
@@ -1227,6 +1230,13 @@ export type Database = {
       dossier_balance: { Args: { p_dossier_id: string }; Returns: DossierBalance[] };
       finance_overview: { Args: Record<string, never>; Returns: FinanceOverviewRow[] };
       unclaimed_overview: { Args: { p_dossier_id?: string | null }; Returns: UnclaimedOverviewRow[] };
+      // Phase 6 — rapports (US-6.1) : lignes décrites par supabase/functions/_shared/reports.ts.
+      report_active_dossiers: { Args: Record<string, never>; Returns: ReportRow[] };
+      report_delays: { Args: Record<string, never>; Returns: ReportRow[] };
+      report_receivables: { Args: { p_as_of?: string | null }; Returns: ReportRow[] };
+      report_transit_times: { Args: { p_from: string; p_to: string }; Returns: ReportRow[] };
+      report_margins: { Args: { p_from: string; p_to: string }; Returns: ReportRow[] };
+      log_report_export: { Args: { p_report: string; p_filters?: Json }; Returns: undefined };
       is_recovery_writer: { Args: Record<string, never>; Returns: boolean };
       issue_unclaimed_letter: {
         Args: { p_dossier_id: string; p_kind: UnclaimedLetterKind; p_cure_days?: number | null };

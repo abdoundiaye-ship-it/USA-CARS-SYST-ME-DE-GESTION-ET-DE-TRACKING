@@ -54,6 +54,8 @@ export const SCREEN_ROLES = {
   // et clôture de la procédure par admin et direction ; les agents opérations consultent.
   recoveryWrite: ["admin", "management", "accounting"],
   procedureWrite: ["admin", "management"],
+  // Phase 6 — rapports (docs/12) : chaque rôle interne voit ses rapports ; la base vérifie chaque rapport.
+  reports: INTERNAL_ROLES,
 } as const satisfies Record<string, readonly AppRole[]>;
 
 export function canAccess(role: AppRole | null | undefined, allowed: readonly AppRole[]): boolean {

@@ -1,0 +1,232 @@
+import type { Metadata, Route } from "next";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Alert, Card, EmptyState, PageHeader } from "@/components/ui/feedback";
+import { Input } from "@/components/ui/field";
+import { Table, Td, Th } from "@/components/ui/table";
+import { requireInternal } from "@/lib/auth/access";
+import { SCREEN_ROLES } from "@/lib/auth/roles";
+import { formatDate, formatInteger, formatUsd } from "@/lib/format";
+import { average, averagesBy, reportFilters, reportsFor, total } from "@/lib/reports";
+import type { ReportRow } from "@/lib/supabase/database.types";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  DELAY_KIND_LABELS,
+  REPORT_STAGE_LABELS,
+  REPORTS,
+  reportArgs,
+  type ReportColumn,
+  type ReportKey,
+} from "@/supabase/functions/_shared/reports.ts";
+
+export const metadata: Metadata = { title: "Rapports" };
+
+const TRANSIT_DAYS = ["days_won_to_departure", "days_at_sea", "days_won_to_arrival", "days_arrival_to_collection"];
+
+function display(column: ReportColumn, value: ReportRow[string]): string {
+  if (value === null || value === undefined || value === "") return "—";
+  switch (column.type) {
+    case "usd":
+      return formatUsd(Number(value));
+    case "date":
+      return formatDate(String(value));
+    case "int":
+      return formatInteger(Number(value));
+    case "percent":
+      return `${Number(value).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`;
+    case "stage":
+      return REPORT_STAGE_LABELS[String(value)] ?? String(value);
+    case "delay_kind":
+      return DELAY_KIND_LABELS[String(value)] ?? String(value);
+    case "bool":
+      return value ? "oui" : "non";
+    default:
+      return String(value);
+  }
+}
+
+const days = (value: number | null) => (value === null ? "—" : `${value.toLocaleString("fr-FR")} j`);
+
+/**
+ * US-6.1 : rapports par rôle (docs/12) — dossiers actifs, retards, créances, délais, marge (admin et direction).
+ * Les droits sont vérifiés par la base ; l'export Excel passe par /rapports/export (journalisé).
+ */
+export default async function RapportsPage({ searchParams }: PageProps<"/rapports">) {
+  const access = await requireInternal(SCREEN_ROLES.reports);
+  const params = await searchParams;
+  const allowed = reportsFor(access.role);
+  const key: ReportKey | undefined = allowed.find((k) => k === params.rapport) ?? allowed[0];
+  const today = new Date().toISOString().slice(0, 10); // Africa/Dakar = UTC
+  const filters = reportFilters(params, today);
+
+  if (!key) {
+    return (
+      <>
+        <PageHeader title="Rapports" />
+        <EmptyState title="Aucun rapport pour votre rôle" />
+      </>
+    );
+  }
+  const report = REPORTS[key];
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc(report.rpc as "report_delays", reportArgs(key, filters) as never);
+  const rows = (data ?? []) as ReportRow[];
+  const query = new URLSearchParams({ rapport: key });
+  if (report.period === "range") {
+    query.set("du", filters.from);
+    query.set("au", filters.to);
+  }
+  if (report.period === "as_of") query.set("situation", filters.asOf);
+  const exportHref = `/rapports/export?${query}` as Route;
+
+  return (
+    <>
+      <PageHeader title="Rapports" description="Indicateurs de l’activité, exportables au format Excel." />
+      <div className="flex flex-col gap-6">
+        <nav aria-label="Rapports" className="flex flex-wrap gap-2">
+          {allowed.map((k) => (
+            <Link
+              key={k}
+              href={`/rapports?rapport=${k}` as Route}
+              aria-current={k === key ? "page" : undefined}
+              className={`rounded-md border px-3 py-1.5 text-sm ${
+                k === key
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card hover:bg-background"
+              }`}
+            >
+              {REPORTS[k].title}
+            </Link>
+          ))}
+        </nav>
+
+        <Card className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-semibold">{report.title}</h2>
+            <p className="text-muted text-sm">{report.description}</p>
+          </div>
+          {key === "margins" && (
+            <Alert tone="warning">
+              Confidentiel : coûts internes et marge, réservés à l’administrateur et à la direction ; jamais communiqués
+              au client.
+            </Alert>
+          )}
+
+          <form method="get" className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <input type="hidden" name="rapport" value={key} />
+            {report.period === "range" && (
+              <>
+                <label className="flex flex-col gap-1 text-sm">
+                  Du
+                  <Input type="date" name="du" defaultValue={filters.from} />
+                </label>
+                <label className="flex flex-col gap-1 text-sm">
+                  Au
+                  <Input type="date" name="au" defaultValue={filters.to} />
+                </label>
+              </>
+            )}
+            {report.period === "as_of" && (
+              <label className="flex flex-col gap-1 text-sm">
+                Situation au
+                <Input type="date" name="situation" defaultValue={filters.asOf} />
+              </label>
+            )}
+            {report.period !== "none" && (
+              <Button type="submit" variant="secondary">
+                Afficher
+              </Button>
+            )}
+            <a
+              href={exportHref}
+              className="bg-primary text-primary-foreground inline-flex min-h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-medium hover:opacity-90 sm:ml-auto"
+            >
+              Télécharger (Excel)
+            </a>
+          </form>
+          {params.export === "erreur" && (
+            <Alert tone="danger">L’export n’a pas pu être préparé. Réessayez dans un instant.</Alert>
+          )}
+
+          {error ? (
+            <Alert tone="danger">Le rapport n’a pas pu être chargé. Rechargez la page.</Alert>
+          ) : rows.length === 0 ? (
+            <EmptyState title="Aucune ligne">Rien à signaler pour ce rapport et ces dates.</EmptyState>
+          ) : (
+            <>
+              {key === "transit_times" && (
+                <div className="flex flex-col gap-2 text-sm">
+                  <p>
+                    Moyennes sur {rows.length} véhicule(s) : {days(average(rows, "days_won_to_departure"))} avant le
+                    départ, {days(average(rows, "days_at_sea"))} en mer, {days(average(rows, "days_won_to_arrival"))} du
+                    lot remporté à Dakar, {days(average(rows, "days_arrival_to_collection"))} de Dakar à l’enlèvement.
+                  </p>
+                  <ul className="text-muted flex flex-col gap-1 text-xs">
+                    {averagesBy(rows, "carrier_name", TRANSIT_DAYS).map((g) => (
+                      <li key={g.group}>
+                        {g.group} ({g.count}) : {days(g.averages.days_at_sea ?? null)} en mer,{" "}
+                        {days(g.averages.days_won_to_arrival ?? null)} du lot à Dakar
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {key === "receivables" && (
+                <p className="text-sm">
+                  Total restant dû : <strong>{formatUsd(total(rows, "total_cents"))}</strong>, dont échu :{" "}
+                  <strong>
+                    {formatUsd(
+                      total(rows, "overdue_1_30_cents") +
+                        total(rows, "overdue_31_60_cents") +
+                        total(rows, "overdue_over_60_cents"),
+                    )}
+                  </strong>
+                  .
+                </p>
+              )}
+              {key === "margins" && (
+                <p className="text-sm">
+                  Marge totale des dossiers avec coûts saisis :{" "}
+                  <strong>{formatUsd(total(rows, "margin_cents"))}</strong> (
+                  {rows.filter((r) => r.margin_cents === null).length} dossier(s) sans coût saisi : marge non
+                  calculable).
+                </p>
+              )}
+              <div className="overflow-x-auto">
+                <Table>
+                  <thead>
+                    <tr>
+                      {report.columns.map((c) => (
+                        <Th key={c.key}>{c.label}</Th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, i) => (
+                      <tr key={`${String(row.dossier_id ?? row.client_id ?? "")}-${i}`}>
+                        {report.columns.map((c) => (
+                          <Td
+                            key={c.key}
+                            className={c.type === "text" || c.type === "stage" ? "" : "amount whitespace-nowrap"}
+                          >
+                            {c.key === "reference" && typeof row.dossier_id === "string" ? (
+                              <Link href={`/dossiers/${row.dossier_id}` as Route} className="text-primary underline">
+                                {display(c, row[c.key] ?? null)}
+                              </Link>
+                            ) : (
+                              display(c, row[c.key] ?? null)
+                            )}
+                          </Td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+            </>
+          )}
+        </Card>
+      </div>
+    </>
+  );
+}

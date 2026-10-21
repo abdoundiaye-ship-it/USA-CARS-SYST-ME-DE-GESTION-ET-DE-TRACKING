@@ -433,3 +433,10 @@ import_map = "./functions/generate-document/deno.json"
 enabled = true
 verify_jwt = false
 import_map = "./functions/send-notifications/deno.json"
+
+# Export Excel des rapports (phase 6, P6-1) : appelée par l'application avec le jeton de l'utilisateur ; la base
+# vérifie le rôle de chaque rapport et journalise l'export.
+[functions.export-report]
+enabled = true
+verify_jwt = true
+import_map = "./functions/export-report/deno.json"
