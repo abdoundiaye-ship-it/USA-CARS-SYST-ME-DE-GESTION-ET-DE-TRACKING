@@ -292,6 +292,21 @@ insert into public.dossier_containers (dossier_id, container_id, assigned_by) va
   ('e0000000-0000-4000-8000-000000000007', 'f1000000-0000-4000-8000-000000000003', 'd0000000-0000-4000-8000-000000000002');
 
 -- ---------------------------------------------------------------------------
+-- Phase 6, lot 6b — dossier du second client, terminé (clôturé aujourd'hui) : rapport « Conservation des données »
+-- (durées atteintes dans 5 et 10 ans, G2-a). Fictif (DEMO-).
+-- ---------------------------------------------------------------------------
+insert into public.dossiers (
+  id, reference, client_id, owner_id, created_by, stage, status, platform, lot_number, vin, make, model, model_year,
+  vehicle_category, purchase_location, departure_port, auction_result, hammer_price_cents, lot_won_notified_at,
+  payment1_due_at, created_at
+) values (
+  'e0000000-0000-4000-8000-000000000008', 'DEMO-2026-0008', 'c0000000-0000-4000-8000-000000000002',
+  'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'closing', 'completed', 'iaa',
+  'DEMO-LOT-1008', '1DEMXXX0000000008', 'Hyundai', 'Tucson', 2019, 'passenger', 'Newark, NJ (démo)', 'New York',
+  'won', 650000, now() - interval '150 days', now() - interval '149 days', now() - interval '155 days'
+);
+
+-- ---------------------------------------------------------------------------
 -- Décisions A4 et A4-bis : la comptabilité et la direction sont soumises à la double authentification. Pour les
 -- essais LOCAUX et les tests, leurs comptes de démonstration ont déjà un facteur TOTP vérifié, de secret connu (à
 -- saisir dans une application d'authentification) : JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP. L'administrateur, lui,
