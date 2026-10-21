@@ -75,6 +75,15 @@ export const SETTINGS_LOTS: Record<string, SettingsLot> = {
       "-- ne pas modifier à la main. Valeurs modifiables ensuite dans l’écran Paramètres.",
     ],
   },
+  phase5: {
+    migrationPath: "supabase/migrations/20261020100800_parametres_recouvrement.sql",
+    effectiveFrom: "2026-10-20T00:00:00Z",
+    header: [
+      "-- Phase 5, lot 5b — numérotation des courriers de la procédure « véhicule non réclamé » (art. 21–22).",
+      "-- GÉNÉRÉ par `pnpm settings:generate` depuis specs/parametres_contractuels.json (lot « phase5 ») :",
+      "-- ne pas modifier à la main. Valeurs modifiables ensuite dans l’écran Paramètres.",
+    ],
+  },
 };
 
 /** Paramètres du JSON regroupés par lot. */

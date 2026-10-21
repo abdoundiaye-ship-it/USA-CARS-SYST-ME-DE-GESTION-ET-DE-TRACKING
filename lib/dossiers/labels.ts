@@ -1,5 +1,11 @@
 import type {
   AcceptanceMethod,
+  ArrivalNoticeChannel,
+  LetterSendingChannel,
+  ProcedureClosingStatus,
+  UnclaimedLetterKind,
+  CarrierApiStatus,
+  TrackingEventRow,
   ConfirmationCode,
   ContainerStatus,
   EtaSource,
@@ -81,6 +87,30 @@ export const DOCUMENT_KIND_LABELS: Record<DocumentKind, string> = {
   balance_invoice: "Facture de solde",
   cash_receipt: "Reçu espèces",
   refund_note: "Note de remboursement",
+  reminder_letter: "Lettre de relance",
+  formal_notice: "Mise en demeure",
+  letter_sending_proof: "Preuve d’envoi d’un courrier (interne)",
+};
+
+/** Procédure « véhicule non réclamé » (US-5.3, art. 21–22). */
+export const UNCLAIMED_LETTER_LABELS: Record<UnclaimedLetterKind, string> = {
+  reminder: "Lettre de relance",
+  formal_notice: "Mise en demeure",
+};
+
+export const LETTER_SENDING_CHANNEL_LABELS: Record<LetterSendingChannel, string> = {
+  hand: "Remise en main propre",
+  email: "E-mail",
+  whatsapp: "WhatsApp",
+  courier: "Coursier ou courrier",
+};
+
+export const PROCEDURE_CLOSING_STATUS_LABELS: Record<ProcedureClosingStatus, string> = {
+  completed: "Terminé (situation régularisée)",
+  archived: "Archivé",
+  claim: "Réclamation",
+  dispute: "Litige",
+  suspended: "Suspendu",
 };
 
 /** Types de documents téléversés par l'équipe (les autres sont générés ou enregistrés par l'application). */
@@ -146,6 +176,30 @@ export const ETA_SOURCE_LABELS: Record<EtaSource, string> = {
   carrier_site: "Site de suivi du transporteur",
   carrier_notice: "Avis du transporteur (e-mail, courrier)",
   manual: "Estimation de l’agent",
+};
+
+/** Source d'un événement de suivi (R12) ; les saisies manuelles sont distinguées à l'affichage. */
+export const TRACKING_SOURCE_LABELS: Record<TrackingEventRow["source"], string> = {
+  manual: "Saisie manuelle",
+  carrier_link: "Lien du transporteur",
+  api: "API du transporteur",
+};
+
+/** État de l'accès API d'un transporteur (cahier des charges §5.1, décision F2-a). */
+export const CARRIER_API_STATUS_LABELS: Record<CarrierApiStatus, string> = {
+  non_etudie: "Non étudié",
+  non_verifie: "Non vérifié",
+  demande: "Demandé",
+  obtenu: "Obtenu",
+  refuse: "Refusé",
+};
+
+/** Moyen par lequel l'agent a informé le client de l'arrivée (contrat art. 17). */
+export const ARRIVAL_NOTICE_CHANNEL_LABELS: Record<ArrivalNoticeChannel, string> = {
+  phone: "Téléphone",
+  whatsapp: "WhatsApp (message de l’agent)",
+  email: "E-mail (message de l’agent)",
+  in_person: "En personne",
 };
 
 export const TRACKING_EVENT_LABELS: Record<TrackingEventKind, string> = {

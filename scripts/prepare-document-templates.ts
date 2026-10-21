@@ -9,6 +9,7 @@
  *   - templates/devis_facture.docx : devis DV et factures FA / FS (modèle « Devis / Facture » révisé), avec le logo
  *     en en-tête (décision D4) et les valeurs contractuelles reprises des paramètres (CLAUDE.md règle 4) ;
  *   - templates/recu.docx : reçu espèces RC et note de remboursement RB (même en-tête, corps d'une page) ;
+ *   - templates/courrier.docx : lettre de relance LR et mise en demeure MD (procédure « véhicule non réclamé ») ;
  *   - supabase/functions/_shared/document-templates.generated.ts : les fichiers en base64, embarqués dans la
  *     fonction Supabase generate-document (sans accès au disque).
  *
@@ -20,6 +21,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import PizZip from "pizzip";
+import { xmlStructureError } from "../lib/documents/well-formed-xml";
 
 const SOURCE = "reference/templates/USA_CARS_Contrat_Prestation_Services_Senegal_-_Revise.docx";
 const FINANCIAL_SOURCE = "reference/templates/USA_CARS_Devis_Facture_Client_-_Revise.docx";
@@ -28,6 +30,7 @@ const OUTPUT_CONTRACT = "templates/contrat_prestation.docx";
 const OUTPUT_PURCHASE_ORDER = "templates/ordre_achat.docx";
 const OUTPUT_FINANCIAL = "templates/devis_facture.docx";
 const OUTPUT_RECEIPT = "templates/recu.docx";
+const OUTPUT_LETTER = "templates/courrier.docx";
 const OUTPUT_MODULE = "supabase/functions/_shared/document-templates.generated.ts";
 
 /** Remplace le texte d'un élément <w:t> (texte exact) ; `occurrence` : 1 = première, 2 = deuxième… */
@@ -186,6 +189,13 @@ function build(
   zip.file("word/document.xml", documentXml);
   zip.file("word/header1.xml", headerXml);
   extra?.(zip);
+  for (const [part, xml] of [
+    ["word/document.xml", documentXml],
+    ["word/header1.xml", headerXml],
+  ] as const) {
+    const error = xmlStructureError(xml);
+    if (error) throw new Error(`${output} : ${part} mal formé (${error}) — Word refuserait d’ouvrir le fichier.`);
+  }
   const bytes = zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
   mkdirSync(dirname(resolve(output)), { recursive: true });
   writeFileSync(resolve(output), bytes);
@@ -430,7 +440,8 @@ function tagFinancialHeader(xml: string): string {
   const usa = xml.indexOf('<w:t xml:space="preserve">USA </w:t></w:r>');
   const carsEnd = xml.indexOf("<w:t>CARS</w:t></w:r>") + "<w:t>CARS</w:t></w:r>".length;
   if (usa < 0 || carsEnd < usa) throw new Error("Nom « USA CARS » introuvable dans l’en-tête du devis.");
-  const start = xml.lastIndexOf("<w:r", usa);
+  // Début de la balise de run (<w:r> ou <w:r …>), jamais <w:rPr> qui commence par les mêmes caractères.
+  const start = Math.max(xml.lastIndexOf("<w:r>", usa), xml.lastIndexOf("<w:r ", usa));
   let out = `${xml.slice(0, start)}${LOGO_RUN}${xml.slice(carsEnd)}`;
   out = replaceText(out, " | DEVIS", " | {titre_entete}");
   out = out.replace('<w:t xml:space="preserve"> / FACTURE CLIENT</w:t>', '<w:t xml:space="preserve"></w:t>');
@@ -491,6 +502,37 @@ function tagReceiptDocument(xml: string): string {
   return `${xml.slice(0, bodyStart)}${body}${xml.slice(sectionProperties)}`;
 }
 
+// ---------------------------------------------------------------------------
+// Courriers de la procédure « véhicule non réclamé » (US-5.3) : lettre de relance et mise en demeure, même charte
+// que le reçu ; le corps est une liste de paragraphes répétée (boucle docxtemplater).
+// ---------------------------------------------------------------------------
+function tagLetterDocument(xml: string): string {
+  const bodyStart = xml.indexOf("<w:body>") + "<w:body>".length;
+  const sectionProperties = xml.lastIndexOf("<w:sectPr");
+  const body = [
+    receiptParagraph("{titre_document}", { bold: true, size: 28, center: true, after: 60 }),
+    receiptParagraph(
+      "USA CARS – {usa_forme_juridique} – RCCM : {usa_rccm} – NINEA : {usa_ninea} – {usa_bureau} – Tél. : {usa_telephone}",
+      { size: 16, center: true, after: 360 },
+    ),
+    receiptParagraph("Dakar, le {date_document}", { after: 240 }),
+    receiptParagraph("{client_nom}", { bold: true, after: 0 }),
+    receiptParagraph("{client_adresse}", { after: 0 }),
+    receiptParagraph("Tél. : {client_telephone}", { after: 240 }),
+    receiptParagraph("{references}", { size: 18 }),
+    receiptParagraph("Objet : {objet}", { bold: true, after: 240 }),
+    receiptParagraph("Madame, Monsieur,"),
+    // Boucle sur des paragraphes entiers : balises d'ouverture et de fermeture seules dans leur paragraphe.
+    receiptParagraph("{#paragraphes}", { after: 0 }),
+    receiptParagraph("{texte}", { after: 160 }),
+    receiptParagraph("{/paragraphes}", { after: 0 }),
+    receiptParagraph("Veuillez agréer, Madame, Monsieur, l’expression de nos salutations distinguées.", { after: 480 }),
+    receiptParagraph("Pour USA CARS : {usa_representant}, {usa_qualite}"),
+    receiptParagraph("Signature : __________________"),
+  ].join("");
+  return `${xml.slice(0, bodyStart)}${body}${xml.slice(sectionProperties)}`;
+}
+
 const contract = build("contrat-revise", OUTPUT_CONTRACT, tagDocument, tagHeader);
 const purchaseOrder = build("ordre-achat-revise", OUTPUT_PURCHASE_ORDER, tagPurchaseOrder, tagPurchaseOrderHeader);
 const financial = build("devis-facture-revise", OUTPUT_FINANCIAL, tagFinancialDocument, tagFinancialHeader, {
@@ -498,6 +540,10 @@ const financial = build("devis-facture-revise", OUTPUT_FINANCIAL, tagFinancialDo
   extra: addLogo,
 });
 const receipt = build("recu", OUTPUT_RECEIPT, tagReceiptDocument, tagFinancialHeader, {
+  source: FINANCIAL_SOURCE,
+  extra: addLogo,
+});
+const letter = build("courrier", OUTPUT_LETTER, tagLetterDocument, tagFinancialHeader, {
   source: FINANCIAL_SOURCE,
   extra: addLogo,
 });
@@ -516,6 +562,8 @@ writeFileSync(
     `export const FINANCIAL_TEMPLATE_BASE64 =\n  "${financial.bytes.toString("base64")}";`,
     `export const RECEIPT_TEMPLATE_VERSION = "${receipt.version}";`,
     `export const RECEIPT_TEMPLATE_BASE64 =\n  "${receipt.bytes.toString("base64")}";`,
+    `export const LETTER_TEMPLATE_VERSION = "${letter.version}";`,
+    `export const LETTER_TEMPLATE_BASE64 =\n  "${letter.bytes.toString("base64")}";`,
     "",
   ].join("\n"),
   "utf8",

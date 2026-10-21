@@ -13,7 +13,8 @@ Modèles de référence dans `reference/templates/` (Word). Pour la génération
 | Reçu espèces | à créer (1 page, même charte) | RC-AAAA-#### | Paiement en espèces | oui |
 | Note de remboursement | à créer (1 page) | RB-AAAA-#### | Exécution d’un remboursement de trop-perçu | oui |
 | Décharge de remise | à créer | — | Remise des documents | oui |
-| Relance / mise en demeure | à créer (art. 21–22) | — | Recouvrement | oui |
+| Lettre de relance | `templates/courrier.docx` (art. 22) | LR-AAAA-#### | Véhicule arrivé, solde dû ou non enlevé (J+30 au plus tard) | oui, une fois l’envoi enregistré (U4) |
+| Mise en demeure | même modèle (art. 21–22) | MD-AAAA-#### | Après l’envoi de la relance (J+60 au plus tard) | oui, une fois l’envoi enregistré (U4) |
 
 ## Champs du devis / facture
 
@@ -54,3 +55,11 @@ Sections 6 à 8 : comptes officiels actifs, référence à indiquer, conditions,
 - Facture de solde `FS` : même modèle (case « Facture de solde »), émise après l’embarquement (conteneur affecté avec B/L et ETA) ; lignes B, C si acceptée, D approuvées (détaillées), TVA ; ETA de référence figée (« indicative ») ; section 1 renseignée depuis le conteneur (transporteur, navire, B/L, lien de suivi). Si l’ETA est avancée, l’échéance est avancée (R4) et l’événement est visible du client ; le fichier émis n’est pas regénéré.
 - Reçu espèces `RC` et note de remboursement `RB` : modèle d’une page `templates/recu.docx` (même en-tête avec logo, mention PROJET), montant USD qui fait foi et équivalent FCFA (montant reçu, ou taux du jour), mode, référence, signatures.
 - Les lignes D postérieures à la facture de solde (frais de retard, par exemple) entrent dans le solde du dossier sans modifier la facture émise.
+
+## Mise en œuvre (lot 5b) — procédure « véhicule non réclamé »
+
+- Modèle `templates/courrier.docx` (même en-tête avec logo, mention PROJET tant que `templates.legal_validated` est faux, décision U2) : destinataire, références du dossier et du contrat, objet, corps rédigé d’après les articles 17, 20, 21 et 22, signature.
+- Lettre de relance `LR` : arrivée, sommes dues (USD qui fait foi, équivalent FCFA au taux du jour d’émission), véhicule enlevé ou non, échéance de la mise en demeure.
+- Mise en demeure `MD` (art. 21) : relance citée, sommes dues et frais de retard accumulés, délai de régularisation d’au moins `unclaimed.formal_notice_min_cure_days` jours **à compter de la réception**, conséquences (art. 22) et mention « aucune appropriation automatique ». La date limite est fixée à l’enregistrement de l’envoi (date d’envoi + délai).
+- Montants et motif figés à l’émission ; aucune coordonnée de paiement (rappel des seuls canaux officiels de l’annexe D) ; aucun coût interne.
+- Le courrier n’est visible du client qu’après l’enregistrement de l’envoi (date, canal, preuve) ; la preuve d’envoi reste interne.

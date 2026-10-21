@@ -24,7 +24,8 @@ L = lecture · E = écriture · V = validation · — = aucun accès
 | Documents | L E | L E | L E | L | L si `visible_client` |
 | Remise des documents | L E | L E | L | L | L |
 | Réclamations | L E | L E | L | L | L E (les siennes) |
-| Recouvrement (relances, mises en demeure) | L E | L | L E | L | L (courriers reçus) |
+| Recouvrement (relances, mises en demeure) | L E | L | L E | L E (U3) | L (courriers envoyés) |
+| Procédure « véhicule non réclamé » (ouverture, clôture) | L E | L | L | L E (U3) | — |
 | Notifications | L E | L E | L | L | L (les siennes) |
 | Paramètres, transporteurs | L E | L | L | L | — |
 | Utilisateurs | L E (crée les comptes et attribue les rôles) | — | — | L | — |

@@ -17,7 +17,9 @@ export type NotificationTemplate =
   | "arrived"
   | "documents_ready"
   | "payment_overdue"
-  | "test_message";
+  | "test_message"
+  | "unclaimed_reminder"
+  | "formal_notice";
 
 export type NotificationVariables = Record<string, string>;
 
@@ -84,6 +86,18 @@ export const TEMPLATES: Record<NotificationTemplate, TemplateDefinition> = {
     text: (v) =>
       `Bonjour ${v.nom}, sauf erreur de notre part, le ${v.echeance} du dossier ${v.reference} n’est pas encore réglé (reste dû : ${v.montant}). Merci de régulariser au plus vite pour éviter des frais de retard, conformément au contrat. Détail et comptes officiels : ${v.lien}. ${SIGNATURE}`,
     whatsappVariables: ["nom", "reference", "echeance", "montant", "lien"],
+  },
+  unclaimed_reminder: {
+    subject: (v) => `Courrier de relance ${v.numero} — dossier ${v.reference}`,
+    text: (v) =>
+      `Bonjour ${v.nom}, votre véhicule (dossier ${v.reference}) est arrivé à Dakar et n’a pas encore été réglé ou enlevé. Nous vous avons adressé la lettre de relance ${v.numero}, disponible dans votre espace : ${v.lien}. Merci de prendre contact avec nous pour régulariser. ${SIGNATURE}`,
+    whatsappVariables: ["nom", "reference", "numero", "lien"],
+  },
+  formal_notice: {
+    subject: (v) => `Mise en demeure ${v.numero} — dossier ${v.reference}`,
+    text: (v) =>
+      `Bonjour ${v.nom}, nous vous avons adressé la mise en demeure ${v.numero} concernant le dossier ${v.reference} : régularisation attendue au plus tard le ${v.date_limite}, conformément aux articles 21 et 22 du contrat. Le courrier est disponible dans votre espace : ${v.lien}. ${SIGNATURE}`,
+    whatsappVariables: ["nom", "reference", "numero", "date_limite", "lien"],
   },
   test_message: {
     subject: () => "Message de test — USA CARS",

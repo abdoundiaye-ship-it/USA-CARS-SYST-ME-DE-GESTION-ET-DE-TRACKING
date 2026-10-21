@@ -50,6 +50,10 @@ export const SCREEN_ROLES = {
   notifications: INTERNAL_ROLES,
   notificationsWrite: ["admin", "ops", "accounting"],
   notificationsTest: ["admin"],
+  // Phase 5 — procédure « véhicule non réclamé » (U3) : courriers par admin, direction, comptabilité ; ouverture
+  // et clôture de la procédure par admin et direction ; les agents opérations consultent.
+  recoveryWrite: ["admin", "management", "accounting"],
+  procedureWrite: ["admin", "management"],
 } as const satisfies Record<string, readonly AppRole[]>;
 
 export function canAccess(role: AppRole | null | undefined, allowed: readonly AppRole[]): boolean {

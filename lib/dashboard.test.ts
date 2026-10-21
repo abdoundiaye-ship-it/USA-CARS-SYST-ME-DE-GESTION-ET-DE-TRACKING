@@ -8,9 +8,17 @@ import {
   type DashboardDossier,
   type DashboardFinance,
 } from "./dashboard";
+import type { UnclaimedNextStep } from "@/lib/supabase/database.types";
 
 const now = new Date("2026-10-19T12:00:00Z");
-const thresholds = { staleDossierDays: 7, recentEtaChangeDays: 3, maxDaysWithoutCheck: 3, unclaimedReminderDays: 30 };
+const thresholds = {
+  staleDossierDays: 7,
+  recentEtaChangeDays: 3,
+  maxDaysWithoutCheck: 3,
+  unclaimedReminderDays: 30,
+  arrivalNotifyHours: 24,
+  pickupDaysAfterDocuments: 15,
+};
 
 const dossier = (over: Partial<DashboardDossier>): DashboardDossier => ({
   id: over.reference ?? "d",
@@ -77,11 +85,88 @@ describe("liste « À traiter » (US-2.9)", () => {
       containers: [container({ id: "x", ata: "2026-09-10", status: "arrived" })],
       assignments: [{ dossier_id: "k", container_id: "x" }],
       confirmations: [{ dossier_id: "k", code: "balance_paid" }],
+      arrivalNotifiedDossierIds: new Set(["k"]),
     };
     expect(buildTodoList(data, thresholds, now).map((i) => i.kind)).toEqual(["unclaimed", "documents_to_release"]);
     expect(buildTodoList({ ...data, releasedDossierIds: new Set(["k"]) }, thresholds, now).map((i) => i.kind)).toEqual([
       "unclaimed",
     ]);
+  });
+
+  it("arrivée : client non informé au-delà du délai (art. 17), sauf message envoyé ou information par l’agent", () => {
+    const d = dossier({ id: "n", reference: "N", stage: "dakar", status: "documents_pending" });
+    const arrived = (recordedAt: string): DashboardData => ({
+      ...empty,
+      dossiers: [d],
+      containers: [container({ id: "x", ata: "2026-10-17", status: "arrived", arrival_recorded_at: recordedAt })],
+      assignments: [{ dossier_id: "n", container_id: "x" }],
+    });
+    // Saisie de l'ATA il y a 25 h : délai de 24 h dépassé.
+    expect(buildTodoList(arrived("2026-10-18T11:00:00Z"), thresholds, now)[0]).toMatchObject({
+      kind: "arrival_not_notified",
+      severity: "warning",
+      label: "Client non informé de l’arrivée du 17/10/2026",
+      href: "/dossiers/n",
+    });
+    // Saisie il y a 23 h : encore dans le délai.
+    expect(buildTodoList(arrived("2026-10-18T13:00:00Z"), thresholds, now)).toEqual([]);
+    const informed = { ...arrived("2026-10-18T11:00:00Z"), arrivalNotifiedDossierIds: new Set(["n"]) };
+    expect(buildTodoList(informed, thresholds, now)).toEqual([]);
+    // Paramètre absent : aucune alerte.
+    const unset = { ...thresholds, arrivalNotifyHours: Number.POSITIVE_INFINITY };
+    expect(buildTodoList(arrived("2026-10-01T11:00:00Z"), unset, now)).toEqual([]);
+  });
+
+  it("enlèvement attendu N jours après la remise des documents (R10), jusqu’au statut « Enlevé »", () => {
+    const data = (status: string): DashboardData => ({
+      ...empty,
+      dossiers: [dossier({ id: "p", reference: "P", stage: "dakar", status })],
+      releasedDossierIds: new Set(["p"]),
+      releases: [{ dossier_id: "p", released_at: "2026-10-03T10:00:00Z" }],
+    });
+    expect(buildTodoList(data("documents_released"), thresholds, now)[0]).toMatchObject({
+      kind: "pickup_overdue",
+      label: "Enlèvement attendu depuis le 18/10/2026",
+    });
+    expect(buildTodoList(data("collected"), thresholds, now)).toEqual([]);
+    const later = {
+      ...data("documents_released"),
+      releases: [{ dossier_id: "p", released_at: "2026-10-05T10:00:00Z" }],
+    };
+    expect(buildTodoList(later, thresholds, now)).toEqual([]);
+  });
+
+  it("véhicule non réclamé (R11) : étape suivante à son échéance, jamais avant ni sans objet", () => {
+    type UnclaimedRow = NonNullable<DashboardData["unclaimed"]>[number];
+    const base: Omit<UnclaimedRow, "next_step"> = {
+      dossier_id: "u",
+      reference: "U",
+      applies: true,
+      reminder_due_on: "2026-09-16",
+      formal_notice_due_on: "2026-10-16",
+      procedure_possible_on: "2026-12-17",
+      reminder_status: null,
+      formal_notice_status: null,
+      cure_deadline: null,
+    };
+    const todo = (row: Partial<UnclaimedRow> & { next_step: UnclaimedNextStep }) =>
+      buildTodoList({ ...empty, unclaimed: [{ ...base, ...row }] }, thresholds, now).map((i) => i.label);
+    expect(todo({ next_step: "reminder" })).toEqual([
+      "Véhicule non réclamé : lettre de relance à envoyer (échéance du 16/09/2026)",
+    ]);
+    expect(todo({ next_step: "reminder", reminder_status: "issued" })).toEqual([
+      "Lettre de relance émise : envoi à enregistrer",
+    ]);
+    expect(todo({ next_step: "formal_notice", reminder_status: "sent" })).toEqual([
+      "Véhicule non réclamé : mise en demeure à envoyer (échéance du 16/10/2026)",
+    ]);
+    // Mise en demeure pas encore due, procédure avant 4 mois : rien.
+    expect(todo({ next_step: "formal_notice", formal_notice_due_on: "2026-10-30" })).toEqual([]);
+    expect(todo({ next_step: "procedure", cure_deadline: "2026-10-10" })).toEqual([]);
+    expect(todo({ next_step: "procedure", cure_deadline: "2026-10-10", procedure_possible_on: "2026-10-18" })).toEqual([
+      "Procédure « véhicule non réclamé » possible depuis le 18/10/2026",
+    ]);
+    expect(todo({ next_step: "reminder", applies: false })).toEqual([]);
   });
 
   it("conteneur en mer non vérifié et ETA modifiée récemment ; tri par gravité", () => {

@@ -3,6 +3,7 @@
 import { FormMessage } from "@/components/form-message";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { CARRIER_API_STATUS_LABELS } from "@/lib/dossiers/labels";
 import type { CarrierRow } from "@/lib/supabase/database.types";
 import { useFormAction } from "@/lib/use-form-action";
 import { saveCarrier } from "./actions";
@@ -42,6 +43,22 @@ export function CarrierForm({ carrier }: { carrier?: CarrierRow }) {
             <Select {...aria} name="linkType" defaultValue={v("linkType", carrier?.link_type ?? "officiel")}>
               <option value="officiel">Officiel (site du transporteur)</option>
               <option value="tiers">Service tiers (mention affichée au client)</option>
+            </Select>
+          )}
+        </Field>
+        <Field
+          id={`${prefix}-api`}
+          label="Accès API"
+          hint="Sans accès obtenu, le suivi se fait par le lien (F2-a)"
+          error={e.apiStatus}
+        >
+          {(aria) => (
+            <Select {...aria} name="apiStatus" defaultValue={v("apiStatus", carrier?.api_status ?? "non_etudie")}>
+              {Object.entries(CARRIER_API_STATUS_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </Select>
           )}
         </Field>

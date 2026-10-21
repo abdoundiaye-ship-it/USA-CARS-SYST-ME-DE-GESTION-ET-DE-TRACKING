@@ -506,6 +506,22 @@
       "status": "a_confirmer",
       "source": "Hypothèse phase 4 : limite anti-abus des demandes de lien de connexion par compte client",
       "lot": "phase4a"
+    },
+    {
+      "key": "numbering.reminder_letter",
+      "value": "LR-{YYYY}-{####}",
+      "type": "string",
+      "status": "a_confirmer",
+      "source": "Hypothèse phase 5 : numérotation des lettres de relance (contrat art. 22)",
+      "lot": "phase5"
+    },
+    {
+      "key": "numbering.formal_notice",
+      "value": "MD-{YYYY}-{####}",
+      "type": "string",
+      "status": "a_confirmer",
+      "source": "Hypothèse phase 5 : numérotation des mises en demeure (contrat art. 21)",
+      "lot": "phase5"
     }
   ],
   "carriers": [

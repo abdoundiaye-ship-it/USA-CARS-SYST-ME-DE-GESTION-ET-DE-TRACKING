@@ -53,6 +53,30 @@ describe("textes des notifications (E5-a, docs/19)", () => {
     expect(() => renderNotification("lot_won", { nom: "Client" }, portal)).toThrow(/reference/);
   });
 
+  it("courriers « véhicule non réclamé » (U4) : numéro, date limite, renvoi vers l’espace client", () => {
+    const portal = "https://usa-cars.exemple.test/connexion/client";
+    const notice = renderNotification(
+      "formal_notice",
+      { nom: "Awa", reference: "DEMO-2026-0007", numero: "MD-2026-0001", date_limite: "05/11/2026" },
+      portal,
+    );
+    expect(notice.subject).toBe("Mise en demeure MD-2026-0001 — dossier DEMO-2026-0007");
+    expect(notice.text).toContain("au plus tard le 05/11/2026");
+    expect(notice.whatsappVariables).toEqual({
+      "1": "Awa",
+      "2": "DEMO-2026-0007",
+      "3": "MD-2026-0001",
+      "4": "05/11/2026",
+      "5": portal,
+    });
+    const reminder = renderNotification(
+      "unclaimed_reminder",
+      { nom: "Awa", reference: "DEMO-2026-0007", numero: "LR-2026-0001" },
+      portal,
+    );
+    expect(reminder.text).toContain("lettre de relance LR-2026-0001, disponible dans votre espace");
+  });
+
   it("règle 7 : aucun texte ne contient de coordonnées de paiement", () => {
     const sample: Record<string, string> = {
       nom: "N",
@@ -68,6 +92,7 @@ describe("textes des notifications (E5-a, docs/19)", () => {
       eta: "Et",
       ancienne_eta: "A",
       nouvelle_eta: "Nv",
+      date_limite: "Dl",
     };
     for (const template of Object.keys(TEMPLATES) as NotificationTemplate[]) {
       const { text, subject } = renderNotification(template, { ...sample, lien: portal }, portal);

@@ -1,5 +1,6 @@
 import PizZip from "pizzip";
 import { describe, expect, it } from "vitest";
+import { xmlStructureError } from "@/lib/documents/well-formed-xml";
 import { COST_CATEGORY_LABELS } from "@/lib/finance/labels";
 import { formatUsd } from "@/lib/format";
 import { usdCentsToXof as appUsdCentsToXof } from "@/lib/money/fx";
@@ -129,6 +130,10 @@ const invoice: FinancialDocumentInput = {
 /** Texte brut du document Word généré (corps + en-tête). */
 function textOf(bytes: Uint8Array): string {
   const zip = new PizZip(bytes);
+  // Un fichier dont une partie XML est mal formée ne s'ouvre pas dans Word.
+  for (const part of Object.keys(zip.files).filter((f) => /\.(xml|rels)$/.test(f))) {
+    expect(xmlStructureError(zip.file(part)!.asText()), part).toBeNull();
+  }
   const xml = ["word/document.xml", "word/header1.xml"].map((f) => zip.file(f)!.asText()).join("");
   return (xml.match(/<w:t[^>]*>[^<]*<\/w:t>/g) ?? []).map((t) => t.replace(/<[^>]+>/g, "")).join("\n");
 }

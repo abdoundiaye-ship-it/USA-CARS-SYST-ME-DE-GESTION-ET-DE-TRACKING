@@ -240,6 +240,52 @@ insert into public.dossier_forfaits (dossier_id, forfait_a_cents, forfait_b_cent
   ('e0000000-0000-4000-8000-000000000006', 1020000, 310000, 22000, 'd0000000-0000-4000-8000-000000000002');
 
 -- ---------------------------------------------------------------------------
+-- Phase 5, lot 5b — dossier du premier client arrivé à Dakar il y a 65 jours, solde non réglé et véhicule non
+-- enlevé : procédure « véhicule non réclamé » (lettre de relance due, mise en demeure à venir). Fictif (DEMO-, DEMU).
+-- ---------------------------------------------------------------------------
+insert into public.dossiers (
+  id, reference, client_id, owner_id, created_by, stage, status, platform, lot_number, vin, make, model, model_year,
+  vehicle_category, purchase_location, departure_port, auction_result, hammer_price_cents, lot_won_notified_at,
+  payment1_due_at, created_at
+) values (
+  'e0000000-0000-4000-8000-000000000007', 'DEMO-2026-0007', 'c0000000-0000-4000-8000-000000000001',
+  'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'dakar', 'balance_pending', 'copart',
+  'DEMO-LOT-1007', '1DEMXXX0000000007', 'Nissan', 'Qashqai', 2020, 'passenger', 'Houston, TX (démo)', 'Houston',
+  'won', 800000, now() - interval '120 days', now() - interval '119 days', now() - interval '125 days'
+);
+
+insert into public.dossier_forfaits (dossier_id, forfait_a_cents, forfait_b_cents, insurance_cents, updated_by) values
+  ('e0000000-0000-4000-8000-000000000007', 1000000, 300000, 20000, 'd0000000-0000-4000-8000-000000000002');
+
+insert into public.financial_documents (
+  id, dossier_id, client_id, doc_type, number, status, forfait_a_cents, forfait_b_cents, insurance_premium_cents,
+  insurance_choice, total_cents, amount_due_cents, fx_rate_id, fx_rate, fx_source, fx_captured_at, edition_fx_rate,
+  edition_fx_captured_at, issued_at, valid_until, decided_at, issued_by
+)
+select 'b0000000-0000-4000-8000-000000000007', 'e0000000-0000-4000-8000-000000000007',
+       'c0000000-0000-4000-8000-000000000001', 'quote', 'DEMO-DV-0007', 'accepted', 1000000, 300000, 20000, 'refused',
+       1300000, 1300000, r.id, r.rate, r.source, r.captured_at, r.rate, r.captured_at, now() - interval '120 days',
+       now() - interval '119 days', now() - interval '120 days', 'd0000000-0000-4000-8000-000000000002'
+from public.fx_rates r where r.rate = 586.52;
+
+insert into public.payments (dossier_id, client_id, purpose, amount_cents, paid_currency, fx_rate_id, fx_rate, fx_captured_at,
+                             fx_rate_same_day, mode, official_account_id, reference, credited_at, recorded_by)
+select 'e0000000-0000-4000-8000-000000000007', 'c0000000-0000-4000-8000-000000000001', 'payment1', 1000000, 'USD',
+       r.id, r.rate, r.captured_at, false, 'bank_transfer', 'a0000000-0000-4000-8000-000000000001', 'DEMO-VIR-0007',
+       now() - interval '119 days 2 hours', 'd0000000-0000-4000-8000-000000000003'
+from public.fx_rates r where r.rate = 586.52;
+
+insert into public.containers (id, number, carrier_id, bl_number, vessel, voyage, port_of_loading, etd, eta, created_by) values
+  ('f1000000-0000-4000-8000-000000000003', 'DEMU2468135', 'f0000000-0000-4000-8000-000000000001', 'DEMO-BL-0007',
+   'Navire Démo', 'DEMO-007', 'Houston', current_date - 95, current_date - 66, 'd0000000-0000-4000-8000-000000000002');
+update public.containers
+  set status = 'arrived', departed_on = current_date - 95, ata = current_date - 65
+  where id = 'f1000000-0000-4000-8000-000000000003';
+
+insert into public.dossier_containers (dossier_id, container_id, assigned_by) values
+  ('e0000000-0000-4000-8000-000000000007', 'f1000000-0000-4000-8000-000000000003', 'd0000000-0000-4000-8000-000000000002');
+
+-- ---------------------------------------------------------------------------
 -- Décisions A4 et A4-bis : la comptabilité et la direction sont soumises à la double authentification. Pour les
 -- essais LOCAUX et les tests, leurs comptes de démonstration ont déjà un facteur TOTP vérifié, de secret connu (à
 -- saisir dans une application d'authentification) : JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP. L'administrateur, lui,

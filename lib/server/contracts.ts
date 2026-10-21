@@ -12,7 +12,9 @@ const UNAVAILABLE = "Le service de génération des documents ne répond pas. R�
 type Attempt = GenerateDocumentResult & { transient?: boolean };
 
 type InvokeBody =
-  { dossierId: string; kind: GeneratedDocumentKind } | { financialDocumentId: string; kind: "financial_document" };
+  | { dossierId: string; kind: GeneratedDocumentKind }
+  | { financialDocumentId: string; kind: "financial_document" }
+  | { letterId: string; kind: "unclaimed_letter" };
 
 async function invokeOnce(body: InvokeBody): Promise<Attempt> {
   const supabase = await createSupabaseServerClient();
@@ -49,6 +51,11 @@ export async function generateDocument(
  */
 export async function generateFinancialDocumentFile(financialDocumentId: string): Promise<GenerateDocumentResult> {
   return invokeWithRetry({ financialDocumentId, kind: "financial_document" });
+}
+
+/** US-5.3 : fichier Word d'une lettre de relance ou d'une mise en demeure déjà émise en base. */
+export async function generateUnclaimedLetterFile(letterId: string): Promise<GenerateDocumentResult> {
+  return invokeWithRetry({ letterId, kind: "unclaimed_letter" });
 }
 
 async function invokeWithRetry(body: InvokeBody): Promise<GenerateDocumentResult> {

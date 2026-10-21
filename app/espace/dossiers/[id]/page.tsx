@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { StageBanner } from "@/components/stage-banner";
 import { Alert, Badge, Card, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Table, Td, Th } from "@/components/ui/table";
-import { DOCUMENT_KIND_LABELS, STAGE_LABELS } from "@/lib/dossiers/labels";
+import { DOCUMENT_KIND_LABELS, STAGE_LABELS, UNCLAIMED_LETTER_LABELS } from "@/lib/dossiers/labels";
 import {
   ACCOUNT_KIND_LABELS,
   ADJUSTMENT_KIND_LABELS,
@@ -52,6 +52,7 @@ export default async function EspaceDossierPage({ params }: PageProps<"/espace/d
     { data: balanceRows },
     { data: rateRows },
     state,
+    { data: letters },
   ] = await Promise.all([
     supabase.from("workflow_statuses").select("stage, code, label"),
     supabase
@@ -87,6 +88,13 @@ export default async function EspaceDossierPage({ params }: PageProps<"/espace/d
     supabase.rpc("dossier_balance", { p_dossier_id: id }),
     supabase.rpc("portal_fx_rate"),
     clientDossierState(id),
+    // US-5.3 : courriers envoyés (relance, mise en demeure), visibles une fois l'envoi enregistré (U4, RLS).
+    supabase
+      .from("unclaimed_letters")
+      .select("id, kind, number, sent_at, cure_deadline, document_id")
+      .eq("dossier_id", id)
+      .eq("status", "sent")
+      .order("sent_at"),
   ]);
 
   const now = new Date();
@@ -137,6 +145,32 @@ export default async function EspaceDossierPage({ params }: PageProps<"/espace/d
             )}
           </Alert>
         </Card>
+
+        {(letters?.length ?? 0) > 0 && (
+          <Card className="flex flex-col gap-3">
+            <h2 className="font-semibold">Courriers de USA CARS</h2>
+            <ul className="flex flex-col gap-2 text-sm">
+              {letters!.map((l) => (
+                <li key={l.id} className="flex flex-col gap-1">
+                  <span>
+                    <strong>{UNCLAIMED_LETTER_LABELS[l.kind]}</strong> n° {l.number}
+                    {l.sent_at && ` adressée le ${formatDate(l.sent_at)}`}
+                    {l.cure_deadline && ` : régularisation attendue au plus tard le ${formatDate(l.cure_deadline)}`}
+                  </span>
+                  {l.document_id && (
+                    <a href={documentHref(l.document_id)} className="text-primary w-fit underline">
+                      Lire le courrier (Word)
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p className="text-muted text-xs">
+              Pour régulariser ou pour toute question, contactez USA CARS au numéro officiel indiqué dans les
+              instructions de paiement.
+            </p>
+          </Card>
+        )}
 
         {quote && (
           <Card className="flex flex-col gap-4">
