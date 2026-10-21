@@ -275,6 +275,12 @@ select 'e0000000-0000-4000-8000-000000000007', 'c0000000-0000-4000-8000-00000000
        now() - interval '119 days 2 hours', 'd0000000-0000-4000-8000-000000000003'
 from public.fx_rates r where r.rate = 586.52;
 
+-- Coûts internes fictifs (marge par véhicule, phase 6) : jamais visibles du client (CLAUDE.md règle 2).
+insert into public.internal_costs (dossier_id, section, category, label, amount_cents, status, created_by) values
+  ('e0000000-0000-4000-8000-000000000007', 'A', 'hammer_price', 'Prix d’adjudication COPART (démo)', 800000, 'final', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000007', 'A', 'auction_fees', 'Frais COPART (démo)', 95000, 'final', 'd0000000-0000-4000-8000-000000000002'),
+  ('e0000000-0000-4000-8000-000000000007', 'B', 'ocean_freight', 'Fret maritime (démo)', 160000, 'estimated', 'd0000000-0000-4000-8000-000000000002');
+
 insert into public.containers (id, number, carrier_id, bl_number, vessel, voyage, port_of_loading, etd, eta, created_by) values
   ('f1000000-0000-4000-8000-000000000003', 'DEMU2468135', 'f0000000-0000-4000-8000-000000000001', 'DEMO-BL-0007',
    'Navire Démo', 'DEMO-007', 'Houston', current_date - 95, current_date - 66, 'd0000000-0000-4000-8000-000000000002');
