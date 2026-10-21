@@ -3,8 +3,16 @@ import { average, averagesBy, reportFilters, reportsFor, total } from "./reports
 
 describe("écran Rapports (US-6.1)", () => {
   it("rapports par rôle (docs/12) : la marge pour l’administrateur et la direction seulement", () => {
-    expect(reportsFor("admin")).toEqual(["active_dossiers", "delays", "receivables", "transit_times", "margins"]);
+    expect(reportsFor("admin")).toEqual([
+      "active_dossiers",
+      "delays",
+      "receivables",
+      "transit_times",
+      "margins",
+      "retention",
+    ]);
     expect(reportsFor("management")).toContain("margins");
+    expect(reportsFor("management")).toContain("retention");
     expect(reportsFor("ops")).toEqual(["active_dossiers", "delays", "transit_times"]);
     expect(reportsFor("accounting")).toEqual(["delays", "receivables"]);
     expect(reportsFor("client")).toEqual([]);

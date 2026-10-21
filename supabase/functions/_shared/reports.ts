@@ -5,7 +5,7 @@
  */
 import type { XlsxCellType, XlsxValue } from "./xlsx.ts";
 
-export type ReportKey = "active_dossiers" | "delays" | "receivables" | "transit_times" | "margins";
+export type ReportKey = "active_dossiers" | "delays" | "receivables" | "transit_times" | "margins" | "retention";
 export type ReportRole = "admin" | "ops" | "accounting" | "management";
 /** Filtre de date : aucun, une période (du … au …), ou une date de situation. */
 export type ReportPeriod = "none" | "range" | "as_of";
@@ -14,7 +14,7 @@ type Row = Record<string, unknown>;
 export interface ReportColumn {
   key: string;
   label: string;
-  type: XlsxCellType | "stage" | "delay_kind" | "bool";
+  type: XlsxCellType | "stage" | "delay_kind" | "retention_scope" | "bool";
   width?: number;
 }
 
@@ -45,6 +45,13 @@ export const DELAY_KIND_LABELS: Record<string, string> = {
   stale: "Sans mise à jour",
   eta_postponed: "ETA repoussée",
   unclaimed: "Non réclamé",
+};
+
+/** Données dont la durée de conservation est atteinte (G2-a). */
+export const RETENTION_SCOPE_LABELS: Record<string, string> = {
+  all: "Toutes les données",
+  other_data: "Hors pièces comptables",
+  accounting: "Pièces comptables seulement",
 };
 
 export const REPORTS: Record<ReportKey, ReportDefinition> = {
@@ -140,6 +147,26 @@ export const REPORTS: Record<ReportKey, ReportDefinition> = {
       { key: "margin_percent", label: "Marge %", type: "percent", width: 10 },
     ],
   },
+  retention: {
+    title: "Conservation des données",
+    description:
+      "Dossiers clôturés dont la durée de conservation est atteinte à la date choisie (pièces comptables et autres données). Aucune suppression automatique : la purge reste manuelle.",
+    rpc: "report_retention",
+    period: "as_of",
+    roles: ["admin", "management"],
+    columns: [
+      { key: "reference", label: "Dossier", type: "text", width: 16 },
+      { key: "client_name", label: "Client", type: "text", width: 26 },
+      { key: "status_label", label: "Statut", type: "text", width: 14 },
+      { key: "closed_on", label: "Clôturé le", type: "date", width: 12 },
+      { key: "other_data_until", label: "Autres données jusqu’au", type: "date", width: 14 },
+      { key: "accounting_until", label: "Pièces comptables jusqu’au", type: "date", width: 14 },
+      { key: "scope", label: "Durée atteinte pour", type: "retention_scope", width: 26 },
+      { key: "documents", label: "Fichiers", type: "int", width: 10 },
+      { key: "financial_documents", label: "Pièces comptables", type: "int", width: 12 },
+      { key: "client_dossiers_kept", label: "Autres dossiers du client conservés", type: "int", width: 16 },
+    ],
+  },
 };
 
 export const REPORT_KEYS = Object.keys(REPORTS) as ReportKey[];
@@ -167,6 +194,8 @@ export function exportValue(column: ReportColumn, row: Row): XlsxValue {
       return REPORT_STAGE_LABELS[String(value)] ?? String(value);
     case "delay_kind":
       return DELAY_KIND_LABELS[String(value)] ?? String(value);
+    case "retention_scope":
+      return RETENTION_SCOPE_LABELS[String(value)] ?? String(value);
     case "bool":
       return value ? "oui" : "non";
     case "date":
@@ -180,5 +209,10 @@ export function exportValue(column: ReportColumn, row: Row): XlsxValue {
 
 /** Type de cellule Excel d'une colonne. */
 export function exportType(column: ReportColumn): XlsxCellType {
-  return column.type === "stage" || column.type === "delay_kind" || column.type === "bool" ? "text" : column.type;
+  return column.type === "stage" ||
+    column.type === "delay_kind" ||
+    column.type === "retention_scope" ||
+    column.type === "bool"
+    ? "text"
+    : column.type;
 }

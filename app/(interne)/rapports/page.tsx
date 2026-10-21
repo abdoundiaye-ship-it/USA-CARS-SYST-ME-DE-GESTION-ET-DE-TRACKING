@@ -14,6 +14,7 @@ import {
   DELAY_KIND_LABELS,
   REPORT_STAGE_LABELS,
   REPORTS,
+  RETENTION_SCOPE_LABELS,
   reportArgs,
   type ReportColumn,
   type ReportKey,
@@ -38,6 +39,8 @@ function display(column: ReportColumn, value: ReportRow[string]): string {
       return REPORT_STAGE_LABELS[String(value)] ?? String(value);
     case "delay_kind":
       return DELAY_KIND_LABELS[String(value)] ?? String(value);
+    case "retention_scope":
+      return RETENTION_SCOPE_LABELS[String(value)] ?? String(value);
     case "bool":
       return value ? "oui" : "non";
     default:
@@ -48,7 +51,8 @@ function display(column: ReportColumn, value: ReportRow[string]): string {
 const days = (value: number | null) => (value === null ? "—" : `${value.toLocaleString("fr-FR")} j`);
 
 /**
- * US-6.1 : rapports par rôle (docs/12) — dossiers actifs, retards, créances, délais, marge (admin et direction).
+ * US-6.1 : rapports par rôle (docs/12) — dossiers actifs, retards, créances, délais, marge (admin et direction) ;
+ * conservation des données (G2-a, admin et direction).
  * Les droits sont vérifiés par la base ; l'export Excel passe par /rapports/export (journalisé).
  */
 export default async function RapportsPage({ searchParams }: PageProps<"/rapports">) {
@@ -105,6 +109,13 @@ export default async function RapportsPage({ searchParams }: PageProps<"/rapport
             <h2 className="font-semibold">{report.title}</h2>
             <p className="text-muted text-sm">{report.description}</p>
           </div>
+          {key === "retention" && (
+            <Alert tone="info">
+              Durées fixées dans les paramètres « Données personnelles » (point de départ : la clôture du dossier). Un
+              dossier dont le client a d’autres dossiers conservés ne permet pas d’effacer l’identité du client. La
+              purge n’est jamais automatique : elle se fait à la main, après accord de la direction.
+            </Alert>
+          )}
           {key === "margins" && (
             <Alert tone="warning">
               Confidentiel : coûts internes et marge, réservés à l’administrateur et à la direction ; jamais communiqués

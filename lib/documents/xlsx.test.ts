@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { xmlStructureError } from "@/lib/documents/well-formed-xml";
 import { STAGE_LABELS } from "@/lib/dossiers/labels";
 import {
+  exportType,
   exportValue,
   REPORT_KEYS,
   REPORT_STAGE_LABELS,
@@ -64,6 +65,7 @@ describe("définition des rapports (US-6.1)", () => {
 
   it("marge réservée à l’administrateur et à la direction ; aucun rapport pour le client", () => {
     expect(REPORTS.margins.roles).toEqual(["admin", "management"]);
+    expect(REPORTS.retention.roles).toEqual(["admin", "management"]);
     for (const key of REPORT_KEYS) expect(REPORTS[key].roles).not.toContain("client");
   });
 
@@ -78,6 +80,9 @@ describe("définition des rapports (US-6.1)", () => {
     expect(exportValue(stage!, { stage: "dakar" })).toBe("Dakar");
     const final = REPORTS.margins.columns.find((c) => c.key === "costs_final")!;
     expect(exportValue(final, { costs_final: false })).toBe("non");
+    const scope = REPORTS.retention.columns.find((c) => c.key === "scope")!;
+    expect(exportValue(scope, { scope: "other_data" })).toBe("Hors pièces comptables");
+    expect(exportType(scope)).toBe("text");
     const opened = REPORTS.active_dossiers.columns.find((c) => c.key === "opened_at")!;
     expect(exportValue(opened, { opened_at: "2026-10-21T08:00:00+00:00" })).toBe("2026-10-21");
   });

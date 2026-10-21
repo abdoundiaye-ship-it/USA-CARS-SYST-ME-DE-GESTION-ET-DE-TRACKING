@@ -27,6 +27,11 @@ export default async function ClientLayout({ children }: { children: React.React
         </div>
       </header>
       <main className="mx-auto max-w-4xl px-4 py-4 md:py-8">{children}</main>
+      <footer className="text-muted mx-auto max-w-4xl px-4 pb-6 text-sm">
+        <Link href="/espace/confidentialite" className="underline">
+          Confidentialité
+        </Link>
+      </footer>
     </div>
   );
 }
