@@ -1,3 +1,4 @@
+import { BrandFooter } from "./brand-footer";
 import { BrandLogo } from "./brand-logo";
 
 /** Mise en page des écrans d’authentification (centrés, lisibles dès 400 px). */
@@ -18,6 +19,7 @@ export function AuthShell({
         {description && <p className="text-muted mt-2 text-sm">{description}</p>}
       </div>
       <div className="border-border bg-card rounded-xl border p-4 sm:p-6">{children}</div>
+      <BrandFooter className="mt-2" />
     </main>
   );
 }

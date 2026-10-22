@@ -61,6 +61,8 @@ interface AppShellProps {
   /** Bouton « Nouveau dossier » (rôles autorisés à créer un dossier). */
   canCreateDossier: boolean;
   signOut: () => Promise<void>;
+  /** Mention de copyright, rendue côté serveur et passée en prop. */
+  footer: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -76,7 +78,7 @@ const initials = (name: string) =>
  * Cadre de l'espace interne : menu latéral marine (fixe sur grand écran, tiroir sur téléphone), barre supérieure
  * (page en cours, recherche, nouveau dossier). Un seul menu « Navigation principale » dans la page.
  */
-export function AppShell({ groups, user, canCreateDossier, signOut, children }: AppShellProps) {
+export function AppShell({ groups, user, canCreateDossier, signOut, footer, children }: AppShellProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   // Fermeture du tiroir au changement de page, pendant le rendu (pas d'effet qui déclenche un second rendu).
@@ -242,6 +244,7 @@ export function AppShell({ groups, user, canCreateDossier, signOut, children }: 
           )}
         </header>
         <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">{children}</main>
+        <footer className="border-border border-t px-4 py-6 lg:px-8">{footer}</footer>
       </div>
     </div>
   );

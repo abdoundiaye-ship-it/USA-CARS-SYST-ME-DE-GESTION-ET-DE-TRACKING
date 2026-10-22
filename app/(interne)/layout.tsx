@@ -1,4 +1,5 @@
 import { AppShell, type NavGroup } from "@/components/app-shell";
+import { BrandFooter } from "@/components/brand-footer";
 import { requireInternal } from "@/lib/auth/access";
 import { canAccess, ROLE_LABELS, SCREEN_ROLES } from "@/lib/auth/roles";
 import { signOut } from "../connexion/actions";
@@ -49,6 +50,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
       user={{ fullName: access.fullName, roleLabel: ROLE_LABELS[access.role] }}
       canCreateDossier={can("operationsWrite")}
       signOut={signOut}
+      footer={<BrandFooter />}
     >
       {children}
     </AppShell>

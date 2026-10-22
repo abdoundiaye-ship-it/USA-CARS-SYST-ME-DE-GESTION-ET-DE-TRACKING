@@ -1,5 +1,6 @@
 import { LogOut } from "lucide-react";
 import Link from "next/link";
+import { BrandFooter } from "@/components/brand-footer";
 import { BrandLogo } from "@/components/brand-logo";
 import { buttonClasses } from "@/components/ui/button";
 import { requireClient } from "@/lib/auth/access";
@@ -27,10 +28,11 @@ export default async function ClientLayout({ children }: { children: React.React
         </div>
       </header>
       <main className="mx-auto max-w-4xl px-4 py-4 md:py-8">{children}</main>
-      <footer className="text-muted mx-auto max-w-4xl px-4 pb-6 text-sm">
-        <Link href="/espace/confidentialite" className="underline">
+      <footer className="border-border mx-auto mt-4 flex max-w-4xl flex-col items-center gap-4 border-t px-4 py-6">
+        <Link href="/espace/confidentialite" className="text-muted text-sm underline">
           Confidentialité
         </Link>
+        <BrandFooter />
       </footer>
     </div>
   );
