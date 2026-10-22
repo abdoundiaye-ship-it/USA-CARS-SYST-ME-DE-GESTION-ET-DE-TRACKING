@@ -32,8 +32,10 @@ query scripts/sql/comptages.sql > "$dir/comptages-avant.json"
 # ON CONFLICT DO NOTHING : à la restauration, les lignes créées par les migrations (paramètres, référentiels) sont
 # conservées et les données réelles ajoutées, sans conflit de clé.
 echo "→ Copie des données (public + comptes)"
+# Tables sélectionnées par motif : dès qu'un --table est donné, pg_dump ignore --schema, d'où `public.*` (toutes les
+# tables de public) explicitement, en plus des tables de comptes.
 "$PG_DUMP" "$SUPABASE_DB_URL" --data-only --no-owner --inserts --on-conflict-do-nothing \
-  --schema=public --table='auth.users' --table='auth.identities' --table='auth.mfa_factors' \
+  --table='public.*' --table='auth.users' --table='auth.identities' --table='auth.mfa_factors' \
   -f "$dir/donnees.sql"
 
 echo "→ Comptage des tables (après), tâches planifiées, migrations appliquées"
