@@ -80,9 +80,9 @@ export function StatTile({
   tone?: "neutral" | "danger";
 }) {
   return (
-    <div className="border-border bg-card flex flex-col gap-2 rounded-xl border p-4">
+    <div className="border-border bg-card flex min-w-0 flex-col gap-2 rounded-xl border p-4">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-muted text-sm font-medium">{label}</p>
+        <p className="text-muted min-w-0 text-sm font-medium">{label}</p>
         <span
           aria-hidden
           className={cn(
@@ -93,7 +93,10 @@ export function StatTile({
           <Icon className="size-5" />
         </span>
       </div>
-      <p className={cn("amount text-2xl font-bold", tone === "danger" && "text-danger")}>{value}</p>
+      {/* Taille réduite sur petit écran : un montant (espaces insécables, non coupable) ne déborde pas la tuile. */}
+      <p className={cn("amount text-xl font-bold break-words sm:text-2xl", tone === "danger" && "text-danger")}>
+        {value}
+      </p>
       {hint && <p className="text-muted text-xs">{hint}</p>}
     </div>
   );
