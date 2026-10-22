@@ -115,6 +115,11 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Installer le client PostgreSQL 17
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update && sudo apt-get install -y postgresql-client-17
       - name: Démarrer Supabase local (migrations + seed fictif) et y déposer un fichier fictif
         run: |
           pnpm exec supabase start -x studio,imgproxy,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit
@@ -127,6 +132,7 @@ jobs:
         env:
           SAUVEGARDE_PHRASE: phrase-essai-ci
         run: |
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
           eval "$(pnpm exec supabase status -o env | grep -E '^(DB_URL|API_URL|SERVICE_ROLE_KEY)=')"
           SUPABASE_DB_URL="$DB_URL" SUPABASE_URL="$API_URL" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
             bash scripts/sauvegarde.sh "$RUNNER_TEMP/essai.tar.gz.gpg"
@@ -134,7 +140,9 @@ jobs:
       - name: Restaurer dans un Supabase vide et vérifier
         env:
           SAUVEGARDE_PHRASE: phrase-essai-ci
-        run: bash scripts/essai-restauration.sh "$RUNNER_TEMP/essai.tar.gz.gpg"
+        run: |
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          bash scripts/essai-restauration.sh "$RUNNER_TEMP/essai.tar.gz.gpg"
 
   secrets:
     name: Détection de secrets

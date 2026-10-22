@@ -8,14 +8,14 @@ Un fichier `sauvegarde-AAAA-MM-JJ-HHMM.tar.gz.gpg` (artefact du dépôt privé, 
 
 | Élément | Fichier |
 |---|---|
-| Base : structure, rôles, données (y compris comptes et doubles authentifications) | `schema.sql`, `roles.sql`, `donnees.sql` |
+| Données (métier et comptes : utilisateurs, identités, doubles authentifications) | `donnees.sql` |
+| Migrations du dépôt (le **schéma** est reconstruit en les rejouant) | `migrations/` |
 | Fichiers de Storage (contrats, devis, factures, pièces) et leur manifeste (taille, type, empreinte SHA-256) | `fichiers/`, `fichiers/manifeste-fichiers.json` |
-| Tâches planifiées (pg_cron), absentes de la copie de la base | `taches-planifiees.json` |
-| Migrations appliquées | `migrations-appliquees.txt` |
+| Tâches planifiées (pg_cron) et migrations appliquées, pour information | `taches-planifiees.json`, `migrations-appliquees.txt` |
 | Nombre de lignes par table, avant et après la copie (vérification de la restauration) | `comptages-avant.json`, `comptages-apres.json` |
 | Versions d’Auth et de Storage du projet | `versions/` |
 
-Non sauvegardés (à recréer après une restauration, voir plus bas) : secrets du coffre (Vault), secrets et code des fonctions Supabase, réglages d’Auth (adresses de redirection), variables Cloudflare.
+Le schéma n’est pas copié par `pg_dump` : il est reconstruit à la restauration en rejouant les migrations incluses dans l’archive (schéma toujours cohérent avec le code, et compatible avec le pooler). Non sauvegardés (à recréer après une restauration, voir plus bas) : secrets du coffre (Vault), secrets et code des fonctions Supabase, réglages d’Auth (adresses de redirection), variables Cloudflare.
 
 ## Mise en service (une seule fois, par l’administrateur)
 
@@ -26,7 +26,6 @@ Dans GitHub : **Settings → Secrets and variables → Actions → New repositor
 | `SAUVEGARDE_PHRASE` | Phrase de chiffrement **longue** (au moins 6 mots au hasard). **À conserver aussi hors de GitHub** (gestionnaire de mots de passe, papier au coffre) : sans elle, aucune sauvegarde n’est lisible. |
 | `SAUVEGARDE_DB_URL` | Tableau de bord Supabase → **Connect** → **Session pooler** : adresse `postgresql://postgres.hzgkhtaefpbqztwagwph:[MOT-DE-PASSE]@aws-0-us-east-1.pooler.supabase.com:5432/postgres`, mot de passe de la base compris |
 | `SAUVEGARDE_SERVICE_ROLE_KEY` | Tableau de bord Supabase → **Project Settings → API Keys → Legacy API Keys** : clé `service_role` (lecture des fichiers) |
-| `SUPABASE_ACCESS_TOKEN` | Supabase → menu du compte (en haut à droite) → **Account → Access Tokens** → **Generate new token** (nom : « sauvegarde GitHub »). Permet à la sauvegarde de se connecter au pooler avec le bon nom d’utilisateur. |
 
 Puis **Actions → Sauvegarde → Run workflow** pour un premier essai (sauvegarde et restauration d’essai). Un échec de la sauvegarde nocturne déclenche un e-mail de GitHub au propriétaire du dépôt.
 
