@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 const controlClass =
-  "block w-full min-h-10 rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground " +
+  "block w-full min-h-10 rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground " +
   "focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary " +
   "aria-[invalid=true]:border-danger disabled:opacity-60";
 

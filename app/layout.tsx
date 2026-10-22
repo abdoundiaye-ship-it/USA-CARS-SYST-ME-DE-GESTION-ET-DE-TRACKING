@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
+
+/** Police de la charte : lisible pour les chiffres et les tableaux ; hébergée avec l'application (aucun appel externe). */
+const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
 
 export const metadata: Metadata = {
   title: { default: "USA CARS", template: "%s · USA CARS" },
@@ -14,7 +18,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fr">
+    <html lang="fr" className={inter.variable}>
       <body className="min-h-dvh font-sans antialiased">{children}</body>
     </html>
   );
