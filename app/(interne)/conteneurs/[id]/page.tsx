@@ -1,6 +1,8 @@
+import { ExternalLink } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { buttonClasses } from "@/components/ui/button";
 import { Alert, Badge, Card, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Table, Td, Th } from "@/components/ui/table";
 import { requireInternal } from "@/lib/auth/access";
@@ -73,12 +75,8 @@ export default async function ConteneurPage({ params, searchParams }: PageProps<
               <strong>{arrivalLabel(container)}</strong>
             </p>
             {link && (
-              <a
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="border-border bg-card hover:bg-background inline-flex min-h-10 items-center justify-center rounded-md border px-4 py-2 text-sm font-medium"
-              >
+              <a href={link.url} target="_blank" rel="noopener noreferrer" className={buttonClasses("secondary")}>
+                <ExternalLink aria-hidden />
                 Ouvrir le suivi du transporteur
               </a>
             )}
