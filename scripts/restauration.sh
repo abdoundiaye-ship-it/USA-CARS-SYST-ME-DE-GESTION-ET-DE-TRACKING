@@ -26,9 +26,15 @@ gpg --batch --yes --quiet --pinentry-mode loopback --passphrase-fd 3 --decrypt \
 tar -xzf "$work/sauvegarde.tar.gz" -C "$work"
 dir="$work/sauvegarde"
 
-echo "→ Base : rôles, schéma, données (une seule transaction)"
+echo "→ Rôles (tolérant : les rôles gérés par Supabase existent déjà sur la cible)"
+# La copie des rôles contient des GRANT/ALTER gérés par Supabase (ex. GRANT SET ON PARAMETER …) qui ne sont pas
+# rejouables par l'utilisateur de restauration ; sur un projet Supabase neuf ces rôles existent déjà. On continue
+# malgré ces erreurs attendues (ON_ERROR_STOP=0), puis on restaure le schéma et les données de façon stricte.
+psql "$SUPABASE_DB_URL" -X -q -v ON_ERROR_STOP=0 -f "$dir/roles.sql" > /dev/null || true
+
+echo "→ Schéma puis données (une seule transaction)"
 psql "$SUPABASE_DB_URL" -X -q -v ON_ERROR_STOP=1 --single-transaction \
-  -f "$dir/roles.sql" -f "$dir/schema.sql" -c "SET session_replication_role = replica" -f "$dir/donnees.sql" \
+  -f "$dir/schema.sql" -c "SET session_replication_role = replica" -f "$dir/donnees.sql" \
   > /dev/null
 
 echo "→ Tâches planifiées (pg_cron)"
