@@ -111,6 +111,12 @@ function tagDocument(xml: string): string {
   ] as const) {
     out = fillValueCell(out, label, tag);
   }
+  // Article 33 — durées de conservation (décision G2-a : paramètres data.retention_years*, CLAUDE.md règle 4)
+  out = replaceText(
+    out,
+    "______ ans",
+    "{conservation_comptable} pour les pièces comptables (devis, factures, reçus, paiements) et {conservation_autres} pour les autres données,",
+  );
   // Signatures
   out = replaceText(out, "Nom : ______________________________", "Nom : {usa_representant}", 1);
   out = replaceText(out, "Nom : ______________________________", "Nom : {client_signataire}", 1);

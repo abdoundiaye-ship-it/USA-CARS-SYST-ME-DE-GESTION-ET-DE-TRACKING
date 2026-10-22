@@ -27,6 +27,7 @@ const input: ContractInput = {
     representativeName: "Gérant Démo",
     representativeTitle: "Gérant",
   },
+  retention: { accounting: 10, other: 5 },
   client: {
     kind: "person",
     name: "Mamadou Diallo (démo)",
@@ -107,10 +108,19 @@ describe("contrat de prestation — fonction generate-document (US-2.2, R14)", (
     expect(text).toContain("1DEMXXX0000000042");
     expect(text).toContain("☒ IAA");
     expect(text).toContain("PROJET : document non validé juridiquement");
+    expect(text).toContain(
+      "conservées pendant 10 ans pour les pièces comptables (devis, factures, reçus, paiements) et 5 ans pour les autres données, après la clôture",
+    );
     expect(text).not.toMatch(/[{}]/);
     expect(text).not.toContain("undefined");
     // Repère pour la limite de calcul de Cloudflare Workers (docs/18_deploiement_cloudflare.md).
     expect(elapsed).toBeLessThan(2000);
+  });
+
+  it("article 33 : espace réservé tant qu'une durée de conservation n'est pas fixée (G2-a)", () => {
+    const data = buildContractData({ ...input, retention: { accounting: null, other: 1 } });
+    expect(data.conservation_comptable).toBe("______ ans");
+    expect(data.conservation_autres).toBe("1 an");
   });
 
   it("retire la mention PROJET une fois le modèle validé juridiquement", () => {

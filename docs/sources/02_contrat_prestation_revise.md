@@ -288,7 +288,7 @@ Les Parties préservent la confidentialité des informations commerciales, finan
 
 USA CARS traite les données personnelles du Client (identité, coordonnées, pièces, informations de paiement et de dossier) afin d’exécuter le présent contrat, de gérer l’espace client, d’envoyer les notifications et de respecter ses obligations légales, conformément à la loi n° 2008-12 du 25 janvier 2008 sur la protection des données à caractère personnel ou à tout texte qui la remplace.
 
-Ces données sont communiquées uniquement aux destinataires nécessaires à l’Opération : plateformes d’enchères, transporteurs, terminaux, transitaires, administrations et prestataires techniques (hébergement, messagerie). Elles sont conservées pendant <span class="mark">\_\_\_\_\_\_ ans</span> après la clôture de l’Opération. Le Client peut exercer ses droits d’accès, de rectification et d’opposition auprès de USA CARS à l’adresse e-mail officielle. <span class="mark">Formalités auprès de la Commission de protection des données personnelles (CDP) à vérifier.</span>
+Ces données sont communiquées uniquement aux destinataires nécessaires à l’Opération : plateformes d’enchères, transporteurs, terminaux, transitaires, administrations et prestataires techniques (hébergement, messagerie). Elles sont conservées pendant 10 ans pour les pièces comptables (devis, factures, reçus, paiements) et 5 ans pour les autres données, après la clôture de l’Opération. Le Client peut exercer ses droits d’accès, de rectification et d’opposition auprès de USA CARS à l’adresse e-mail officielle. <span class="mark">Formalités auprès de la Commission de protection des données personnelles (CDP) à vérifier.</span>
 
 **Article 34 – Droit applicable**
 
