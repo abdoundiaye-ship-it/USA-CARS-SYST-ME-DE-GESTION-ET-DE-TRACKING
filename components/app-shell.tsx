@@ -105,9 +105,11 @@ export function AppShell({ groups, user, canCreateDossier, signOut, children }: 
         id="menu-principal"
         aria-label="Menu"
         className={cn(
-          "bg-sidebar fixed inset-y-0 left-0 z-40 flex w-72 flex-col gap-2 p-3 transition-[transform,visibility] duration-200",
-          "lg:sticky lg:top-0 lg:z-auto lg:h-dvh lg:w-64 lg:shrink-0 lg:translate-x-0",
-          open ? "translate-x-0" : "-translate-x-full max-lg:invisible",
+          // Tiroir sur téléphone : masqué (display:none) quand il est fermé, pour qu'il n'élargisse jamais la page ;
+          // fixe sur grand écran (lg), toujours affiché. Pas de transform hors écran (qui créerait un défilement).
+          "bg-sidebar fixed inset-y-0 left-0 z-40 w-72 flex-col gap-2 p-3",
+          "lg:sticky lg:top-0 lg:z-auto lg:flex lg:h-dvh lg:w-64 lg:shrink-0",
+          open ? "flex" : "hidden",
         )}
       >
         <div className="flex items-center gap-2">
