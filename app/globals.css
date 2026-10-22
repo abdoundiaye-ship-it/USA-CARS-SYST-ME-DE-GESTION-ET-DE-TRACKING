@@ -95,6 +95,12 @@
   --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
+/* Le tiroir du menu (téléphone) attend hors écran à gauche : on rogne le débordement horizontal sans créer de
+   conteneur de défilement (clip, pas hidden), pour que la barre supérieure « sticky » continue de fonctionner. */
+html {
+  overflow-x: clip;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
