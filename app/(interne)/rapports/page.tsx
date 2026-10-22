@@ -1,6 +1,6 @@
 import type { Metadata, Route } from "next";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClasses } from "@/components/ui/button";
 import { Alert, Card, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/field";
 import { Table, Td, Th } from "@/components/ui/table";
@@ -148,10 +148,7 @@ export default async function RapportsPage({ searchParams }: PageProps<"/rapport
                 Afficher
               </Button>
             )}
-            <a
-              href={exportHref}
-              className="bg-primary text-primary-foreground inline-flex min-h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-medium hover:opacity-90 sm:ml-auto"
-            >
+            <a href={exportHref} className={buttonClasses("primary", "sm:ml-auto")}>
               Télécharger (Excel)
             </a>
           </form>

@@ -1,5 +1,6 @@
 import type { Metadata, Route } from "next";
 import Link from "next/link";
+import { buttonClasses } from "@/components/ui/button";
 import { Alert, Badge, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/field";
 import { Table, Td, Th } from "@/components/ui/table";
@@ -34,10 +35,7 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
     <>
       <PageHeader title="Clients" description="Fiches des clients (particuliers et sociétés).">
         {canWrite && (
-          <Link
-            href="/clients/nouveau"
-            className="bg-primary text-primary-foreground inline-flex min-h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-medium"
-          >
+          <Link href="/clients/nouveau" className={buttonClasses("primary")}>
             Nouveau client
           </Link>
         )}
