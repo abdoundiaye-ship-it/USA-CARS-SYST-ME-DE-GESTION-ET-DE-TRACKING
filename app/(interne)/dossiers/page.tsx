@@ -1,5 +1,7 @@
+import { Plus, Search } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
+import { Button, buttonClasses } from "@/components/ui/button";
 import { Alert, Badge, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Input, Select } from "@/components/ui/field";
 import { Table, Td, Th } from "@/components/ui/table";
@@ -7,6 +9,7 @@ import { requireInternal } from "@/lib/auth/access";
 import { canAccess, SCREEN_ROLES } from "@/lib/auth/roles";
 import { STAGE_LABELS, STAGES } from "@/lib/dossiers/labels";
 import { formatDate } from "@/lib/format";
+import { likePattern, normalizeQuery } from "@/lib/search";
 import type { DossierStage } from "@/lib/supabase/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -20,7 +23,8 @@ export default async function DossiersPage({ searchParams }: PageProps<"/dossier
   const access = await requireInternal(SCREEN_ROLES.dossiers);
   const canWrite = canAccess(access.role, SCREEN_ROLES.operationsWrite);
   const params = await searchParams;
-  const q = typeof params.q === "string" ? params.q.trim().slice(0, 80) : "";
+  const rawQ = typeof params.q === "string" ? params.q : "";
+  const q = normalizeQuery(rawQ);
   const stage = isStage(params.etape) ? params.etape : null;
 
   const supabase = await createSupabaseServerClient();
@@ -33,7 +37,7 @@ export default async function DossiersPage({ searchParams }: PageProps<"/dossier
     .limit(200);
   if (stage) query = query.eq("stage", stage);
   if (q) {
-    const p = `%${q.replace(/[\\%_,()]/g, " ").trim()}%`;
+    const p = likePattern(q);
     const { data: matchingClients } = await supabase.from("clients").select("id").ilike("name", p).limit(50);
     const clientFilter = matchingClients?.length ? `,client_id.in.(${matchingClients.map((c) => c.id).join(",")})` : "";
     query = query.or(`reference.ilike.${p},vin.ilike.${p},lot_number.ilike.${p}${clientFilter}`);
@@ -51,10 +55,8 @@ export default async function DossiersPage({ searchParams }: PageProps<"/dossier
     <>
       <PageHeader title="Dossiers" description="Un dossier par véhicule : du contrat jusqu’à l’enlèvement à Dakar.">
         {canWrite && (
-          <Link
-            href="/dossiers/nouveau"
-            className="bg-primary text-primary-foreground inline-flex min-h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-medium"
-          >
+          <Link href="/dossiers/nouveau" className={buttonClasses("primary")}>
+            <Plus aria-hidden />
             Ouvrir un dossier
           </Link>
         )}
@@ -64,7 +66,13 @@ export default async function DossiersPage({ searchParams }: PageProps<"/dossier
         <label htmlFor="q" className="sr-only">
           Rechercher un dossier
         </label>
-        <Input id="q" name="q" defaultValue={q} placeholder="Référence, client, VIN ou lot" className="sm:max-w-sm" />
+        <Input
+          id="q"
+          name="q"
+          defaultValue={rawQ}
+          placeholder="Référence, client, VIN ou lot"
+          className="sm:max-w-sm"
+        />
         <label htmlFor="etape" className="sr-only">
           Étape
         </label>
@@ -76,12 +84,10 @@ export default async function DossiersPage({ searchParams }: PageProps<"/dossier
             </option>
           ))}
         </Select>
-        <button
-          type="submit"
-          className="border-border bg-card hover:bg-background min-h-10 rounded-md border px-4 py-2 text-sm font-medium"
-        >
+        <Button type="submit" variant="secondary">
+          <Search aria-hidden />
           Rechercher
-        </button>
+        </Button>
       </form>
 
       {error ? (

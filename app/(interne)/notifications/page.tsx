@@ -1,5 +1,6 @@
 import type { Metadata, Route } from "next";
 import Link from "next/link";
+import { Bell } from "lucide-react";
 import { Alert, Badge, Card, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Table, Td, Th } from "@/components/ui/table";
 import { requireInternal } from "@/lib/auth/access";
@@ -69,24 +70,29 @@ export default async function NotificationsPage({ searchParams }: PageProps<"/no
           </Card>
         )}
         <Card className="flex flex-col gap-4">
-          <nav aria-label="Filtrer par statut" className="flex flex-wrap gap-3 text-sm">
-            <Link href={"/notifications" as Route} className={!filter ? "font-semibold" : "text-primary underline"}>
-              Toutes
-            </Link>
-            {FILTERS.map((f) => (
-              <Link
-                key={f}
-                href={`/notifications?statut=${f}` as Route}
-                className={filter === f ? "font-semibold" : "text-primary underline"}
-              >
-                {NOTIFICATION_STATUS_LABELS[f]}
-              </Link>
-            ))}
+          <nav aria-label="Filtrer par statut" className="flex flex-wrap gap-2">
+            {[null, ...FILTERS].map((f) => {
+              const active = filter === f || (f === null && !filter);
+              return (
+                <Link
+                  key={f ?? "toutes"}
+                  href={(f ? `/notifications?statut=${f}` : "/notifications") as Route}
+                  aria-current={active ? "page" : undefined}
+                  className={
+                    active
+                      ? "border-primary bg-primary text-primary-foreground inline-flex h-8 items-center rounded-full border px-3 text-xs font-semibold"
+                      : "border-border bg-card hover:bg-background inline-flex h-8 items-center rounded-full border px-3 text-xs font-semibold"
+                  }
+                >
+                  {f ? NOTIFICATION_STATUS_LABELS[f] : "Toutes"}
+                </Link>
+              );
+            })}
           </nav>
           {error ? (
             <Alert tone="danger">Le journal n’a pas pu être chargé. Rechargez la page.</Alert>
           ) : !notifications?.length ? (
-            <EmptyState title="Aucune notification" />
+            <EmptyState title="Aucune notification" icon={Bell} />
           ) : (
             <Table caption="Journal des notifications (200 dernières)">
               <thead>

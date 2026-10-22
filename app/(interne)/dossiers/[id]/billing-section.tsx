@@ -1,3 +1,5 @@
+import { Download } from "lucide-react";
+import { buttonClasses } from "@/components/ui/button";
 import { Alert, Badge, Card, EmptyState } from "@/components/ui/feedback";
 import { Table, Td, Th } from "@/components/ui/table";
 import {
@@ -126,10 +128,8 @@ export function FinancialDocumentCard({
           <Badge tone={STATUS_TONES[status]}>{FINANCIAL_STATUS_LABELS[status]}</Badge>
         </h3>
         {doc.document_id ? (
-          <a
-            href={downloadHref(doc.document_id)}
-            className="border-border bg-card hover:bg-background inline-flex min-h-10 items-center justify-center rounded-md border px-4 py-2 text-sm font-medium"
-          >
+          <a href={downloadHref(doc.document_id)} className={buttonClasses("secondary")}>
+            <Download aria-hidden />
             Télécharger (Word)
           </a>
         ) : (

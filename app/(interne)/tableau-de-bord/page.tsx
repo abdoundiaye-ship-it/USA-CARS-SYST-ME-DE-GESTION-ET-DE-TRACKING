@@ -1,8 +1,12 @@
+import { Anchor, Banknote, ChartColumn, Clock, Folder, Ship, TriangleAlert } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
-import { Alert, Badge, Card, EmptyState, PageHeader } from "@/components/ui/feedback";
+import { SEVERITY_DISPLAY } from "@/components/dashboard/severity";
+import { TodoList } from "@/components/dashboard/todo-list";
+import { buttonClasses } from "@/components/ui/button";
+import { Alert, Card, EmptyState, PageHeader, StatTile } from "@/components/ui/feedback";
 import { requireInternal } from "@/lib/auth/access";
-import { ROLE_LABELS, SCREEN_ROLES } from "@/lib/auth/roles";
+import { SCREEN_ROLES } from "@/lib/auth/roles";
 import {
   buildIndicators,
   buildTodoList,
@@ -28,10 +32,11 @@ const SETTING_KEYS = [
   "pickup.days_after_documents",
 ] as const;
 
-const SEVERITY: Record<Severity, { tone: "danger" | "warning" | "info"; label: string }> = {
-  danger: { tone: "danger", label: "Urgent" },
-  warning: { tone: "warning", label: "À faire" },
-  info: { tone: "info", label: "À suivre" },
+/** Couleurs d'état des graphiques (vérifiées pour le daltonisme), toujours accompagnées d'une icône et d'un libellé. */
+const SEVERITY_FILL: Record<Severity, string> = {
+  danger: "bg-chart-urgent",
+  warning: "bg-chart-todo",
+  info: "bg-chart-follow",
 };
 
 /**
@@ -114,90 +119,155 @@ export default async function TableauDeBordPage() {
     .filter((c) => !c.ata && c.departed_on)
     .sort((a, b) => (a.eta ?? "9999").localeCompare(b.eta ?? "9999"));
 
+  const urgent = todo.filter((t) => t.severity === "danger").length;
+  const bySeverity = (["danger", "warning", "info"] as const).map((severity) => ({
+    severity,
+    count: todo.filter((t) => t.severity === severity).length,
+  }));
+  const maxStage = Math.max(1, ...STAGES.map((stage) => indicators.byStage[stage]));
+  const today = new Intl.DateTimeFormat("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Africa/Dakar",
+  }).format(new Date());
+  const urgentText =
+    urgent === 0 ? "aucune action urgente" : `${urgent} action${urgent > 1 ? "s" : ""} urgente${urgent > 1 ? "s" : ""}`;
+
   return (
     <>
       <PageHeader
         title={`Bonjour ${access.fullName}`}
-        description={`Connecté en tant que : ${ROLE_LABELS[access.role]}.`}
-      />
+        description={`${today.charAt(0).toUpperCase()}${today.slice(1)} · ${urgentText}.`}
+      >
+        <Link href="/rapports" className={buttonClasses("secondary")}>
+          <ChartColumn aria-hidden />
+          Voir les rapports
+        </Link>
+      </PageHeader>
 
       {error ? (
         <Alert tone="danger">Le tableau de bord n’a pas pu être chargé. Rechargez la page.</Alert>
       ) : (
         <div className="flex flex-col gap-6">
-          <section aria-label="Indicateurs" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            {[
-              ["Dossiers actifs", indicators.activeDossiers],
-              ["Conteneurs en mer", indicators.containersAtSea],
-              [`Arrivées sous ${arrivalWindow} jours`, indicators.arrivalsSoon],
-              ["Paiements 1 en retard", indicators.payment1Overdue],
-              ["Soldes restant dus", formatUsd(indicators.balanceDueCents)],
-            ].map(([label, value]) => (
-              <Card key={label} className="flex flex-col gap-1 p-4">
-                <p className="text-muted text-xs">{label}</p>
-                <p className="amount text-2xl font-semibold">{value}</p>
-              </Card>
-            ))}
+          <section aria-label="Indicateurs" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            <StatTile label="Dossiers actifs" value={indicators.activeDossiers} icon={Folder} />
+            <StatTile
+              label="Actions urgentes"
+              value={urgent}
+              hint={`sur ${todo.length} à traiter`}
+              icon={TriangleAlert}
+              tone={urgent > 0 ? "danger" : "neutral"}
+            />
+            <StatTile label="Paiements 1 en retard" value={indicators.payment1Overdue} icon={Clock} />
+            <StatTile label="Soldes restant dus" value={formatUsd(indicators.balanceDueCents)} icon={Banknote} />
+            <StatTile label="Conteneurs en mer" value={indicators.containersAtSea} icon={Ship} />
+            <StatTile
+              label={`Arrivées sous ${arrivalWindow} jours`}
+              value={indicators.arrivalsSoon}
+              hint="ETA indicatives"
+              icon={Anchor}
+            />
           </section>
 
-          <Card className="flex flex-col gap-4">
-            <h2 className="font-semibold">À traiter</h2>
-            {todo.length === 0 ? (
-              <EmptyState title="Rien à traiter">Aucune échéance dépassée ni alerte de suivi.</EmptyState>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {todo.map((item) => (
-                  <li
-                    key={`${item.kind}-${item.href}`}
-                    className="border-border flex flex-col gap-1 border-b pb-2 last:border-0 sm:flex-row sm:items-center sm:gap-3"
-                  >
-                    <Badge tone={SEVERITY[item.severity].tone}>{SEVERITY[item.severity].label}</Badge>
-                    <Link
-                      href={item.href as Route}
-                      className="text-primary font-medium whitespace-nowrap underline-offset-2 hover:underline"
-                    >
-                      {item.subject}
-                    </Link>
-                    <span className="text-sm">{item.label}</span>
-                  </li>
-                ))}
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Card className="p-0 sm:p-0 lg:col-span-2">
+              <h2 className="px-4 pt-4 pb-3 text-base font-bold sm:px-6 sm:pt-5">À traiter</h2>
+              <TodoList items={todo} />
+            </Card>
+
+            <Card className="flex flex-col gap-4">
+              <h2 className="text-base font-bold">Répartition par urgence</h2>
+              {todo.length > 0 && (
+                <div
+                  role="img"
+                  aria-label={`À traiter : ${bySeverity
+                    .map((s) => `${s.count} ${SEVERITY_DISPLAY[s.severity].label.toLowerCase()}`)
+                    .join(", ")}`}
+                  className="flex h-3.5 gap-0.5 overflow-hidden rounded"
+                >
+                  {bySeverity
+                    .filter((s) => s.count > 0)
+                    .map((s) => (
+                      <div key={s.severity} className={SEVERITY_FILL[s.severity]} style={{ flexGrow: s.count }} />
+                    ))}
+                </div>
+              )}
+              <ul className="flex flex-col gap-3 text-sm">
+                {bySeverity.map(({ severity, count }) => {
+                  const { label, icon: Icon } = SEVERITY_DISPLAY[severity];
+                  return (
+                    <li key={severity} className="flex items-center gap-2.5">
+                      <span aria-hidden className={`size-2.5 rounded-sm ${SEVERITY_FILL[severity]}`} />
+                      <Icon aria-hidden className="text-muted size-4" />
+                      <span className="flex-1">{label}</span>
+                      <strong className="amount">{count}</strong>
+                    </li>
+                  );
+                })}
               </ul>
-            )}
-          </Card>
+            </Card>
+          </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <Card className="flex flex-col gap-3">
-              <h2 className="font-semibold">Dossiers par étape</h2>
-              <ul className="flex flex-col gap-2 text-sm">
-                {STAGES.map((stage) => (
-                  <li key={stage} className="flex items-center justify-between gap-3">
-                    <Link
-                      href={`/dossiers?etape=${stage}` as Route}
-                      className="text-primary underline-offset-2 hover:underline"
-                    >
-                      {STAGE_LABELS[stage]}
-                    </Link>
-                    <span className="amount font-medium">{indicators.byStage[stage]}</span>
-                  </li>
-                ))}
+            <Card className="flex flex-col gap-4">
+              <div>
+                <h2 className="text-base font-bold">Dossiers par étape</h2>
+                <p className="text-muted mt-1 text-sm">Cliquez sur une étape pour voir ses dossiers.</p>
+              </div>
+              <ul className="flex flex-col gap-1 text-sm">
+                {STAGES.map((stage) => {
+                  const n = indicators.byStage[stage];
+                  const tip = `${STAGE_LABELS[stage]} : ${n} dossier${n > 1 ? "s" : ""}`;
+                  return (
+                    <li key={stage}>
+                      <Link
+                        href={`/dossiers?etape=${stage}` as Route}
+                        aria-label={`${tip} — voir la liste`}
+                        className="group hover:bg-background relative grid grid-cols-[7.5rem_minmax(0,1fr)_2rem] items-center gap-3 rounded-lg px-2 py-1.5"
+                      >
+                        <span>{STAGE_LABELS[stage]}</span>
+                        <span className="bg-chart-track h-5 rounded-r">
+                          <span
+                            className="bg-chart-bar group-hover:bg-primary-hover block h-5 rounded-r"
+                            style={{ width: `${Math.round((n / maxStage) * 100)}%` }}
+                          />
+                        </span>
+                        <span className="amount text-right font-semibold">{n}</span>
+                        <span
+                          aria-hidden
+                          className="bg-foreground text-background pointer-events-none absolute -top-7 left-32 z-10 hidden rounded-md px-2 py-1 text-xs whitespace-nowrap group-hover:block"
+                        >
+                          {tip}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             </Card>
 
             <Card className="flex flex-col gap-3">
-              <h2 className="font-semibold">Conteneurs partis</h2>
-              <p className="text-muted text-xs">
-                Progression calendaire entre le départ et l’ETA indicative — pas une position GPS.
-              </p>
+              <div>
+                <h2 className="text-base font-bold">Conteneurs en route</h2>
+                <p className="text-muted mt-1 text-sm">
+                  Progression calendaire entre le départ et l’ETA indicative — pas une position GPS.
+                </p>
+              </div>
               {moving.length === 0 ? (
-                <EmptyState title="Aucun conteneur en route" />
+                <EmptyState title="Aucun conteneur en route" icon={Ship} />
               ) : (
-                <ul className="flex flex-col gap-3 text-sm">
+                <ul className="flex flex-col">
                   {moving.map((c) => {
                     const progress = calendarProgress(c);
                     return (
-                      <li key={c.id} className="flex flex-col gap-1">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <Link href={`/conteneurs/${c.id}` as Route} className="text-primary font-mono underline">
+                      <li key={c.id} className="border-border flex flex-col gap-2 border-t py-3 first:border-t-0">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                          <Link
+                            href={`/conteneurs/${c.id}` as Route}
+                            className="text-primary font-mono font-semibold underline-offset-2 hover:underline"
+                          >
                             {c.number}
                           </Link>
                           <span className="text-muted text-xs">
@@ -211,9 +281,12 @@ export default async function TableauDeBordPage() {
                             aria-valuemin={0}
                             aria-valuemax={100}
                             aria-valuenow={Math.round(progress * 100)}
-                            className="bg-background border-border h-2 overflow-hidden rounded-full border"
+                            className="bg-chart-track h-2 overflow-hidden rounded-full"
                           >
-                            <div className="bg-primary h-full" style={{ width: `${Math.round(progress * 100)}%` }} />
+                            <div
+                              className="bg-chart-bar h-full rounded-full"
+                              style={{ width: `${Math.round(progress * 100)}%` }}
+                            />
                           </div>
                         )}
                       </li>

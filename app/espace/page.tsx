@@ -1,7 +1,8 @@
+import { ChevronRight } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
+import { ClientStageProgress } from "@/components/client-stage-progress";
 import { Alert, Badge, Card, EmptyState, PageHeader } from "@/components/ui/feedback";
-import { STAGE_LABELS } from "@/lib/dossiers/labels";
 import { formatDateTime, formatUsd } from "@/lib/format";
 import { nextClientAction } from "@/lib/portal";
 import { clientDossierState } from "@/lib/server/portal-data";
@@ -42,19 +43,20 @@ export default async function EspacePage() {
             const status = statuses?.find((s) => s.stage === d.stage && s.code === d.status)?.label ?? d.status;
             return (
               <li key={d.id}>
-                <Card className="flex h-full flex-col gap-3">
-                  <div>
-                    <h2 className="font-semibold">{vehicle}</h2>
-                    <p className="text-muted text-sm">Dossier {d.reference}</p>
+                <Card className="flex h-full flex-col gap-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h2 className="font-bold">{vehicle}</h2>
+                      <p className="text-muted text-sm">Dossier {d.reference}</p>
+                    </div>
+                    <Badge tone="info">{status}</Badge>
                   </div>
-                  <p className="text-sm">
-                    Étape <strong>{STAGE_LABELS[d.stage]}</strong> · <Badge tone="info">{status}</Badge>
-                  </p>
+                  <ClientStageProgress stage={d.stage} />
                   <p className="text-sm">
                     <Badge
                       tone={
                         action.kind === "none"
-                          ? "neutral"
+                          ? "success"
                           : action.kind === "payment" && action.overdue
                             ? "danger"
                             : "warning"
@@ -66,16 +68,18 @@ export default async function EspacePage() {
                     {action.kind === "payment" && (
                       <>
                         {" "}
-                        : <span className="amount">{formatUsd(action.amountCents)}</span>
+                        : <span className="amount font-semibold">{formatUsd(action.amountCents)}</span>
                         {action.dueAt && ` avant le ${formatDateTime(action.dueAt)}`}
                       </>
                     )}
                   </p>
                   <Link
                     href={`/espace/dossiers/${d.id}` as Route}
-                    className="text-primary mt-auto text-sm font-medium underline"
+                    aria-label={`Voir le dossier ${d.reference}`}
+                    className="text-primary mt-auto inline-flex items-center gap-1 text-sm font-semibold underline-offset-2 hover:underline"
                   >
-                    Voir le dossier {d.reference}
+                    Voir le dossier
+                    <ChevronRight aria-hidden className="size-4" />
                   </Link>
                 </Card>
               </li>

@@ -1,31 +1,30 @@
+import { Plus, Search, Users } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
+import { Button, buttonClasses } from "@/components/ui/button";
 import { Alert, Badge, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Input } from "@/components/ui/field";
 import { Table, Td, Th } from "@/components/ui/table";
 import { requireInternal } from "@/lib/auth/access";
 import { canAccess, SCREEN_ROLES } from "@/lib/auth/roles";
 import { CLIENT_KIND_LABELS } from "@/lib/dossiers/labels";
+import { likePattern, normalizeQuery } from "@/lib/search";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { missingClientInformation } from "@/lib/validation/operations";
 
 export const metadata: Metadata = { title: "Clients" };
 
-/** Échappe les caractères spéciaux d'un motif ILIKE / filtre PostgREST. */
-function searchPattern(q: string): string {
-  return `%${q.replace(/[\\%_,()]/g, " ").trim()}%`;
-}
-
 export default async function ClientsPage({ searchParams }: PageProps<"/clients">) {
   const access = await requireInternal(SCREEN_ROLES.clients);
   const canWrite = canAccess(access.role, SCREEN_ROLES.operationsWrite);
   const params = await searchParams;
-  const q = typeof params.q === "string" ? params.q.trim().slice(0, 80) : "";
+  const rawQ = typeof params.q === "string" ? params.q : "";
+  const q = normalizeQuery(rawQ);
 
   const supabase = await createSupabaseServerClient();
   let query = supabase.from("clients").select("*").order("name").limit(200);
   if (q) {
-    const p = searchPattern(q);
+    const p = likePattern(q);
     query = query.or(`name.ilike.${p},notify_phone.ilike.${p},notify_email.ilike.${p}`);
   }
   const { data: clients, error } = await query;
@@ -34,10 +33,8 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
     <>
       <PageHeader title="Clients" description="Fiches des clients (particuliers et sociétés).">
         {canWrite && (
-          <Link
-            href="/clients/nouveau"
-            className="bg-primary text-primary-foreground inline-flex min-h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-medium"
-          >
+          <Link href="/clients/nouveau" className={buttonClasses("primary")}>
+            <Plus aria-hidden />
             Nouveau client
           </Link>
         )}
@@ -47,19 +44,17 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
         <label htmlFor="q" className="sr-only">
           Rechercher un client
         </label>
-        <Input id="q" name="q" defaultValue={q} placeholder="Nom, téléphone ou e-mail" className="sm:max-w-sm" />
-        <button
-          type="submit"
-          className="border-border bg-card hover:bg-background min-h-10 rounded-md border px-4 py-2 text-sm font-medium"
-        >
+        <Input id="q" name="q" defaultValue={rawQ} placeholder="Nom, téléphone ou e-mail" className="sm:max-w-sm" />
+        <Button type="submit" variant="secondary">
+          <Search aria-hidden />
           Rechercher
-        </button>
+        </Button>
       </form>
 
       {error ? (
         <Alert tone="danger">La liste des clients n’a pas pu être chargée. Rechargez la page.</Alert>
       ) : !clients?.length ? (
-        <EmptyState title={q ? "Aucun client trouvé" : "Aucun client"}>
+        <EmptyState title={q ? "Aucun client trouvé" : "Aucun client"} icon={Users}>
           {q ? "Essayez avec une autre partie du nom ou du numéro." : canWrite && "Créez la première fiche client."}
         </EmptyState>
       ) : (

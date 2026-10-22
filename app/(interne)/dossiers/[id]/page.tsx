@@ -1,7 +1,9 @@
+import { Download } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StageBanner } from "@/components/stage-banner";
+import { buttonClasses } from "@/components/ui/button";
 import { Alert, Badge, Card, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { requireInternal } from "@/lib/auth/access";
 import { canAccess, SCREEN_ROLES } from "@/lib/auth/roles";
@@ -246,10 +248,8 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
                     {contract.documents?.uploaded_at && ` du ${formatDateTime(contract.documents.uploaded_at)}`}
                   </span>
                 </p>
-                <a
-                  href={downloadHref(contract.document_id)}
-                  className="border-border bg-card hover:bg-background inline-flex min-h-10 items-center justify-center rounded-md border px-4 py-2 text-sm font-medium"
-                >
+                <a href={downloadHref(contract.document_id)} className={buttonClasses("secondary")}>
+                  <Download aria-hidden />
                   Télécharger le contrat (Word)
                 </a>
               </div>

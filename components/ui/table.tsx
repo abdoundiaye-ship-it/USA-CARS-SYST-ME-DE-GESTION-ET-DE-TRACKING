@@ -8,7 +8,7 @@ export function Table({
   ...props
 }: React.TableHTMLAttributes<HTMLTableElement> & { caption?: string }) {
   return (
-    <div className="border-border bg-card w-full overflow-x-auto rounded-lg border">
+    <div className="border-border bg-card w-full overflow-x-auto rounded-xl border">
       <table className={cn("w-full border-collapse text-left text-sm", className)} {...props}>
         {caption && <caption className="sr-only">{caption}</caption>}
         {children}
@@ -22,7 +22,7 @@ export function Th({ className, ...props }: React.ThHTMLAttributes<HTMLTableCell
     <th
       scope="col"
       className={cn(
-        "border-border text-muted border-b px-3 py-2 text-xs font-semibold tracking-wide uppercase",
+        "border-border bg-background text-muted border-b px-3 py-2.5 text-xs font-semibold tracking-wide uppercase",
         className,
       )}
       {...props}
@@ -31,5 +31,5 @@ export function Th({ className, ...props }: React.ThHTMLAttributes<HTMLTableCell
 }
 
 export function Td({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("border-border border-b px-3 py-2 align-top", className)} {...props} />;
+  return <td className={cn("border-border border-b px-3 py-2.5 align-top", className)} {...props} />;
 }
