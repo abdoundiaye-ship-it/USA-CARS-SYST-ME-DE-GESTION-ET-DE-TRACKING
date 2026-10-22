@@ -1,6 +1,8 @@
+import { Plus } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { buttonClasses } from "@/components/ui/button";
 import { Alert, Badge, Card, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Table, Td, Th } from "@/components/ui/table";
 import { requireInternal } from "@/lib/auth/access";
@@ -40,10 +42,8 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
     <>
       <PageHeader title={client.name} description={`${CLIENT_KIND_LABELS[client.kind]} · ${client.notify_phone}`}>
         {canWrite && (
-          <Link
-            href={`/dossiers/nouveau?client=${client.id}` as Route}
-            className="bg-primary text-primary-foreground inline-flex min-h-10 items-center justify-center rounded-md px-4 py-2 text-sm font-medium"
-          >
+          <Link href={`/dossiers/nouveau?client=${client.id}` as Route} className={buttonClasses("primary")}>
+            <Plus aria-hidden />
             Ouvrir un dossier
           </Link>
         )}

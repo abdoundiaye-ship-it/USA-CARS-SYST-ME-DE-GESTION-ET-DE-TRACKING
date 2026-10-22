@@ -1,4 +1,6 @@
+import { Download } from "lucide-react";
 import type { Route } from "next";
+import { buttonClasses } from "@/components/ui/button";
 import { Alert, Badge, Card, EmptyState } from "@/components/ui/feedback";
 import { Table, Td, Th } from "@/components/ui/table";
 import {
@@ -38,8 +40,7 @@ import {
 
 export const downloadHref = (documentId: string) => `/documents/${documentId}` as Route;
 
-const linkButton =
-  "border-border bg-card hover:bg-background inline-flex min-h-10 items-center justify-center rounded-md border px-4 py-2 text-sm font-medium";
+const linkButton = buttonClasses("secondary");
 
 type StaffName = (userId: string | null) => string | null;
 
@@ -220,6 +221,7 @@ export function PurchaseOrderSection({
           </p>
           {order.document_id && (
             <a href={downloadHref(order.document_id)} className={linkButton}>
+              <Download aria-hidden />
               Télécharger l’ordre d’achat (Word)
             </a>
           )}
