@@ -38,6 +38,11 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Installer le client PostgreSQL 17
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update && sudo apt-get install -y postgresql-client-17
       - id: nom
         run: |
           echo "archive=sauvegarde-$(date -u +%Y-%m-%d-%H%M)" >> "$GITHUB_OUTPUT"
@@ -48,14 +53,8 @@ jobs:
           SUPABASE_URL: https://hzgkhtaefpbqztwagwph.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SAUVEGARDE_SERVICE_ROLE_KEY }}
           SAUVEGARDE_PHRASE: ${{ secrets.SAUVEGARDE_PHRASE }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          # Relier le projet pour que `supabase db dump --linked` se connecte au pooler avec le bon nom d'utilisateur.
-          # Le mot de passe de la base est extrait de l'URL de sauvegarde (aucun secret supplémentaire).
-          SUPABASE_DB_PASSWORD="$(printf '%s' "$SUPABASE_DB_URL" | sed -E 's#^[^:]+://[^:]+:([^@]+)@.*#\1#')"
-          export SUPABASE_DB_PASSWORD
-          pnpm exec supabase link --project-ref hzgkhtaefpbqztwagwph
-          export SUPABASE_LINKED=1
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
           bash scripts/sauvegarde.sh "$RUNNER_TEMP/${{ steps.nom.outputs.archive }}.tar.gz.gpg"
       - uses: actions/upload-artifact@v4
         with:
@@ -81,6 +80,11 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Installer le client PostgreSQL 17
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update && sudo apt-get install -y postgresql-client-17
       - uses: actions/download-artifact@v4
         with:
           name: ${{ needs.sauvegarde.outputs.archive }}
@@ -88,4 +92,6 @@ jobs:
       - name: Restaurer et vérifier les comptages
         env:
           SAUVEGARDE_PHRASE: ${{ secrets.SAUVEGARDE_PHRASE }}
-        run: bash scripts/essai-restauration.sh "$RUNNER_TEMP/${{ needs.sauvegarde.outputs.archive }}.tar.gz.gpg"
+        run: |
+          export PATH="/usr/lib/postgresql/17/bin:$PATH"
+          bash scripts/essai-restauration.sh "$RUNNER_TEMP/${{ needs.sauvegarde.outputs.archive }}.tar.gz.gpg"
