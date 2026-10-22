@@ -1,3 +1,4 @@
+import { Plus } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -42,6 +43,7 @@ export default async function ClientPage({ params, searchParams }: PageProps<"/c
       <PageHeader title={client.name} description={`${CLIENT_KIND_LABELS[client.kind]} · ${client.notify_phone}`}>
         {canWrite && (
           <Link href={`/dossiers/nouveau?client=${client.id}` as Route} className={buttonClasses("primary")}>
+            <Plus aria-hidden />
             Ouvrir un dossier
           </Link>
         )}
