@@ -1,5 +1,7 @@
+import { FileText, Search } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Alert, Badge, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Input, Select } from "@/components/ui/field";
 import { Table, Td, Th } from "@/components/ui/table";
@@ -7,6 +9,7 @@ import { requireInternal } from "@/lib/auth/access";
 import { canAccess, SCREEN_ROLES } from "@/lib/auth/roles";
 import { DOCUMENT_KIND_LABELS } from "@/lib/dossiers/labels";
 import { formatDateTime } from "@/lib/format";
+import { likePattern, normalizeQuery } from "@/lib/search";
 import type { DocumentKind } from "@/lib/supabase/database.types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { VisibilityToggle } from "./visibility-toggle";
@@ -23,7 +26,8 @@ export default async function DocumentsPage({ searchParams }: PageProps<"/docume
   const canEdit = canAccess(access.role, SCREEN_ROLES.documentsWrite);
   const params = await searchParams;
   const kind = isKind(params.type) ? params.type : null;
-  const q = typeof params.q === "string" ? params.q.trim().slice(0, 40) : "";
+  const rawQ = typeof params.q === "string" ? params.q : "";
+  const q = normalizeQuery(rawQ);
   const visibility = params.visibilite === "client" || params.visibilite === "interne" ? params.visibilite : null;
 
   const supabase = await createSupabaseServerClient();
@@ -38,7 +42,7 @@ export default async function DocumentsPage({ searchParams }: PageProps<"/docume
     const { data: matching } = await supabase
       .from("dossiers")
       .select("id")
-      .ilike("reference", `%${q.replace(/[\\%_,()]/g, " ").trim()}%`)
+      .ilike("reference", likePattern(q))
       .limit(50);
     query = query.in(
       "dossier_id",
@@ -58,7 +62,7 @@ export default async function DocumentsPage({ searchParams }: PageProps<"/docume
         <label htmlFor="q" className="sr-only">
           Référence du dossier
         </label>
-        <Input id="q" name="q" defaultValue={q} placeholder="Référence du dossier" className="sm:max-w-56" />
+        <Input id="q" name="q" defaultValue={rawQ} placeholder="Référence du dossier" className="sm:max-w-56" />
         <label htmlFor="type" className="sr-only">
           Type de document
         </label>
@@ -78,18 +82,16 @@ export default async function DocumentsPage({ searchParams }: PageProps<"/docume
           <option value="client">Visibles du client</option>
           <option value="interne">Internes</option>
         </Select>
-        <button
-          type="submit"
-          className="border-border bg-card hover:bg-background min-h-10 rounded-md border px-4 py-2 text-sm font-medium"
-        >
+        <Button type="submit" variant="secondary">
+          <Search aria-hidden />
           Filtrer
-        </button>
+        </Button>
       </form>
 
       {error ? (
         <Alert tone="danger">Les documents n’ont pas pu être chargés. Rechargez la page.</Alert>
       ) : !documents?.length ? (
-        <EmptyState title="Aucun document">
+        <EmptyState title="Aucun document" icon={FileText}>
           {kind || q || visibility
             ? "Modifiez les filtres."
             : "Les documents s’ajoutent depuis la fiche de chaque dossier."}
