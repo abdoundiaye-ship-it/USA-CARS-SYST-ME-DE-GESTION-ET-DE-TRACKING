@@ -75,6 +75,7 @@ export default async function EspacePage() {
                   </p>
                   <Link
                     href={`/espace/dossiers/${d.id}` as Route}
+                    aria-label={`Voir le dossier ${d.reference}`}
                     className="text-primary mt-auto inline-flex items-center gap-1 text-sm font-semibold underline-offset-2 hover:underline"
                   >
                     Voir le dossier
