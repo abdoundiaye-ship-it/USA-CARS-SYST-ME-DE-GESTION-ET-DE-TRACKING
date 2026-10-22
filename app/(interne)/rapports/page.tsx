@@ -14,6 +14,7 @@ import {
   DELAY_KIND_LABELS,
   REPORT_STAGE_LABELS,
   REPORTS,
+  REPORT_ROLE_LABELS,
   RETENTION_SCOPE_LABELS,
   reportArgs,
   type ReportColumn,
@@ -41,6 +42,8 @@ function display(column: ReportColumn, value: ReportRow[string]): string {
       return DELAY_KIND_LABELS[String(value)] ?? String(value);
     case "retention_scope":
       return RETENTION_SCOPE_LABELS[String(value)] ?? String(value);
+    case "role":
+      return REPORT_ROLE_LABELS[String(value)] ?? String(value);
     case "bool":
       return value ? "oui" : "non";
     default:
