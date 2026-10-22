@@ -179,19 +179,67 @@ export default async function RapportsPage({ searchParams }: PageProps<"/rapport
                   </ul>
                 </div>
               )}
-              {key === "receivables" && (
-                <p className="text-sm">
-                  Total restant dû : <strong>{formatUsd(total(rows, "total_cents"))}</strong>, dont échu :{" "}
-                  <strong>
-                    {formatUsd(
-                      total(rows, "overdue_1_30_cents") +
-                        total(rows, "overdue_31_60_cents") +
-                        total(rows, "overdue_over_60_cents"),
-                    )}
-                  </strong>
-                  .
-                </p>
-              )}
+              {key === "receivables" &&
+                (() => {
+                  const buckets = [
+                    { label: "Non échu", cents: total(rows, "not_due_cents"), fill: "bg-muted", dot: "bg-muted" },
+                    {
+                      label: "Échu 1–30 j",
+                      cents: total(rows, "overdue_1_30_cents"),
+                      fill: "bg-chart-follow",
+                      dot: "bg-chart-follow",
+                    },
+                    {
+                      label: "Échu 31–60 j",
+                      cents: total(rows, "overdue_31_60_cents"),
+                      fill: "bg-chart-todo",
+                      dot: "bg-chart-todo",
+                    },
+                    {
+                      label: "Échu > 60 j",
+                      cents: total(rows, "overdue_over_60_cents"),
+                      fill: "bg-chart-urgent",
+                      dot: "bg-chart-urgent",
+                    },
+                  ];
+                  const grandTotal = total(rows, "total_cents");
+                  const overdue = grandTotal - buckets[0]!.cents;
+                  return (
+                    <div className="flex flex-col gap-3">
+                      <p className="text-sm">
+                        Total restant dû : <strong>{formatUsd(grandTotal)}</strong>, dont échu :{" "}
+                        <strong>{formatUsd(overdue)}</strong>.
+                      </p>
+                      {grandTotal > 0 && (
+                        <>
+                          <div
+                            role="img"
+                            aria-label={`Créances par ancienneté : ${buckets
+                              .filter((b) => b.cents > 0)
+                              .map((b) => `${b.label} ${formatUsd(b.cents)}`)
+                              .join(", ")}`}
+                            className="flex h-4 gap-0.5 overflow-hidden rounded"
+                          >
+                            {buckets
+                              .filter((b) => b.cents > 0)
+                              .map((b) => (
+                                <div key={b.label} className={b.fill} style={{ flexGrow: b.cents }} />
+                              ))}
+                          </div>
+                          <ul className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
+                            {buckets.map((b) => (
+                              <li key={b.label} className="flex items-center gap-2">
+                                <span aria-hidden className={`size-2.5 rounded-sm ${b.dot}`} />
+                                <span className="text-muted">{b.label}</span>
+                                <span className="amount font-semibold">{formatUsd(b.cents)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
               {key === "margins" && (
                 <p className="text-sm">
                   Marge totale des dossiers avec coûts saisis :{" "}

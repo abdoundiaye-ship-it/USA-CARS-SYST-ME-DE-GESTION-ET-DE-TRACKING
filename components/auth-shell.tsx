@@ -14,10 +14,10 @@ export function AuthShell({
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 px-4 py-10">
       <div>
         <BrandLogo priority className="h-20" />
-        <h1 className="mt-4 text-2xl font-semibold">{title}</h1>
+        <h1 className="mt-4 text-2xl font-bold tracking-tight">{title}</h1>
         {description && <p className="text-muted mt-2 text-sm">{description}</p>}
       </div>
-      <div className="border-border bg-card rounded-lg border p-4 sm:p-6">{children}</div>
+      <div className="border-border bg-card rounded-xl border p-4 sm:p-6">{children}</div>
     </main>
   );
 }
