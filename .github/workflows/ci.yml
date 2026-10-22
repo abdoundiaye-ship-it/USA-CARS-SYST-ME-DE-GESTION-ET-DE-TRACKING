@@ -103,6 +103,39 @@ jobs:
       - if: failure()
         run: cat wrangler.log || true
 
+  sauvegarde:
+    name: Sauvegarde chiffrée et essai de restauration (base fictive)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Démarrer Supabase local (migrations + seed fictif) et y déposer un fichier fictif
+        run: |
+          pnpm exec supabase start -x studio,imgproxy,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit
+          pnpm db:reset
+          eval "$(pnpm exec supabase status -o env | grep -E '^(API_URL|SERVICE_ROLE_KEY)=')"
+          printf '%%PDF-1.4\n%% DEMO - fichier fictif\n' > essai.pdf
+          curl -sf -X POST "$API_URL/storage/v1/object/documents/DEMO/essai-sauvegarde.pdf" \
+            -H "Authorization: Bearer $SERVICE_ROLE_KEY" -H "Content-Type: application/pdf" --data-binary @essai.pdf
+      - name: Sauvegarder le Supabase local (même script que la sauvegarde nocturne)
+        env:
+          SAUVEGARDE_PHRASE: phrase-essai-ci
+        run: |
+          eval "$(pnpm exec supabase status -o env | grep -E '^(DB_URL|API_URL|SERVICE_ROLE_KEY)=')"
+          SUPABASE_DB_URL="$DB_URL" SUPABASE_URL="$API_URL" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+            bash scripts/sauvegarde.sh "$RUNNER_TEMP/essai.tar.gz.gpg"
+          pnpm exec supabase stop --no-backup
+      - name: Restaurer dans un Supabase vide et vérifier
+        env:
+          SAUVEGARDE_PHRASE: phrase-essai-ci
+        run: bash scripts/essai-restauration.sh "$RUNNER_TEMP/essai.tar.gz.gpg"
+
   secrets:
     name: Détection de secrets
     runs-on: ubuntu-latest
