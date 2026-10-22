@@ -26,6 +26,7 @@ Dans GitHub : **Settings → Secrets and variables → Actions → New repositor
 | `SAUVEGARDE_PHRASE` | Phrase de chiffrement **longue** (au moins 6 mots au hasard). **À conserver aussi hors de GitHub** (gestionnaire de mots de passe, papier au coffre) : sans elle, aucune sauvegarde n’est lisible. |
 | `SAUVEGARDE_DB_URL` | Tableau de bord Supabase → **Connect** → **Session pooler** : adresse `postgresql://postgres.hzgkhtaefpbqztwagwph:[MOT-DE-PASSE]@aws-0-us-east-1.pooler.supabase.com:5432/postgres`, mot de passe de la base compris |
 | `SAUVEGARDE_SERVICE_ROLE_KEY` | Tableau de bord Supabase → **Project Settings → API Keys → Legacy API Keys** : clé `service_role` (lecture des fichiers) |
+| `SUPABASE_ACCESS_TOKEN` | Supabase → menu du compte (en haut à droite) → **Account → Access Tokens** → **Generate new token** (nom : « sauvegarde GitHub »). Permet à la sauvegarde de se connecter au pooler avec le bon nom d’utilisateur. |
 
 Puis **Actions → Sauvegarde → Run workflow** pour un premier essai (sauvegarde et restauration d’essai). Un échec de la sauvegarde nocturne déclenche un e-mail de GitHub au propriétaire du dépôt.
 

@@ -48,7 +48,15 @@ jobs:
           SUPABASE_URL: https://hzgkhtaefpbqztwagwph.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SAUVEGARDE_SERVICE_ROLE_KEY }}
           SAUVEGARDE_PHRASE: ${{ secrets.SAUVEGARDE_PHRASE }}
-        run: bash scripts/sauvegarde.sh "$RUNNER_TEMP/${{ steps.nom.outputs.archive }}.tar.gz.gpg"
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          # Relier le projet pour que `supabase db dump --linked` se connecte au pooler avec le bon nom d'utilisateur.
+          # Le mot de passe de la base est extrait de l'URL de sauvegarde (aucun secret supplémentaire).
+          SUPABASE_DB_PASSWORD="$(printf '%s' "$SUPABASE_DB_URL" | sed -E 's#^[^:]+://[^:]+:([^@]+)@.*#\1#')"
+          export SUPABASE_DB_PASSWORD
+          pnpm exec supabase link --project-ref hzgkhtaefpbqztwagwph
+          export SUPABASE_LINKED=1
+          bash scripts/sauvegarde.sh "$RUNNER_TEMP/${{ steps.nom.outputs.archive }}.tar.gz.gpg"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.nom.outputs.archive }}
