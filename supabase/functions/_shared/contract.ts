@@ -67,12 +67,30 @@ export interface ContractDossier {
   departure_port: string | null;
 }
 
+/** Article 33 : durées de conservation après la clôture (paramètres, décision G2-a), null tant qu'elles sont vides. */
+export interface RetentionYears {
+  accounting: number | null;
+  other: number | null;
+}
+
+export const RETENTION_SETTING_KEYS: Record<keyof RetentionYears, string> = {
+  accounting: "data.retention_years_accounting",
+  other: "data.retention_years",
+};
+
+/** « 10 ans », « 1 an » ; espace réservé si la durée n'est pas fixée. */
+export function retentionYearsText(years: number | null): string {
+  if (years === null || !Number.isInteger(years) || years < 1) return "______ ans";
+  return `${years} an${years > 1 ? "s" : ""}`;
+}
+
 export interface ContractInput {
   reference: string;
   date: Date;
   /** Paramètre templates.legal_validated : tant qu'il est faux, le document porte la mention « PROJET » (D1). */
   legalValidated: boolean;
   company: CompanyIdentity;
+  retention: RetentionYears;
   client: ContractClient;
   dossier: ContractDossier;
 }
@@ -123,6 +141,8 @@ export function buildContractData(input: ContractInput): Record<string, string |
     statut_titre: text(dossier.title_status),
     lieu_achat: text(dossier.purchase_location),
     port_prevu: text(dossier.departure_port),
+    conservation_comptable: retentionYearsText(input.retention.accounting),
+    conservation_autres: retentionYearsText(input.retention.other),
   };
 }
 

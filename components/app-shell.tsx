@@ -6,6 +6,7 @@ import {
   FileText,
   Folder,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   Menu,
   Plus,
@@ -40,6 +41,7 @@ const ICONS = {
   users: UserCog,
   settings: SlidersHorizontal,
   audit: ShieldCheck,
+  help: LifeBuoy,
 } satisfies Record<string, LucideIcon>;
 
 export type NavIcon = keyof typeof ICONS;

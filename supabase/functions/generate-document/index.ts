@@ -16,6 +16,7 @@ import {
   COMPANY_SETTING_KEYS,
   CONTRACT_TEMPLATE_VERSION,
   renderContract,
+  RETENTION_SETTING_KEYS,
   type CompanyIdentity,
 } from "../_shared/contract.ts";
 import { sha256Hex } from "../_shared/docx.ts";
@@ -72,9 +73,13 @@ async function buildContract(api: SupabaseRest, dossier: Row) {
   if (!client) throw new Refusal(404, "Client du dossier introuvable.");
   const valueOf = await settingsAsOf(
     api,
-    [...Object.values(COMPANY_SETTING_KEYS), "templates.legal_validated"],
+    [...Object.values(COMPANY_SETTING_KEYS), ...Object.values(RETENTION_SETTING_KEYS), "templates.legal_validated"],
     dossier.params_as_of,
   );
+  const years = (key: string) => {
+    const value = valueOf(key);
+    return typeof value === "number" ? value : null;
+  };
   const company = Object.fromEntries(
     Object.entries(COMPANY_SETTING_KEYS).map(([field, key]) => {
       const value = valueOf(key);
@@ -86,6 +91,10 @@ async function buildContract(api: SupabaseRest, dossier: Row) {
     date: new Date(),
     legalValidated: valueOf("templates.legal_validated") === true,
     company,
+    retention: {
+      accounting: years(RETENTION_SETTING_KEYS.accounting),
+      other: years(RETENTION_SETTING_KEYS.other),
+    },
     client: client as never,
     dossier: dossier as never,
   });

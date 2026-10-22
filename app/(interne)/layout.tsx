@@ -15,6 +15,7 @@ export default async function InternalLayout({ children }: { children: React.Rea
       items: [
         { href: "/tableau-de-bord", label: "Tableau de bord", icon: "dashboard" },
         { href: "/rapports", label: "Rapports", icon: "reports" },
+        { href: "/aide", label: "Aide", icon: "help" },
       ],
     },
     {

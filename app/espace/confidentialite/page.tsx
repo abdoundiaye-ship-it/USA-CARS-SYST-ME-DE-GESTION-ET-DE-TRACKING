@@ -67,7 +67,7 @@ export default async function ConfidentialitePage() {
             <p>
               Après la clôture de votre dossier, les pièces comptables (devis, factures, reçus, paiements) sont
               conservées {retentionText(notice?.retention_years_accounting)} et les autres données{" "}
-              {retentionText(notice?.retention_years)}. Elles sont ensuite supprimées.
+              {retentionText(notice?.retention_years)}. Elles sont ensuite supprimées ou anonymisées.
             </p>
           </Section>
           <Section title="Vos droits">

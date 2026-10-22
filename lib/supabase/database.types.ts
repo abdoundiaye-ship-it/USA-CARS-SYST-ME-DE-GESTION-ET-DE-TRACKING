@@ -1250,6 +1250,7 @@ export type Database = {
       report_transit_times: { Args: { p_from: string; p_to: string }; Returns: ReportRow[] };
       report_margins: { Args: { p_from: string; p_to: string }; Returns: ReportRow[] };
       report_retention: { Args: { p_as_of?: string | null }; Returns: ReportRow[] };
+      report_access_review: { Args: Record<string, never>; Returns: ReportRow[] };
       privacy_notice: { Args: Record<string, never>; Returns: PrivacyNotice | null };
       log_report_export: { Args: { p_report: string; p_filters?: Json }; Returns: undefined };
       is_recovery_writer: { Args: Record<string, never>; Returns: boolean };

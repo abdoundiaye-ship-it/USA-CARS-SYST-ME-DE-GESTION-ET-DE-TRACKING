@@ -5,7 +5,8 @@
  */
 import type { XlsxCellType, XlsxValue } from "./xlsx.ts";
 
-export type ReportKey = "active_dossiers" | "delays" | "receivables" | "transit_times" | "margins" | "retention";
+export type ReportKey =
+  "active_dossiers" | "delays" | "receivables" | "transit_times" | "margins" | "retention" | "access_review";
 export type ReportRole = "admin" | "ops" | "accounting" | "management";
 /** Filtre de date : aucun, une période (du … au …), ou une date de situation. */
 export type ReportPeriod = "none" | "range" | "as_of";
@@ -14,7 +15,7 @@ type Row = Record<string, unknown>;
 export interface ReportColumn {
   key: string;
   label: string;
-  type: XlsxCellType | "stage" | "delay_kind" | "retention_scope" | "bool";
+  type: XlsxCellType | "stage" | "delay_kind" | "retention_scope" | "role" | "bool";
   width?: number;
 }
 
@@ -52,6 +53,15 @@ export const RETENTION_SCOPE_LABELS: Record<string, string> = {
   all: "Toutes les données",
   other_data: "Hors pièces comptables",
   accounting: "Pièces comptables seulement",
+};
+
+/** Libellés des rôles (mêmes valeurs que lib/auth/roles.ts ROLE_LABELS, vérifié par un test). */
+export const REPORT_ROLE_LABELS: Record<string, string> = {
+  admin: "Administrateur",
+  ops: "Agent opérations",
+  accounting: "Comptabilité",
+  management: "Direction",
+  client: "Client",
 };
 
 export const REPORTS: Record<ReportKey, ReportDefinition> = {
@@ -167,6 +177,24 @@ export const REPORTS: Record<ReportKey, ReportDefinition> = {
       { key: "client_dossiers_kept", label: "Autres dossiers du client conservés", type: "int", width: 16 },
     ],
   },
+  access_review: {
+    title: "Revue des accès",
+    description:
+      "Comptes internes : rôle, état du compte, double authentification et dernière connexion. Réservée à l'administrateur et à la direction.",
+    rpc: "report_access_review",
+    period: "none",
+    roles: ["admin", "management"],
+    columns: [
+      { key: "full_name", label: "Utilisateur", type: "text", width: 26 },
+      { key: "email", label: "E-mail", type: "text", width: 28 },
+      { key: "role", label: "Rôle", type: "role", width: 18 },
+      { key: "active", label: "Compte actif", type: "bool", width: 12 },
+      { key: "mfa_required", label: "2FA requise", type: "bool", width: 12 },
+      { key: "mfa_configured", label: "2FA configurée", type: "bool", width: 12 },
+      { key: "last_sign_in_at", label: "Dernière connexion", type: "date", width: 14 },
+      { key: "created_at", label: "Compte créé le", type: "date", width: 12 },
+    ],
+  },
 };
 
 export const REPORT_KEYS = Object.keys(REPORTS) as ReportKey[];
@@ -196,6 +224,8 @@ export function exportValue(column: ReportColumn, row: Row): XlsxValue {
       return DELAY_KIND_LABELS[String(value)] ?? String(value);
     case "retention_scope":
       return RETENTION_SCOPE_LABELS[String(value)] ?? String(value);
+    case "role":
+      return REPORT_ROLE_LABELS[String(value)] ?? String(value);
     case "bool":
       return value ? "oui" : "non";
     case "date":
@@ -212,6 +242,7 @@ export function exportType(column: ReportColumn): XlsxCellType {
   return column.type === "stage" ||
     column.type === "delay_kind" ||
     column.type === "retention_scope" ||
+    column.type === "role" ||
     column.type === "bool"
     ? "text"
     : column.type;

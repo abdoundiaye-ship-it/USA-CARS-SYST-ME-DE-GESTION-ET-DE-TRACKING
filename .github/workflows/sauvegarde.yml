@@ -1,0 +1,83 @@
+# Sauvegarde nocturne de la PRODUCTION (décision G3-a, docs/21_sauvegardes.md) : base et fichiers, archive chiffrée
+# (AES-256) conservée 30 jours comme artefact du dépôt privé. Lecture seule sur la production : aucune écriture,
+# aucun test, aucun seed (CLAUDE.md §2). Essai de restauration dans un Supabase local vide chaque dimanche.
+# Secrets (Settings → Secrets and variables → Actions) : SAUVEGARDE_DB_URL, SAUVEGARDE_SERVICE_ROLE_KEY,
+# SAUVEGARDE_PHRASE. Un échec envoie un e-mail de GitHub au propriétaire du dépôt.
+name: Sauvegarde
+
+on:
+  schedule:
+    - cron: "0 2 * * *" # 02:00 UTC = 02:00 à Dakar
+  workflow_dispatch:
+    inputs:
+      essai_restauration:
+        description: Essayer aussi la restauration
+        type: boolean
+        default: true
+
+concurrency:
+  group: sauvegarde
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sauvegarde:
+    name: Sauvegarde chiffrée de la production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      archive: ${{ steps.nom.outputs.archive }}
+      dimanche: ${{ steps.nom.outputs.dimanche }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - id: nom
+        run: |
+          echo "archive=sauvegarde-$(date -u +%Y-%m-%d-%H%M)" >> "$GITHUB_OUTPUT"
+          echo "dimanche=$([ "$(date -u +%u)" = 7 ] && echo oui || echo non)" >> "$GITHUB_OUTPUT"
+      - name: Sauvegarder la base et les fichiers
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SAUVEGARDE_DB_URL }}
+          SUPABASE_URL: https://hzgkhtaefpbqztwagwph.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SAUVEGARDE_SERVICE_ROLE_KEY }}
+          SAUVEGARDE_PHRASE: ${{ secrets.SAUVEGARDE_PHRASE }}
+        run: bash scripts/sauvegarde.sh "$RUNNER_TEMP/${{ steps.nom.outputs.archive }}.tar.gz.gpg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.nom.outputs.archive }}
+          path: ${{ runner.temp }}/${{ steps.nom.outputs.archive }}.tar.gz.gpg
+          retention-days: 30
+          compression-level: 0
+          if-no-files-found: error
+
+  essai-restauration:
+    name: Essai de restauration (Supabase local vide)
+    needs: sauvegarde
+    if: >-
+      (github.event_name == 'schedule' && needs.sauvegarde.outputs.dimanche == 'oui') ||
+      (github.event_name == 'workflow_dispatch' && inputs.essai_restauration)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.sauvegarde.outputs.archive }}
+          path: ${{ runner.temp }}
+      - name: Restaurer et vérifier les comptages
+        env:
+          SAUVEGARDE_PHRASE: ${{ secrets.SAUVEGARDE_PHRASE }}
+        run: bash scripts/essai-restauration.sh "$RUNNER_TEMP/${{ needs.sauvegarde.outputs.archive }}.tar.gz.gpg"

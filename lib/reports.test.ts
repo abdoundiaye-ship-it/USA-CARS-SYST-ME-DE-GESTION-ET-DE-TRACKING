@@ -10,6 +10,7 @@ describe("écran Rapports (US-6.1)", () => {
       "transit_times",
       "margins",
       "retention",
+      "access_review",
     ]);
     expect(reportsFor("management")).toContain("margins");
     expect(reportsFor("management")).toContain("retention");

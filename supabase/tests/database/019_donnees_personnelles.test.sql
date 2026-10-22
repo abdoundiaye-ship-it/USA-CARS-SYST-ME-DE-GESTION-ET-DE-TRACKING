@@ -3,11 +3,15 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(22);
+select plan(23);
 
 -- Paramètres (G2-a) : valeurs par défaut à confirmer, jamais en dur.
 select is(public.setting_value('data.retention_years'), '5'::jsonb, 'Autres données : 5 ans (G2-a)');
 select is(public.setting_value('data.retention_years_accounting'), '10'::jsonb, 'Pièces comptables : 10 ans (G2-a)');
+select is(
+  (select string_agg(status, '|' order by key) from public.settings_current
+    where key in ('data.retention_years', 'data.retention_years_accounting')),
+  'confirme|confirme', 'Durées confirmées le 22/10/2026 (G2-b)');
 select is(public.setting_value('data.privacy_notice_validated'), 'false'::jsonb, 'Page Confidentialité : PROJET (G1-a)');
 
 -- Date de clôture renseignée par la base.

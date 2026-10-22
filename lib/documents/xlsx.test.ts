@@ -1,11 +1,13 @@
 import PizZip from "pizzip";
 import { describe, expect, it } from "vitest";
 import { xmlStructureError } from "@/lib/documents/well-formed-xml";
+import { ROLE_LABELS } from "@/lib/auth/roles";
 import { STAGE_LABELS } from "@/lib/dossiers/labels";
 import {
   exportType,
   exportValue,
   REPORT_KEYS,
+  REPORT_ROLE_LABELS,
   REPORT_STAGE_LABELS,
   REPORTS,
   reportArgs,
@@ -61,6 +63,7 @@ describe("fichier Excel (P6-1)", () => {
 describe("définition des rapports (US-6.1)", () => {
   it("libellés des étapes identiques à ceux de l’application", () => {
     expect(REPORT_STAGE_LABELS).toEqual(STAGE_LABELS);
+    expect(REPORT_ROLE_LABELS).toEqual(ROLE_LABELS);
   });
 
   it("marge réservée à l’administrateur et à la direction ; aucun rapport pour le client", () => {
