@@ -19,12 +19,23 @@ mkdir -p "$dir/versions"
 
 query() { psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 -f "$1"; }
 
+# Copie de la base : en production, le projet est relié (SUPABASE_LINKED=1) et la CLI se connecte au pooler avec le
+# bon nom d'utilisateur (postgres.<ref>) — `--db-url` sur le pooler tronque ce nom. En local (essai sur base fictive),
+# pas de projet relié : on passe l'URL locale directement.
+dump() {
+  if [ "${SUPABASE_LINKED:-0}" = "1" ]; then
+    pnpm exec supabase db dump --linked "$@"
+  else
+    pnpm exec supabase db dump --db-url "$SUPABASE_DB_URL" "$@"
+  fi
+}
+
 echo "→ Comptage des tables (avant)"
 query scripts/sql/comptages.sql > "$dir/comptages-avant.json"
 echo "→ Copie de la base (schéma, rôles, données)"
-pnpm exec supabase db dump --db-url "$SUPABASE_DB_URL" -f "$dir/schema.sql"
-pnpm exec supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f "$dir/roles.sql"
-pnpm exec supabase db dump --db-url "$SUPABASE_DB_URL" --data-only -f "$dir/donnees.sql"
+dump -f "$dir/schema.sql"
+dump --role-only -f "$dir/roles.sql"
+dump --data-only -f "$dir/donnees.sql"
 echo "→ Comptage des tables (après), tâches planifiées, migrations appliquées"
 query scripts/sql/comptages.sql > "$dir/comptages-apres.json"
 query scripts/sql/taches-planifiees.sql > "$dir/taches-planifiees.json"
