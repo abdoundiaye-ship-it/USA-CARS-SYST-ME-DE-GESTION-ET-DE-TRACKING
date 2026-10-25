@@ -307,6 +307,22 @@ insert into public.dossiers (
 );
 
 -- ---------------------------------------------------------------------------
+-- Phase 6, lot 6d — véhicule du premier client enlevé il y a 1 jour : réclamation possible dans le délai (art. 19).
+-- Fictif (DEMO-). La date d'enlèvement est fixée par la base au passage au statut « Enlevé ».
+-- ---------------------------------------------------------------------------
+insert into public.dossiers (
+  id, reference, client_id, owner_id, created_by, stage, status, platform, lot_number, vin, make, model, model_year,
+  vehicle_category, purchase_location, departure_port, auction_result, hammer_price_cents, lot_won_notified_at,
+  payment1_due_at, created_at
+) values (
+  'e0000000-0000-4000-8000-000000000009', 'DEMO-2026-0009', 'c0000000-0000-4000-8000-000000000001',
+  'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'dakar', 'documents_released',
+  'copart', 'DEMO-LOT-1009', '1DEMXXX0000000009', 'Ford', 'Escape', 2021, 'passenger', 'Dallas, TX (démo)', 'Houston',
+  'won', 910000, now() - interval '70 days', now() - interval '69 days', now() - interval '75 days'
+);
+update public.dossiers set status = 'collected' where id = 'e0000000-0000-4000-8000-000000000009';
+
+-- ---------------------------------------------------------------------------
 -- Décisions A4 et A4-bis : la comptabilité et la direction sont soumises à la double authentification. Pour les
 -- essais LOCAUX et les tests, leurs comptes de démonstration ont déjà un facteur TOTP vérifié, de secret connu (à
 -- saisir dans une application d'authentification) : JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP. L'administrateur, lui,

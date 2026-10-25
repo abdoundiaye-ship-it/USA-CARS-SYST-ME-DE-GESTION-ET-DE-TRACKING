@@ -23,6 +23,7 @@ Règles communes :
 | `payment_overdue` | Relance : échéance dépassée et non réglée | nom, réf. dossier, échéance, montant USD restant |
 | `unclaimed_reminder` | Phase 5 — envoi de la lettre de relance enregistré (art. 22, U4) | nom, réf. dossier, n° du courrier |
 | `formal_notice` | Phase 5 — envoi de la mise en demeure enregistré (art. 21, U4) | nom, réf. dossier, n° du courrier, date limite de régularisation |
+| `claim_update` | Phase 6 — traitement d’une réclamation mis à jour (art. 19) | nom, réf. dossier, lien vers l’espace |
 
 ## Textes
 
@@ -73,3 +74,11 @@ Envoyés quand l’agent enregistre l’envoi du courrier (décision U4) : le me
 ### `formal_notice` — mise en demeure adressée
 - **Objet :** Mise en demeure {{3}} — dossier {{2}}
 - **Texte :** Bonjour {{1}}, nous vous avons adressé la mise en demeure {{3}} concernant le dossier {{2}} : régularisation attendue au plus tard le {{4}}, conformément aux articles 21 et 22 du contrat. Le courrier est disponible dans votre espace : {{lien}}. USA CARS — Dakar.
+
+## Phase 6 — réclamations après l’enlèvement (à valider par USA CARS)
+
+Envoyée quand l’agent met à jour le traitement d’une réclamation (statut ou réponse). Le message invite le client à suivre l’avancement dans son espace ; il ne contient aucun détail sensible ni coordonnée de paiement.
+
+### `claim_update` — réponse à une réclamation
+- **Objet :** Réponse à votre réclamation — dossier {{2}}
+- **Texte :** Bonjour {{1}}, nous avons mis à jour le traitement de votre réclamation pour le dossier {{2}}. Vous pouvez en suivre l’avancement et notre réponse dans votre espace : {{lien}}. USA CARS — Dakar.

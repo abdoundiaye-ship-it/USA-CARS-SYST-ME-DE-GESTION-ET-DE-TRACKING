@@ -17,6 +17,7 @@ import { BillingSection } from "./billing-section";
 import { FinanceSection } from "./finance-section";
 import { ReleaseSection } from "./release-section";
 import { SettlementSection } from "./settlement-section";
+import { ClaimsSection } from "./claims-section";
 import { UnclaimedSection } from "./unclaimed-section";
 import { DuplicateDossierForm, AcceptanceForm, RegenerateContractForm, VehicleForm } from "../dossier-forms";
 import {
@@ -105,6 +106,8 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     { data: unclaimedRows },
     { data: unclaimedLetters },
     { data: unclaimedProcedure },
+    { data: claims },
+    { data: claimPhotos },
   ] = await Promise.all([
     supabase.from("clients").select("*").eq("id", dossier.client_id).maybeSingle(),
     supabase
@@ -163,6 +166,8 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
     supabase.rpc("unclaimed_overview", { p_dossier_id: id }),
     supabase.from("unclaimed_letters").select("*").eq("dossier_id", id).order("issued_at"),
     supabase.from("unclaimed_procedures").select("*").eq("dossier_id", id).maybeSingle(),
+    supabase.from("claims_overview").select("*").eq("dossier_id", id).order("filed_at", { ascending: false }),
+    supabase.from("documents").select("id, claim_id, file_name").eq("dossier_id", id).not("claim_id", "is", null),
   ]);
   const contractAcceptance = acceptances?.find((a) => a.subject === "contract") ?? null;
   const orderAcceptance = acceptances?.find((a) => a.subject === "purchase_order") ?? null;
@@ -369,6 +374,14 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
           canWriteProcedure={canAccess(access.role, SCREEN_ROLES.procedureWrite)}
           today={today}
           staffName={staffName}
+        />
+
+        <ClaimsSection
+          dossierId={dossier.id}
+          collected={dossier.collected_at !== null}
+          claims={claims ?? []}
+          photos={claimPhotos ?? []}
+          canWrite={canWrite}
         />
 
         {/* Confirmations manuelles de la phase 2 (P1) : conservées pour les dossiers concernés, en lecture seule. */}

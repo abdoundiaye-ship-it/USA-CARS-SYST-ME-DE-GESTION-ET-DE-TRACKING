@@ -19,7 +19,8 @@ export type NotificationTemplate =
   | "payment_overdue"
   | "test_message"
   | "unclaimed_reminder"
-  | "formal_notice";
+  | "formal_notice"
+  | "claim_update";
 
 export type NotificationVariables = Record<string, string>;
 
@@ -98,6 +99,12 @@ export const TEMPLATES: Record<NotificationTemplate, TemplateDefinition> = {
     text: (v) =>
       `Bonjour ${v.nom}, nous vous avons adressé la mise en demeure ${v.numero} concernant le dossier ${v.reference} : régularisation attendue au plus tard le ${v.date_limite}, conformément aux articles 21 et 22 du contrat. Le courrier est disponible dans votre espace : ${v.lien}. ${SIGNATURE}`,
     whatsappVariables: ["nom", "reference", "numero", "date_limite", "lien"],
+  },
+  claim_update: {
+    subject: (v) => `Réponse à votre réclamation — dossier ${v.reference}`,
+    text: (v) =>
+      `Bonjour ${v.nom}, nous avons mis à jour le traitement de votre réclamation pour le dossier ${v.reference}. Vous pouvez en suivre l’avancement et notre réponse dans votre espace : ${v.lien}. ${SIGNATURE}`,
+    whatsappVariables: ["nom", "reference", "lien"],
   },
   test_message: {
     subject: () => "Message de test — USA CARS",

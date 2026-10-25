@@ -132,6 +132,8 @@ export type DossierRow = {
   updated_at: string;
   /** R9 : paiement intégral, propriété transférée (renseigné par la base). */
   ownership_transferred_at: string | null;
+  /** Enlèvement du véhicule : date du passage au statut « Enlevé » (renseignée par la base, lot 6a). */
+  collected_at: string | null;
   /** Clôture (Terminé, Archivé, Annulé) : départ des durées de conservation (renseignée par la base, G2-a). */
   closed_at: string | null;
 };
@@ -158,6 +160,7 @@ type DossierEditable = Omit<
   | "price_override_reason"
   | "price_override_by"
   | "cancelled_reason"
+  | "collected_at"
   | "closed_at"
 >;
 
@@ -175,6 +178,36 @@ export type DocumentRow = {
   visible_client: boolean;
   uploaded_by: string | null;
   uploaded_at: string;
+  /** Photo rattachée à une réclamation (lot 6d), le cas échéant. */
+  claim_id: string | null;
+};
+
+export type ClaimSource = "agent" | "client";
+export type ClaimStatus = "open" | "forwarded" | "resolved" | "rejected";
+
+/** Réclamation après l'enlèvement (lot 6d, contrat art. 19). Écriture par fonctions seulement. */
+export type ClaimRow = {
+  id: string;
+  dossier_id: string;
+  client_id: string;
+  source: ClaimSource;
+  reserves: string;
+  filed_by: string | null;
+  filed_at: string;
+  collected_at: string;
+  deadline_at: string;
+  out_of_time: boolean;
+  status: ClaimStatus;
+  response: string | null;
+  responded_by: string | null;
+  responded_at: string | null;
+  created_at: string;
+};
+
+export type ClaimOverviewRow = ClaimRow & {
+  reference: string;
+  client_name: string;
+  photo_count: number;
 };
 
 export type ContractRow = {
@@ -696,7 +729,8 @@ export type NotificationTemplate =
   | "payment_overdue"
   | "test_message"
   | "unclaimed_reminder"
-  | "formal_notice";
+  | "formal_notice"
+  | "claim_update";
 export type NotificationStatus = "queued" | "sending" | "sent" | "simulated" | "failed";
 /** File d'attente et journal des notifications (US-4.5). */
 export type NotificationRow = {
@@ -1077,6 +1111,12 @@ export type Database = {
         Update: never; // via decide_refund / execute_refund
         Relationships: [];
       };
+      claims: {
+        Row: ClaimRow;
+        Insert: never; // via file_claim
+        Update: never; // via respond_to_claim
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -1099,6 +1139,10 @@ export type Database = {
     Views: {
       staff_directory: {
         Row: { id: string; full_name: string; role: AppRole; active: boolean };
+        Relationships: [];
+      };
+      claims_overview: {
+        Row: ClaimOverviewRow;
         Relationships: [];
       };
       settings_current: {
@@ -1253,6 +1297,19 @@ export type Database = {
       report_access_review: { Args: Record<string, never>; Returns: ReportRow[] };
       privacy_notice: { Args: Record<string, never>; Returns: PrivacyNotice | null };
       log_report_export: { Args: { p_report: string; p_filters?: Json }; Returns: undefined };
+      file_claim: { Args: { p_dossier_id: string; p_reserves: string }; Returns: string };
+      respond_to_claim: { Args: { p_claim_id: string; p_status: string; p_response: string }; Returns: undefined };
+      register_claim_photo: {
+        Args: {
+          p_claim_id: string;
+          p_storage_path: string;
+          p_file_name: string;
+          p_mime_type: string;
+          p_size_bytes: number;
+          p_sha256: string;
+        };
+        Returns: string;
+      };
       is_recovery_writer: { Args: Record<string, never>; Returns: boolean };
       issue_unclaimed_letter: {
         Args: { p_dossier_id: string; p_kind: UnclaimedLetterKind; p_cure_days?: number | null };
