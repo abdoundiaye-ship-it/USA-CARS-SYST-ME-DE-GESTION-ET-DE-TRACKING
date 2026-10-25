@@ -322,6 +322,28 @@ insert into public.dossiers (
 );
 update public.dossiers set status = 'collected' where id = 'e0000000-0000-4000-8000-000000000009';
 
+-- Réclamation de démonstration déjà déposée par le client et en cours de traitement (transmise aux tiers), pour
+-- montrer les écrans de suivi (portail) et de traitement (interne). Fictive (DEMO-). Écrite directement comme les
+-- autres pièces « écriture par fonctions », le seed s'exécutant en tant que superutilisateur. Dans le délai de
+-- l'art. 19 (l'enlèvement est daté du jour par le déclencheur `dossiers_set_collected_at`).
+insert into public.claims (
+  dossier_id, client_id, source, reserves, filed_by, filed_at, collected_at, deadline_at, out_of_time,
+  status, response, responded_by, responded_at
+)
+select
+  d.id, d.client_id, 'client',
+  'À la réception, le pare-chocs avant présente une rayure profonde et le phare avant droit est fêlé. Ces dommages '
+    || 'n''étaient pas signalés au départ des États-Unis.',
+  null, d.collected_at, d.collected_at,
+  public.add_business_days(d.collected_at,
+    coalesce((public.setting_value('claim.business_days_after_pickup') #>> '{}')::int, 3)),
+  false, 'forwarded',
+  'Nous avons bien reçu vos réserves et les avons transmises au transporteur ainsi qu''à l''assureur. Nous revenons '
+    || 'vers vous dès leur retour.',
+  'd0000000-0000-4000-8000-000000000002', d.collected_at
+from public.dossiers d
+where d.id = 'e0000000-0000-4000-8000-000000000009';
+
 -- ---------------------------------------------------------------------------
 -- Décisions A4 et A4-bis : la comptabilité et la direction sont soumises à la double authentification. Pour les
 -- essais LOCAUX et les tests, leurs comptes de démonstration ont déjà un facteur TOTP vérifié, de secret connu (à
