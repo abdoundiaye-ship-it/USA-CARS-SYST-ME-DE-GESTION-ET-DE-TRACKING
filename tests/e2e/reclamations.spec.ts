@@ -25,7 +25,8 @@ test("agent : dépose une réclamation pour le client puis la traite", async ({ 
 
   const item = claims.locator("li").filter({ hasText: "Pare-chocs avant rayé" });
   await expect(item).toBeVisible({ timeout: 30_000 });
-  await expect(item.getByText("Reçue", { exact: true })).toBeVisible();
+  // Le statut est aussi une option du formulaire de traitement : on le lit sur le sélecteur, sans ambiguïté.
+  await expect(item.getByLabel("Statut")).toHaveValue("open");
   await expect(item.getByText("Dans le délai", { exact: true })).toBeVisible();
   await expect(item).toContainText("Déposée par USA CARS");
 
@@ -36,7 +37,7 @@ test("agent : dépose une réclamation pour le client puis la traite", async ({ 
     .fill("Un dédommagement a été convenu avec l’assureur ; dossier clos.");
   await item.getByRole("button", { name: "Mettre à jour" }).click();
   await expect(claims.getByText("Réclamation mise à jour ; le client est informé.")).toBeVisible({ timeout: 30_000 });
-  await expect(item.getByText("Résolue", { exact: true })).toBeVisible();
+  await expect(item.getByLabel("Statut")).toHaveValue("resolved");
 
   // US-4.5 : le client est notifié (template « claim_update ») sans détail sensible.
   await page.goto("/notifications");
