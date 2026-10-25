@@ -39,13 +39,13 @@ test("agent : dépose une réclamation pour le client puis la traite", async ({ 
   await expect(claims.getByText("Réclamation mise à jour ; le client est informé.")).toBeVisible({ timeout: 30_000 });
   await expect(item.getByLabel("Statut")).toHaveValue("resolved");
 
-  // US-4.5 : le client est notifié (template « claim_update ») sans détail sensible.
+  // US-4.5 : le client est notifié (template « claim_update ») sur ses deux canaux (e-mail + WhatsApp), sans détail sensible.
   await page.goto("/notifications");
   const rows = page
     .getByRole("row")
     .filter({ hasText: "Réponse à une réclamation" })
     .filter({ hasText: "Mamadou Diallo" });
-  await expect(rows).toHaveCount(1);
+  await expect(rows).toHaveCount(2);
 });
 
 test("client : suit la réponse et dépose sa propre réclamation", async ({ page }) => {
