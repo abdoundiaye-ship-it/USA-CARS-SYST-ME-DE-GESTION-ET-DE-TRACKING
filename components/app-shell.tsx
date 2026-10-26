@@ -114,6 +114,7 @@ export function AppShell({ groups, user, canCreateDossier, signOut, footer, chil
           "bg-sidebar fixed inset-y-0 left-0 z-40 w-72 flex-col gap-2 p-3",
           "lg:sticky lg:top-0 lg:z-auto lg:flex lg:h-dvh lg:w-64 lg:shrink-0",
           open ? "flex" : "hidden",
+          "print:!hidden", // impression : seul le contenu de la page (ex. guide des rôles)
         )}
       >
         <div className="flex items-center gap-2">
@@ -197,7 +198,7 @@ export function AppShell({ groups, user, canCreateDossier, signOut, footer, chil
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="border-border bg-card sticky top-0 z-20 flex min-h-16 items-center gap-2 border-b px-2 sm:px-4 lg:gap-4 lg:px-8">
+        <header className="border-border bg-card sticky top-0 z-20 flex min-h-16 items-center gap-2 border-b px-2 sm:px-4 lg:gap-4 lg:px-8 print:!hidden">
           <button
             type="button"
             onClick={() => setOpen(true)}
