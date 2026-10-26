@@ -12,6 +12,8 @@
 --   compta@exemple.test      Comptabilité (MFA à configurer à la première connexion)
 --   direction@exemple.test   Direction (MFA déjà configurée : secret de démonstration ci-dessous, décision A4-bis)
 --   client@exemple.test      Client (portail en phase 4)
+--   admin2@exemple.test      Second administrateur (MFA déjà configurée, secret de démonstration ci-dessous) : tests
+--                            des écrans administrateur et de la double validation (paramètres P6-4, anonymisation)
 
 select set_config('app.actor_label', 'seed:demo', false);
 
@@ -30,7 +32,8 @@ from (values
   ('d0000000-0000-4000-8000-000000000002'::uuid, 'ops@exemple.test', 'Ousmane Opérations (démo)'),
   ('d0000000-0000-4000-8000-000000000003'::uuid, 'compta@exemple.test', 'Coumba Comptabilité (démo)'),
   ('d0000000-0000-4000-8000-000000000004'::uuid, 'direction@exemple.test', 'Daouda Direction (démo)'),
-  ('d0000000-0000-4000-8000-000000000005'::uuid, 'client@exemple.test', 'Client Démo')
+  ('d0000000-0000-4000-8000-000000000005'::uuid, 'client@exemple.test', 'Client Démo'),
+  ('d0000000-0000-4000-8000-000000000007'::uuid, 'admin2@exemple.test', 'Babacar Admin (démo)')
 ) as u (id, email, full_name);
 
 insert into auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
@@ -45,7 +48,8 @@ insert into public.profiles (id, email, full_name, role) values
   ('d0000000-0000-4000-8000-000000000002', 'ops@exemple.test', 'Ousmane Opérations (démo)', 'ops'),
   ('d0000000-0000-4000-8000-000000000003', 'compta@exemple.test', 'Coumba Comptabilité (démo)', 'accounting'),
   ('d0000000-0000-4000-8000-000000000004', 'direction@exemple.test', 'Daouda Direction (démo)', 'management'),
-  ('d0000000-0000-4000-8000-000000000005', 'client@exemple.test', 'Client Démo', 'client');
+  ('d0000000-0000-4000-8000-000000000005', 'client@exemple.test', 'Client Démo', 'client'),
+  ('d0000000-0000-4000-8000-000000000007', 'admin2@exemple.test', 'Babacar Admin (démo)', 'admin');
 
 -- ---------------------------------------------------------------------------
 -- Phase 2 — clients et dossiers fictifs (DEMO-, @exemple.test, numéros +22177000000x)
@@ -368,11 +372,14 @@ alter table public.dossiers enable trigger dossiers_set_closed_at;
 -- ---------------------------------------------------------------------------
 -- Décisions A4 et A4-bis : la comptabilité et la direction sont soumises à la double authentification. Pour les
 -- essais LOCAUX et les tests, leurs comptes de démonstration ont déjà un facteur TOTP vérifié, de secret connu (à
--- saisir dans une application d'authentification) : JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP. L'administrateur, lui,
--- configure sa double authentification à la première connexion (parcours testé).
+-- saisir dans une application d'authentification) : JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP. L'administrateur
+-- admin@exemple.test, lui, configure sa double authentification à la première connexion (parcours testé) ; le second
+-- administrateur admin2@exemple.test a le même secret de démonstration (tests des écrans administrateur).
 -- ---------------------------------------------------------------------------
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at, secret)
 values ('d1000000-0000-4000-8000-000000000004', 'd0000000-0000-4000-8000-000000000004', 'Démonstration', 'totp',
         'verified', now(), now(), 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'),
        ('d1000000-0000-4000-8000-000000000003', 'd0000000-0000-4000-8000-000000000003', 'Démonstration', 'totp',
+        'verified', now(), now(), 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP'),
+       ('d1000000-0000-4000-8000-000000000007', 'd0000000-0000-4000-8000-000000000007', 'Démonstration', 'totp',
         'verified', now(), now(), 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP');

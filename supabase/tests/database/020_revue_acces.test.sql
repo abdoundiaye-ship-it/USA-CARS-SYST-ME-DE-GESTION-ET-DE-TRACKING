@@ -15,7 +15,8 @@ select is(
   (select mfa_required || '|' || mfa_configured from public.report_access_review() where role = 'accounting' limit 1),
   'true|true', 'Comptabilité : 2FA requise et configurée');
 select is(
-  (select mfa_required || '|' || mfa_configured from public.report_access_review() where role = 'admin' limit 1),
+  (select mfa_required || '|' || mfa_configured from public.report_access_review()
+     where role = 'admin' and email = 'admin@exemple.test'),
   'true|false', 'Administrateur : 2FA requise mais pas encore configurée (signalée)');
 select ok(
   exists (select 1 from public.report_access_review() where role = 'ops' and mfa_required = false),
