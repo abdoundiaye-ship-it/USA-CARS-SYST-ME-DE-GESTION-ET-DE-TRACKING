@@ -126,3 +126,11 @@ Critères d’acceptation :
 - À 10 ans (`data.retention_years_accounting`) : effacement des pièces comptables (devis, factures, reçus, paiements, ajustements, remboursements).
 - Les données du véhicule et les coûts internes (factures fournisseurs) sont toujours conservés.
 - Un seul résumé est écrit dans `audit_log` (portée, nombre de pièces effacées, identité anonymisée ou non), jamais la donnée effacée.
+
+**US-6.5 Validation des paramètres avant la mise en production** (décision P6-4) — L’administrateur consulte le statut de chaque paramètre (filtre « À confirmer / Confirmés / Tous », avancement), vérifie la valeur et la valide ou la modifie.
+Critères d’acceptation :
+- Seul l’administrateur (double authentification validée) valide ou modifie ; les autres rôles consultent ; un client n’y a pas accès (accès refusé testé).
+- « Valider la valeur actuelle » garde la valeur et passe le statut à « Confirmé » ; motif obligatoire ; un paramètre déjà confirmé ne se valide pas deux fois.
+- Une valeur « À compléter » ne peut jamais être confirmée (refus par la base) ; une valeur « non défini » peut l’être, avec un avertissement.
+- Historique : type d’action (valeur initiale, validation, modification), administrateur, date et heure d’enregistrement, date d’effet, motif ; ligne dans `audit_log`.
+- Les dossiers déjà ouverts gardent les valeurs en vigueur à leur ouverture (X7).
