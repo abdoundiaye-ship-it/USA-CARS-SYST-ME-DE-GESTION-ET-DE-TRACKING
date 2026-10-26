@@ -19,7 +19,8 @@ import { nextClientAction } from "@/lib/portal";
 import { clientDossierState } from "@/lib/server/portal-data";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { arrivalLabel, trackingLink } from "@/lib/tracking";
-import { ExtraCostDecisionForm, QuoteDecisionForm } from "../../portal-forms";
+import { CLAIM_STATUS_LABELS, claimStatusTone, deadlineLabel } from "@/lib/claims";
+import { ExtraCostDecisionForm, FileClaimPortalForm, QuoteDecisionForm } from "../../portal-forms";
 
 export const metadata: Metadata = { title: "Mon dossier" };
 
@@ -35,7 +36,7 @@ export default async function EspaceDossierPage({ params }: PageProps<"/espace/d
   const supabase = await createSupabaseServerClient();
   const { data: dossier } = await supabase
     .from("dossiers")
-    .select("id, reference, stage, status, make, model, model_year, vin, lot_number")
+    .select("id, reference, stage, status, make, model, model_year, vin, lot_number, collected_at")
     .eq("id", id)
     .maybeSingle();
   if (!dossier) notFound();
@@ -53,6 +54,8 @@ export default async function EspaceDossierPage({ params }: PageProps<"/espace/d
     { data: rateRows },
     state,
     { data: letters },
+    { data: claims },
+    { data: claimPhotos },
   ] = await Promise.all([
     supabase.from("workflow_statuses").select("stage, code, label"),
     supabase
@@ -95,6 +98,14 @@ export default async function EspaceDossierPage({ params }: PageProps<"/espace/d
       .eq("dossier_id", id)
       .eq("status", "sent")
       .order("sent_at"),
+    // Lot 6d : réclamations du client (les siennes, RLS) et leurs photos.
+    supabase.from("claims_overview").select("*").eq("dossier_id", id).order("filed_at", { ascending: false }),
+    supabase
+      .from("documents")
+      .select("id, claim_id, file_name")
+      .eq("dossier_id", id)
+      .not("claim_id", "is", null)
+      .eq("visible_client", true),
   ]);
 
   const now = new Date();
@@ -383,6 +394,58 @@ export default async function EspaceDossierPage({ params }: PageProps<"/espace/d
             </ul>
           )}
         </Card>
+
+        {(dossier.collected_at !== null || (claims?.length ?? 0) > 0) && (
+          <Card className="flex flex-col gap-4">
+            <div>
+              <h2 className="font-semibold">Réclamations</h2>
+              <p className="text-muted mt-1 text-sm">
+                Un problème constaté à l’enlèvement du véhicule ? Signalez-le rapidement (contrat art. 19). Vous pouvez
+                joindre une photo.
+              </p>
+            </div>
+            {(claims?.length ?? 0) > 0 && (
+              <ul className="flex flex-col gap-3">
+                {claims!.map((c) => {
+                  const cp = (claimPhotos ?? []).filter((p) => p.claim_id === c.id);
+                  return (
+                    <li key={c.id} className="border-border rounded-lg border p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone={claimStatusTone(c.status)}>{CLAIM_STATUS_LABELS[c.status]}</Badge>
+                        <Badge tone={c.out_of_time ? "danger" : "success"}>{deadlineLabel(c.out_of_time)}</Badge>
+                        <span className="text-muted text-xs">Déposée le {formatDate(c.filed_at)}</span>
+                      </div>
+                      <p className="mt-2 text-sm whitespace-pre-line">{c.reserves}</p>
+                      {cp.length > 0 && (
+                        <ul className="mt-2 flex flex-wrap gap-2 text-sm">
+                          {cp.map((p) => (
+                            <li key={p.id}>
+                              <a href={documentHref(p.id)} className="text-primary underline underline-offset-2">
+                                {p.file_name}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {c.response && (
+                        <div className="bg-background mt-2 rounded-md p-3 text-sm">
+                          <p className="text-muted text-xs">Réponse de USA CARS</p>
+                          <p className="mt-1 whitespace-pre-line">{c.response}</p>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {dossier.collected_at !== null && (
+              <div className="border-border border-t pt-4">
+                <h3 className="mb-2 text-sm font-semibold">Nouvelle réclamation</h3>
+                <FileClaimPortalForm dossierId={dossier.id} />
+              </div>
+            )}
+          </Card>
+        )}
 
         <Card className="flex flex-col gap-3">
           <h2 className="font-semibold">Instructions de paiement</h2>

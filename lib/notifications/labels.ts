@@ -14,6 +14,7 @@ export const NOTIFICATION_TEMPLATE_LABELS: Record<NotificationTemplate, string> 
   test_message: "Message de test",
   unclaimed_reminder: "Lettre de relance adressée",
   formal_notice: "Mise en demeure adressée",
+  claim_update: "Réponse à une réclamation",
 };
 
 export const NOTIFICATION_STATUS_LABELS: Record<NotificationStatus, string> = {

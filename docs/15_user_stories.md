@@ -114,3 +114,5 @@ Identifiants `US-<phase>.<n>`. Chaque critère doit être couvert par un test (u
 
 **US-6.1 Rapports** — Dossiers actifs, retards, créances par client, délais moyens achat → Dakar, marge par véhicule (direction), exports CSV/Excel selon droits.
 **US-6.2 Production** — Sauvegardes vérifiées (restauration testée), revue des accès, tests de sécurité, documentation utilisateur, formation.
+
+**US-6.3 Réclamations après l’enlèvement** (contrat art. 19) — Après l’enlèvement du véhicule, l’agent ou le client dépose une réclamation (réserves, photos facultatives) dans le délai `claim.business_days_after_pickup` jours ouvrés ; au-delà elle est marquée « hors délai » (recours contre les tiers compromis). USA CARS la traite (transmise, résolue ou rejetée) avec une réponse ; le client en suit l’avancement dans son espace et reçoit la notification `claim_update`.
