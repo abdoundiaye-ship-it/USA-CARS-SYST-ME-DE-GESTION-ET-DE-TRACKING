@@ -20,4 +20,22 @@
     "ADMIN_EMAIL": "abdou.ndiaye@icloud.com",
     "NOTIFICATIONS_MODE": "simulated",
   },
+  // Environnement de FORMATION (décision P6-2) : copie de l’application pointant vers un
+  // projet Supabase distinct (données fictives uniquement, jamais la production). Ne s’active
+  // qu’avec « --env formation » ; le déploiement de production (sans --env) n’est pas touché.
+  // NEXT_PUBLIC_APP_ENV reste « local » : l’URL Supabase n’est pas la production, et le garde-fou
+  // anti-production (lib/env.ts) reste ainsi actif pour cet environnement.
+  // Clés (anon, service_role) saisies en type « Secret » sur le worker usa-cars-formation.
+  "env": {
+    "formation": {
+      "name": "usa-cars-formation",
+      "vars": {
+        "NEXT_PUBLIC_APP_ENV": "local",
+        "NEXT_PUBLIC_SUPABASE_URL": "https://guhihvwkjefpafmskqsc.supabase.co",
+        "APP_URL": "https://usa-cars-formation.usacarsusasen.workers.dev",
+        "ADMIN_EMAIL": "abdou.ndiaye@icloud.com",
+        "NOTIFICATIONS_MODE": "simulated",
+      },
+    },
+  },
 }

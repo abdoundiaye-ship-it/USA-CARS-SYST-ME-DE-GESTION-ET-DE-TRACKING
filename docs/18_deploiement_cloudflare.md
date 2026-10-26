@@ -37,6 +37,30 @@ Hébergement de test : **Cloudflare Workers + adaptateur OpenNext**, offre gratu
 8. Avant la première mise en ligne : migrations poussées en production (`supabase db push`, après sauvegarde et accord), puis `pnpm admin:create --production --lien` (✅ fait le 19/10/2026 : première connexion de l’administrateur réussie).
 9. **Fonctions Supabase** (à chaque modification de `supabase/functions/`, après accord de USA CARS) : `npx supabase functions deploy generate-document --project-ref hzgkhtaefpbqztwagwph`, lancé par USA CARS depuis son terminal. Sans cette étape, l’ouverture d’un dossier en production ne génère pas le contrat (le dossier reste ouvert ; bouton « Générer le contrat » sur sa fiche).
 
+## Environnement de formation (décision P6-2)
+
+Copie de l’application destinée à la formation, pointant vers un **projet Supabase distinct** (`guhihvwkjefpafmskqsc`), avec des **données fictives uniquement** et jamais la production. 2FA désactivée (choix retenu pour la formation). Worker séparé `usa-cars-formation`, URL `https://usa-cars-formation.usacarsusasen.workers.dev`.
+
+Comme Next.js fige les `NEXT_PUBLIC_*` au build, la formation nécessite **son propre build** (avec l’URL + la clé `anon` de la formation). Mise en place via un **second Workers Build** connecté au même dépôt (runners Linux, donc pas de problème de liens symboliques Windows) :
+
+1. Workers & Pages → Créer → Importer un dépôt Git → même dépôt, branche `main`.
+2. Paramètres du build :
+   - Nom du Worker : `usa-cars-formation` (identique à `env.formation.name` dans `wrangler.jsonc`)
+   - Commande de build : `pnpm cf:build`
+   - Commande de déploiement : `pnpm exec opennextjs-cloudflare deploy -- --env formation`
+   - Branche de production : `main`
+3. **Variables de build** (figées par Next.js) :
+   - `NEXT_PUBLIC_APP_ENV` = `local`
+   - `NEXT_PUBLIC_SUPABASE_URL` = `https://guhihvwkjefpafmskqsc.supabase.co`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = clé `anon` du **projet de formation**
+4. **Secrets d’exécution** (worker `usa-cars-formation` → Variables et secrets, type **Secret**) :
+   - `SUPABASE_SERVICE_ROLE_KEY` = clé `service_role` du projet de formation
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = clé `anon` du projet de formation (même valeur qu’au build)
+5. Désactiver les déploiements de prévisualisation des branches.
+6. Supabase (projet de formation) → Authentication → URL Configuration : `Site URL` = `https://usa-cars-formation.usacarsusasen.workers.dev` ; ajouter `…/auth/confirm` aux redirections.
+
+Les variables non secrètes de la formation (`NEXT_PUBLIC_APP_ENV`, `NEXT_PUBLIC_SUPABASE_URL`, `APP_URL`, `ADMIN_EMAIL`, `NOTIFICATIONS_MODE`) sont dans le bloc `env.formation.vars` de `wrangler.jsonc`. Le déploiement de production (sans `--env`) n’est pas affecté. Les e-mails/WhatsApp restent **simulés** en formation (`NOTIFICATIONS_MODE = simulated`, aucune clé fournisseur).
+
 ## Commandes locales
 
 | Commande | Rôle |
