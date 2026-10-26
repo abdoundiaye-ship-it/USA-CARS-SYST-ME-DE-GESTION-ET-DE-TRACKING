@@ -77,6 +77,7 @@ Format pour ajouter une décision : `ID — date — décision`.
 | P6-1 | Format des exports | **21/10/2026** : fichiers **Excel (.xlsx)**, générés par une fonction Supabase (limite de calcul de Cloudflare gratuit). |
 | P6-2 | Environnement de formation | **21/10/2026** (valeur par défaut) : second projet Supabase gratuit et copie de l’application réservés à la formation, avec les données fictives (jamais en production) ; projet créé par USA CARS. |
 | P6-3 | Réclamations après l’enlèvement | **21/10/2026** : ajoutées à la phase 6 (lot 6d) — saisie par l’agent ou le client, réserves et photos, délai `claim.business_days_after_pickup` jours ouvrés (au-delà : « hors délai »), suivi visible du client (`docs/12`). |
+| P6-4 | Validation des paramètres avant la mise en production | **26/10/2026** : l’administrateur vérifie et valide les paramètres « à confirmer » (27 à cette date) depuis l’écran Paramètres — filtre par statut, avancement, bouton « Valider la valeur actuelle » ; **un paramètre à la fois** (pas de validation en lot), motif obligatoire ; une valeur **« non défini »** peut être confirmée (choix volontaire, signalé) ; une valeur **« À compléter »** ne l’est jamais (garde-fou en base). Chaque validation est une nouvelle version datée : administrateur, date et heure, ligne d’audit. |
 
 ---
 

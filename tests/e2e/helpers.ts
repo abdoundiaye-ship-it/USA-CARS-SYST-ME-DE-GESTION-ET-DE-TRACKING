@@ -38,6 +38,8 @@ export async function freshTotp(secretBase32: string): Promise<string> {
 export const DEMO_TOTP_SECRETS: Record<string, string> = {
   "compta@exemple.test": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
   "direction@exemple.test": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
+  // Second administrateur (écrans administrateur : validation des paramètres P6-4, double validation).
+  "admin2@exemple.test": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
 };
 
 /** Session enregistrée par `global-setup.ts` pour un compte à facteur TOTP de démonstration. */

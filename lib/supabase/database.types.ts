@@ -1335,6 +1335,7 @@ export type Database = {
       cancel_dossier_erasure: { Args: { p_id: string; p_reason: string }; Returns: undefined };
       dossier_erasure_file_targets: { Args: { p_id: string }; Returns: string[] };
       execute_dossier_erasure: { Args: { p_id: string }; Returns: undefined };
+      confirm_setting: { Args: { p_key: string; p_reason: string }; Returns: undefined };
       register_claim_photo: {
         Args: {
           p_claim_id: string;

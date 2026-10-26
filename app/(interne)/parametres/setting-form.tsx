@@ -3,10 +3,69 @@
 import { useActionState } from "react";
 import { FormMessage } from "@/components/form-message";
 import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/feedback";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { initialFormState } from "@/lib/forms";
 import { isNullable, parseSettingType } from "@/lib/settings/types";
-import { createSettingVersion } from "./actions";
+import { confirmSetting, createSettingVersion } from "./actions";
+
+/**
+ * Décision P6-4 : valider la valeur en vigueur (statut « confirmé ») sans la modifier. Refusé pour une valeur
+ * « À compléter » ; une valeur non définie est confirmable, mais signalée.
+ */
+export function ConfirmSettingForm({
+  settingKey,
+  displayValue,
+  placeholder,
+  undefinedValue,
+}: {
+  settingKey: string;
+  displayValue: string;
+  placeholder: boolean;
+  undefinedValue: boolean;
+}) {
+  const [state, action, pending] = useActionState(confirmSetting, initialFormState);
+
+  if (placeholder) {
+    return (
+      <Alert tone="warning">
+        Valeur provisoire « À compléter » : saisissez d’abord la valeur réelle dans « Modifier la valeur » ci-dessous,
+        avec le statut « Confirmé ».
+      </Alert>
+    );
+  }
+
+  return (
+    <form action={action} className="flex flex-col gap-4" noValidate>
+      <FormMessage state={state} />
+      <input type="hidden" name="key" value={settingKey} />
+      <p className="text-sm">
+        Valeur vérifiée : <strong className="amount">{displayValue}</strong>
+      </p>
+      {undefinedValue && (
+        <Alert tone="warning">
+          Ce paramètre est « non défini ». Le valider confirme qu’il reste volontairement vide.
+        </Alert>
+      )}
+      <Field id="confirm-reason" label="Motif de la validation" error={state.fieldErrors?.reason}>
+        {(aria) => (
+          <Textarea
+            {...aria}
+            name="reason"
+            required
+            maxLength={500}
+            defaultValue="Valeur vérifiée et validée par USA CARS avant la mise en production."
+          />
+        )}
+      </Field>
+      <div>
+        <Button type="submit" pending={pending}>
+          {pending ? "Validation…" : "Valider la valeur actuelle"}
+        </Button>
+      </div>
+    </form>
+  );
+}
 
 interface Props {
   settingKey: string;
