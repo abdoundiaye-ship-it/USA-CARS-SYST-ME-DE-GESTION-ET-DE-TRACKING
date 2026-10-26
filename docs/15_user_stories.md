@@ -116,3 +116,13 @@ Identifiants `US-<phase>.<n>`. Chaque critère doit être couvert par un test (u
 **US-6.2 Production** — Sauvegardes vérifiées (restauration testée), revue des accès, tests de sécurité, documentation utilisateur, formation.
 
 **US-6.3 Réclamations après l’enlèvement** (contrat art. 19) — Après l’enlèvement du véhicule, l’agent ou le client dépose une réclamation (réserves, photos facultatives) dans le délai `claim.business_days_after_pickup` jours ouvrés ; au-delà elle est marquée « hors délai » (recours contre les tiers compromis). USA CARS la traite (transmise, résolue ou rejetée) avec une réponse ; le client en suit l’avancement dans son espace et reçoit la notification `claim_update`.
+
+**US-6.4 Anonymisation d’un dossier** (contrat art. 33, décisions G2-c/G2-d) — Pour un dossier listé par le rapport « Conservation des données », l’administrateur demande l’anonymisation depuis la fiche (motif obligatoire) ; une **autre** personne (administrateur) l’approuve ; l’exécution est confirmée (case « irréversible »).
+Critères d’acceptation :
+- Seul l’administrateur voit la section et agit ; les autres rôles et le client n’y ont pas accès (accès refusé testé).
+- Demande refusée si aucune durée de conservation n’est atteinte, ou si une demande est déjà en cours.
+- Le demandeur ne peut pas approuver sa propre demande (double validation).
+- À 5 ans (`data.retention_years`) : effacement de l’identité du client (seulement s’il n’a plus d’autre dossier en conservation), des pièces non comptables (fichiers supprimés du stockage), du contrat et des acceptations, de la chronologie, des notifications, de la remise des documents et de la procédure « non réclamé » ; les pièces comptables sont conservées.
+- À 10 ans (`data.retention_years_accounting`) : effacement des pièces comptables (devis, factures, reçus, paiements, ajustements, remboursements).
+- Les données du véhicule et les coûts internes (factures fournisseurs) sont toujours conservés.
+- Un seul résumé est écrit dans `audit_log` (portée, nombre de pièces effacées, identité anonymisée ou non), jamais la donnée effacée.
