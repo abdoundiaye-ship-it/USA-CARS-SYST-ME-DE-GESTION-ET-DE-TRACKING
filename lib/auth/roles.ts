@@ -56,6 +56,10 @@ export const SCREEN_ROLES = {
   procedureWrite: ["admin", "management"],
   // Phase 6 — rapports (docs/12) : chaque rôle interne voit ses rapports ; la base vérifie chaque rapport.
   reports: INTERNAL_ROLES,
+  // Phase 6 — anonymisation des dossiers (G2-c/G2-d) : demande, approbation et exécution par l'administrateur
+  // uniquement, avec double validation ; la direction consulte l'historique.
+  erasures: ["admin", "management"],
+  erasuresWrite: ["admin"],
 } as const satisfies Record<string, readonly AppRole[]>;
 
 export function canAccess(role: AppRole | null | undefined, allowed: readonly AppRole[]): boolean {
