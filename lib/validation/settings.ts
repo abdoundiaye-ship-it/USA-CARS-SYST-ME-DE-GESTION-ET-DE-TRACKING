@@ -21,3 +21,13 @@ export const settingVersionSchema = z.object({
     .min(3, "Indiquez le motif de la modification (il sera conservé dans l’historique).")
     .max(500, "Le motif ne doit pas dépasser 500 caractères."),
 });
+
+/** Validation de la valeur en vigueur d'un paramètre « à confirmer » (décision P6-4). */
+export const confirmSettingSchema = z.object({
+  key: z.string().regex(/^[a-z0-9_]+(\.[a-z0-9_]+)+$/, "Paramètre inconnu."),
+  reason: z
+    .string()
+    .trim()
+    .min(3, "Indiquez le motif de la validation (il sera conservé dans l’historique).")
+    .max(500, "Le motif ne doit pas dépasser 500 caractères."),
+});

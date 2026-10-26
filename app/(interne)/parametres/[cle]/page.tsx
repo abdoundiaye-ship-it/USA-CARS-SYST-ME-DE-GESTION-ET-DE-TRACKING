@@ -4,12 +4,18 @@ import { notFound } from "next/navigation";
 import { Alert, Badge, Card, PageHeader } from "@/components/ui/feedback";
 import { Table, Td, Th } from "@/components/ui/table";
 import { requireInternal } from "@/lib/auth/access";
-import { canAccess, SCREEN_ROLES } from "@/lib/auth/roles";
+import { SCREEN_ROLES } from "@/lib/auth/roles";
 import { formatDateTime } from "@/lib/format";
+import {
+  isPlaceholderValue,
+  isUndefinedValue,
+  SETTING_ACTION_LABELS,
+  settingActionKind,
+} from "@/lib/settings/confirmation";
 import { groupLabel, settingLabel } from "@/lib/settings/labels";
 import { formatSettingValue, settingValueToInput } from "@/lib/settings/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { SettingForm } from "../setting-form";
+import { ConfirmSettingForm, SettingForm } from "../setting-form";
 
 type Version = { effective_from: string };
 
@@ -26,9 +32,10 @@ export async function generateMetadata({ params }: PageProps<"/parametres/[cle]"
   return { title: settingLabel(decodeURIComponent(cle)) };
 }
 
-export default async function ParametrePage({ params }: PageProps<"/parametres/[cle]">) {
+export default async function ParametrePage({ params, searchParams }: PageProps<"/parametres/[cle]">) {
   const access = await requireInternal(SCREEN_ROLES.settings);
   const key = decodeURIComponent((await params).cle);
+  const justConfirmed = (await searchParams).valide === "1";
 
   const supabase = await createSupabaseServerClient();
   const { data: versions, error } = await supabase
@@ -43,13 +50,15 @@ export default async function ParametrePage({ params }: PageProps<"/parametres/[
 
   const { current, future: futureVersions } = classifyVersions(versions);
 
-  // Noms des auteurs : visibles pour les rôles qui lisent les profils (admin, direction).
+  // Traçabilité (P6-4) : nom de l'administrateur auteur de chaque version, lisible par toute l'équipe interne.
   const authorIds = [...new Set(versions.map((v) => v.created_by).filter((id): id is string => !!id))];
   const authors = new Map<string, string>();
-  if (authorIds.length && canAccess(access.role, SCREEN_ROLES.users)) {
-    const { data } = await supabase.from("profiles").select("id, full_name").in("id", authorIds);
+  if (authorIds.length) {
+    const { data } = await supabase.from("staff_directory").select("id, full_name").in("id", authorIds);
     for (const p of data ?? []) authors.set(p.id, p.full_name);
   }
+  const authorName = (id: string | null) =>
+    id ? (authors.get(id) ?? "Utilisateur interne") : "Chargement initial (migration)";
 
   return (
     <>
@@ -59,6 +68,13 @@ export default async function ParametrePage({ params }: PageProps<"/parametres/[
         </Link>
       </p>
       <PageHeader title={settingLabel(key)} description={`${groupLabel(key)} · ${key}`} />
+
+      {justConfirmed && current.status === "confirme" && (
+        <Alert tone="success" className="mb-6">
+          Paramètre validé le {formatDateTime(current.created_at)} par {authorName(current.created_by)}. La validation
+          est enregistrée dans l’historique ci-dessous.
+        </Alert>
+      )}
 
       <Card className="mb-6">
         <dl className="grid gap-3 text-sm sm:grid-cols-3">
@@ -77,15 +93,33 @@ export default async function ParametrePage({ params }: PageProps<"/parametres/[
             </dd>
           </div>
           <div>
-            <dt className="text-muted">Source</dt>
-            <dd>{current.source ?? "—"}</dd>
+            <dt className="text-muted">Version en vigueur enregistrée le</dt>
+            <dd>
+              {formatDateTime(current.created_at)} · {authorName(current.created_by)}
+            </dd>
           </div>
         </dl>
       </Card>
 
+      {access.role === "admin" && current.status === "a_confirmer" && (
+        <Card className="mb-6">
+          <h2 className="mb-1 font-semibold">Valider la valeur actuelle</h2>
+          <p className="text-muted mb-4 text-sm">
+            Vérifiez la valeur, puis validez-la : elle passe au statut « Confirmé ». La validation est enregistrée avec
+            votre nom, la date et l’heure.
+          </p>
+          <ConfirmSettingForm
+            settingKey={key}
+            displayValue={formatSettingValue(current.value_type, current.value)}
+            placeholder={isPlaceholderValue(current.value)}
+            undefinedValue={isUndefinedValue(current.value)}
+          />
+        </Card>
+      )}
+
       {access.role === "admin" && (
         <Card className="mb-6">
-          <h2 className="mb-4 font-semibold">Nouvelle version</h2>
+          <h2 className="mb-4 font-semibold">Modifier la valeur</h2>
           <SettingForm
             settingKey={key}
             valueType={current.value_type}
@@ -99,18 +133,30 @@ export default async function ParametrePage({ params }: PageProps<"/parametres/[
       <Table caption={`Historique de ${settingLabel(key)}`}>
         <thead>
           <tr>
-            <Th>Date d’effet</Th>
+            <Th>Action</Th>
+            <Th>Enregistrée le</Th>
+            <Th>Par</Th>
             <Th>Valeur</Th>
             <Th>Statut</Th>
+            <Th>Date d’effet</Th>
             <Th>Motif / source</Th>
-            <Th>Auteur</Th>
           </tr>
         </thead>
         <tbody>
-          {versions.map((v) => {
+          {versions.map((v, i) => {
             const future = futureVersions.has(v);
+            const kind = settingActionKind(v, versions[i + 1] ?? null);
             return (
               <tr key={v.effective_from}>
+                <Td>
+                  <Badge tone={kind === "validation" ? "success" : kind === "modification" ? "info" : "neutral"}>
+                    {SETTING_ACTION_LABELS[kind]}
+                  </Badge>
+                </Td>
+                <Td className="whitespace-nowrap">{formatDateTime(v.created_at)}</Td>
+                <Td>{authorName(v.created_by)}</Td>
+                <Td className="amount">{formatSettingValue(v.value_type, v.value)}</Td>
+                <Td>{v.status === "a_confirmer" ? "À confirmer" : "Confirmé"}</Td>
                 <Td className="whitespace-nowrap">
                   {formatDateTime(v.effective_from)}
                   {future && (
@@ -124,10 +170,7 @@ export default async function ParametrePage({ params }: PageProps<"/parametres/[
                     </Badge>
                   )}
                 </Td>
-                <Td className="amount">{formatSettingValue(v.value_type, v.value)}</Td>
-                <Td>{v.status === "a_confirmer" ? "À confirmer" : "Confirmé"}</Td>
                 <Td>{v.reason ?? v.source ?? "—"}</Td>
-                <Td>{v.created_by ? (authors.get(v.created_by) ?? "Utilisateur interne") : "Chargement initial"}</Td>
               </tr>
             );
           })}

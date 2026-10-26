@@ -1,17 +1,26 @@
 "use server";
 
+import type { Route } from "next";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { getInternalAccess } from "@/lib/auth/access";
 import { SCREEN_ROLES } from "@/lib/auth/roles";
 import { failure, formObject, invalid, success, type FormState } from "@/lib/forms";
 import { parseSettingInput } from "@/lib/settings/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { parseEffectiveFrom, settingVersionSchema } from "@/lib/validation/settings";
+import { confirmSettingSchema, parseEffectiveFrom, settingVersionSchema } from "@/lib/validation/settings";
+
+const ADMIN_ONLY = "Action réservée à l’administrateur (avec double authentification validée).";
+
+function revalidateSetting(key: string) {
+  revalidatePath("/parametres");
+  revalidatePath(`/parametres/${encodeURIComponent(key)}`);
+}
 
 /** US-1.3 : nouvelle version datée d’un paramètre (l’ancienne reste consultable). */
 export async function createSettingVersion(_previous: FormState, formData: FormData): Promise<FormState> {
   const access = await getInternalAccess(SCREEN_ROLES.settingsWrite);
-  if (!access) return failure("Action réservée à l’administrateur (avec double authentification validée).");
+  if (!access) return failure(ADMIN_ONLY);
 
   const parsed = settingVersionSchema.safeParse(formObject(formData));
   if (!parsed.success) return invalid(parsed.error);
@@ -50,9 +59,31 @@ export async function createSettingVersion(_previous: FormState, formData: FormD
   });
   if (error?.code === "23505")
     return failure("Une version existe déjà à cette date d’effet. Choisissez une autre date.");
+  // Garde-fou de la base : une valeur « À compléter » ne peut pas être confirmée (P6-4).
+  if (error?.code === "22023") return failure(error.message);
   if (error) return failure("La nouvelle version n’a pas pu être enregistrée.");
 
-  revalidatePath("/parametres");
-  revalidatePath(`/parametres/${encodeURIComponent(key)}`);
+  revalidateSetting(key);
   return success("Nouvelle version enregistrée. Elle apparaît dans l’historique ci-dessous.");
+}
+
+/**
+ * Décision P6-4 : valide la valeur en vigueur d'un paramètre « à confirmer » (même valeur, statut « confirmé »).
+ * La nouvelle version garde l'administrateur et l'heure de la validation ; la base refuse « À compléter ».
+ */
+export async function confirmSetting(_previous: FormState, formData: FormData): Promise<FormState> {
+  if (!(await getInternalAccess(SCREEN_ROLES.settingsWrite))) return failure(ADMIN_ONLY);
+
+  const parsed = confirmSettingSchema.safeParse(formObject(formData));
+  if (!parsed.success) return invalid(parsed.error);
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("confirm_setting", { p_key: parsed.data.key, p_reason: parsed.data.reason });
+  if (error?.code === "22023") return failure(error.message);
+  if (error?.code === "42501") return failure(ADMIN_ONLY);
+  if (error) return failure("La validation n’a pas pu être enregistrée.");
+
+  revalidateSetting(parsed.data.key);
+  // Le bloc de validation disparaît une fois le paramètre confirmé : le message est affiché par la fiche.
+  redirect(`/parametres/${encodeURIComponent(parsed.data.key)}?valide=1` as Route);
 }
