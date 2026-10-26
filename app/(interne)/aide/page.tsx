@@ -13,10 +13,11 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import type { Metadata } from "next";
+import type { Metadata, Route } from "next";
+import Link from "next/link";
 import { Card, PageHeader } from "@/components/ui/feedback";
 import { requireInternal } from "@/lib/auth/access";
-import { ROLE_LABELS, SCREEN_ROLES } from "@/lib/auth/roles";
+import { canAccess, ROLE_LABELS, SCREEN_ROLES } from "@/lib/auth/roles";
 
 export const metadata: Metadata = { title: "Aide" };
 
@@ -103,6 +104,20 @@ export default async function AidePage() {
           votre rôle ; chaque action importante est enregistrée.
         </p>
       </Card>
+      {canAccess(access.role, SCREEN_ROLES.rolesGuide) && (
+        <Card className="border-primary mb-6 flex items-start gap-3">
+          <ShieldCheck aria-hidden className="text-primary mt-0.5 size-5 shrink-0" />
+          <div className="flex flex-col gap-1">
+            <Link href={"/aide/roles" as Route} className="text-primary font-bold underline underline-offset-2">
+              Rôles et droits d’accès
+            </Link>
+            <p className="text-muted text-sm">
+              Guide complet pour gérer les comptes : chaque profil, ses modules et ses droits (consulter, créer,
+              modifier, valider, supprimer), ses restrictions, les validations croisées et le processus métier.
+            </p>
+          </div>
+        </Card>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         {topics.map(({ icon: Icon, title, body }) => (
           <Card key={title} className="flex flex-col gap-2">

@@ -1,4 +1,5 @@
-import type { Metadata } from "next";
+import type { Metadata, Route } from "next";
+import Link from "next/link";
 import { Alert, Badge, Card, EmptyState, PageHeader } from "@/components/ui/feedback";
 import { Table, Td, Th } from "@/components/ui/table";
 import { requireInternal } from "@/lib/auth/access";
@@ -30,7 +31,11 @@ export default async function UtilisateursPage() {
             ? "Invitez les membres de l’équipe et attribuez-leur un rôle. Chaque modification est journalisée."
             : "Liste des comptes (consultation)."
         }
-      />
+      >
+        <Link href={"/aide/roles" as Route} className="text-primary text-sm font-medium underline">
+          Rôles et droits d’accès →
+        </Link>
+      </PageHeader>
 
       {isAdmin && (
         <Card className="mb-6">

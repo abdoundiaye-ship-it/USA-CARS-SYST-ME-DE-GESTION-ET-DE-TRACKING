@@ -134,3 +134,10 @@ Critères d’acceptation :
 - Une valeur « À compléter » ne peut jamais être confirmée (refus par la base) ; une valeur « non défini » peut l’être, avec un avertissement.
 - Historique : type d’action (valeur initiale, validation, modification), administrateur, date et heure d’enregistrement, date d’effet, motif ; ligne dans `audit_log`.
 - Les dossiers déjà ouverts gardent les valeurs en vigueur à leur ouverture (X7).
+
+**US-6.6 Guide des rôles et droits d’accès** (décision P6-5) — L’administrateur et la direction consultent une rubrique de l’Aide décrivant chaque profil et le circuit de validation, pour attribuer les rôles et contrôler les accès.
+Critères d’acceptation :
+- Pour chaque profil (Administrateur, Direction, Comptabilité, Agent opérations, Client) : rôle et responsabilités, modules accessibles, droits (consulter, créer, modifier, valider, supprimer), restrictions et limites, exigence de double authentification (valeur en vigueur du paramètre).
+- Matrice des droits par module, rapports par rôle, validations croisées, processus métier étape par étape, bonnes pratiques.
+- Réservée à l’administrateur et à la direction (accès refusé testé pour les autres rôles) ; accessible depuis l’Aide et l’écran Utilisateurs ; imprimable ; utilisable à 400 px.
+- Les droits affichés proviennent des droits appliqués par l’application ; un droit non documenté fait échouer les tests.
