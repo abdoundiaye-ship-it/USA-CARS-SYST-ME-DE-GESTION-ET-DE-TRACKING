@@ -23,7 +23,7 @@ test.describe("administrateur", () => {
     await page.getByRole("link", { name: "ETA modifiée signalée pendant (jours)" }).click();
     await expect(page.getByRole("heading", { name: "Valider la valeur actuelle" })).toBeVisible();
     await page.getByRole("button", { name: "Valider la valeur actuelle" }).click();
-    await expect(page.getByText("Paramètre validé.", { exact: false })).toBeVisible();
+    await expect(page.getByText(/Paramètre validé le .+ par Babacar Admin \(démo\)/)).toBeVisible();
 
     const latest = page.getByRole("row").filter({ hasText: "Validation" }).first();
     await expect(latest).toContainText("Babacar Admin (démo)");
