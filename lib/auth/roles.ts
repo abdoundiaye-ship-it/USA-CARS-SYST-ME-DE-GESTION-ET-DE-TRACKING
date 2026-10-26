@@ -60,6 +60,8 @@ export const SCREEN_ROLES = {
   // uniquement, avec double validation ; la direction consulte l'historique.
   erasures: ["admin", "management"],
   erasuresWrite: ["admin"],
+  // Aide « Rôles et droits d'accès » (décision P6-5) : documentation de gouvernance pour qui gère les accès.
+  rolesGuide: ["admin", "management"],
 } as const satisfies Record<string, readonly AppRole[]>;
 
 export function canAccess(role: AppRole | null | undefined, allowed: readonly AppRole[]): boolean {
