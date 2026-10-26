@@ -18,6 +18,7 @@ import { FinanceSection } from "./finance-section";
 import { ReleaseSection } from "./release-section";
 import { SettlementSection } from "./settlement-section";
 import { ClaimsSection } from "./claims-section";
+import { ErasureSection } from "./erasure-section";
 import { UnclaimedSection } from "./unclaimed-section";
 import { DuplicateDossierForm, AcceptanceForm, RegenerateContractForm, VehicleForm } from "../dossier-forms";
 import {
@@ -179,6 +180,14 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
   const today = new Date().toISOString().slice(0, 10); // Africa/Dakar = UTC+0
   const ageCheck = (ageRows?.[0] ?? null) as AgeCheck | null;
   const currentContainer = containerAssignments?.find((a) => a.removed_at === null)?.containers ?? null;
+
+  // Anonymisation (G2-c/G2-d) : éligibilité et historique, réservés à l'administrateur.
+  const erasure = isAdmin
+    ? await Promise.all([
+        supabase.rpc("dossier_erasure_scope", { p_dossier_id: id }),
+        supabase.from("dossier_erasures").select("*").eq("dossier_id", id).order("requested_at", { ascending: false }),
+      ])
+    : null;
 
   return (
     <>
@@ -425,6 +434,16 @@ export default async function DossierPage({ params, searchParams }: PageProps<"/
           documents={documents ?? []}
           canEdit={canAccess(access.role, SCREEN_ROLES.documentsWrite)}
         />
+
+        {isAdmin && (
+          <ErasureSection
+            dossierId={dossier.id}
+            scope={(erasure?.[0]?.data as string | null) ?? null}
+            erasures={erasure?.[1]?.data ?? []}
+            currentUserId={access.userId}
+            staffName={staffName}
+          />
+        )}
 
         <Card className="flex flex-col gap-4">
           <h2 className="font-semibold">Chronologie</h2>

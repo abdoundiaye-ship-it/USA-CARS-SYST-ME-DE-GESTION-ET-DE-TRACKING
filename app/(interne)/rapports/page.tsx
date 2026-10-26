@@ -116,7 +116,8 @@ export default async function RapportsPage({ searchParams }: PageProps<"/rapport
             <Alert tone="info">
               Durées fixées dans les paramètres « Données personnelles » (point de départ : la clôture du dossier). Un
               dossier dont le client a d’autres dossiers conservés ne permet pas d’effacer l’identité du client. La
-              purge n’est jamais automatique : elle se fait à la main, après accord de la direction.
+              purge n’est jamais automatique : l’administrateur demande l’anonymisation depuis la fiche du dossier
+              (section « Anonymisation des données »), puis une autre personne l’approuve avant l’exécution.
             </Alert>
           )}
           {key === "margins" && (

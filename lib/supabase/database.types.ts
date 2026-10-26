@@ -210,6 +210,30 @@ export type ClaimOverviewRow = ClaimRow & {
   photo_count: number;
 };
 
+export type DossierErasureStatus = "pending_approval" | "approved" | "executed" | "cancelled";
+export type DossierErasureScope = "other_data" | "all";
+
+/** Anonymisation d'un dossier dont la durée de conservation est atteinte (G2-c/G2-d). Écriture par fonctions seulement. */
+export type DossierErasureRow = {
+  id: string;
+  dossier_id: string;
+  client_id: string;
+  scope: DossierErasureScope;
+  reason: string;
+  status: DossierErasureStatus;
+  requested_by: string;
+  requested_at: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  executed_by: string | null;
+  executed_at: string | null;
+  client_anonymised: boolean | null;
+  summary: Json | null;
+  cancelled_reason: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+};
+
 export type ContractRow = {
   id: string;
   dossier_id: string;
@@ -1117,6 +1141,12 @@ export type Database = {
         Update: never; // via respond_to_claim
         Relationships: [];
       };
+      dossier_erasures: {
+        Row: DossierErasureRow;
+        Insert: never; // via request_dossier_erasure
+        Update: never; // via approve/cancel/execute_dossier_erasure
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: number;
@@ -1299,6 +1329,12 @@ export type Database = {
       log_report_export: { Args: { p_report: string; p_filters?: Json }; Returns: undefined };
       file_claim: { Args: { p_dossier_id: string; p_reserves: string }; Returns: string };
       respond_to_claim: { Args: { p_claim_id: string; p_status: string; p_response: string }; Returns: undefined };
+      dossier_erasure_scope: { Args: { p_dossier_id: string }; Returns: string | null };
+      request_dossier_erasure: { Args: { p_dossier_id: string; p_reason: string }; Returns: string };
+      approve_dossier_erasure: { Args: { p_id: string }; Returns: undefined };
+      cancel_dossier_erasure: { Args: { p_id: string; p_reason: string }; Returns: undefined };
+      dossier_erasure_file_targets: { Args: { p_id: string }; Returns: string[] };
+      execute_dossier_erasure: { Args: { p_id: string }; Returns: undefined };
       register_claim_photo: {
         Args: {
           p_claim_id: string;

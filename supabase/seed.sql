@@ -345,6 +345,27 @@ from public.dossiers d
 where d.id = 'e0000000-0000-4000-8000-000000000009';
 
 -- ---------------------------------------------------------------------------
+-- Phase 6, G2-c/G2-d — dossier du second client terminé il y a 6 ans : durée « autres données » (5 ans) atteinte,
+-- durée comptable (10 ans) non atteinte. Éligible à l'anonymisation (section « Anonymisation des données » de la
+-- fiche, administrateur). Fictif (DEMO-). La date de clôture, fixée par la base, est antidatée en désactivant son
+-- déclencheur le temps du seed (exécuté en superutilisateur).
+-- ---------------------------------------------------------------------------
+insert into public.dossiers (
+  id, reference, client_id, owner_id, created_by, stage, status, platform, lot_number, vin, make, model, model_year,
+  vehicle_category, purchase_location, departure_port, auction_result, hammer_price_cents, lot_won_notified_at,
+  payment1_due_at, created_at
+) values (
+  'e0000000-0000-4000-8000-000000000010', 'DEMO-2026-0010', 'c0000000-0000-4000-8000-000000000002',
+  'd0000000-0000-4000-8000-000000000002', 'd0000000-0000-4000-8000-000000000002', 'closing', 'completed', 'copart',
+  'DEMO-LOT-1010', '1DEMXXX0000000010', 'Nissan', 'Rogue', 2016, 'passenger', 'Atlanta, GA (démo)', 'Savannah',
+  'won', 720000, now() - interval '7 years', now() - interval '7 years' + interval '1 day',
+  now() - interval '7 years' - interval '5 days'
+);
+alter table public.dossiers disable trigger dossiers_set_closed_at;
+update public.dossiers set closed_at = now() - interval '6 years' where id = 'e0000000-0000-4000-8000-000000000010';
+alter table public.dossiers enable trigger dossiers_set_closed_at;
+
+-- ---------------------------------------------------------------------------
 -- Décisions A4 et A4-bis : la comptabilité et la direction sont soumises à la double authentification. Pour les
 -- essais LOCAUX et les tests, leurs comptes de démonstration ont déjà un facteur TOTP vérifié, de secret connu (à
 -- saisir dans une application d'authentification) : JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP. L'administrateur, lui,

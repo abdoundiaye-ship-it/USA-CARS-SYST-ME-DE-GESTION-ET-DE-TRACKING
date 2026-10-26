@@ -82,7 +82,7 @@ const TOPICS: Topic[] = [
 const ADMIN_TOPIC: Topic = {
   icon: ShieldCheck,
   title: "Administration (administrateur et direction)",
-  body: "Créez les comptes et attribuez les rôles depuis « Utilisateurs ». Le « Journal d’audit » trace les actions sensibles. La « Revue des accès » (dans Rapports) liste les comptes, leur double authentification et leur dernière connexion. Les comptes de paiement officiels se modifient à deux validations.",
+  body: "Créez les comptes et attribuez les rôles depuis « Utilisateurs ». Le « Journal d’audit » trace les actions sensibles. La « Revue des accès » (dans Rapports) liste les comptes, leur double authentification et leur dernière connexion. Les comptes de paiement officiels se modifient à deux validations. Quand la durée de conservation d’un dossier est atteinte (rapport « Conservation des données »), l’administrateur demande son anonymisation depuis la fiche du dossier ; une autre personne l’approuve avant l’exécution, qui est irréversible.",
 };
 
 /** Guide d'utilisation par écran (US-6.2) : court, adapté au rôle. */
