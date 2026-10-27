@@ -10,7 +10,7 @@ export function BrandFooter({ className }: { className?: string }) {
   return (
     <div className={`text-muted flex flex-col items-center gap-1 text-center text-xs ${className ?? ""}`}>
       <span className="inline-flex items-center rounded-sm bg-white px-0.5">
-        <Image src={logo} alt="Global Advisory — Conseil & Commerce International" unoptimized className="h-4 w-auto" />
+        <Image src={logo} alt="Global Advisory — Conseil & Commerce International" unoptimized className="h-3 w-auto" />
       </span>
       <p>© {year} Global Advisory — Conseil &amp; Commerce International (C&amp;CI). Tous droits réservés.</p>
     </div>
