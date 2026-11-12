@@ -33,6 +33,7 @@ test.describe("administrateur", () => {
     const agent = await browser.newContext();
     const agentPage = await agent.newPage();
     await agentPage.goto(inviteLink);
+    await agentPage.getByRole("button", { name: "Continuer et choisir mon mot de passe" }).click();
     await agentPage.getByLabel("Nouveau mot de passe").fill("AncienMotDePasse2026");
     await agentPage.getByLabel("Confirmez le mot de passe").fill("AncienMotDePasse2026");
     await agentPage.getByRole("button", { name: "Enregistrer le mot de passe" }).click();
@@ -63,8 +64,11 @@ test.describe("administrateur", () => {
     await signIn(otherPage, email, "AncienMotDePasse2026", { expectRedirect: false });
     await expect(otherPage.getByText("E-mail ou mot de passe incorrect.")).toBeVisible();
 
-    // Le lien permet de choisir le nouveau mot de passe, qui fonctionne ensuite.
+    // Le lien, transmis par WhatsApp, a déjà été ouvert par l'aperçu automatique : il reste utilisable.
+    expect((await other.request.get(resetLink)).ok()).toBe(true);
+    // Il permet de choisir le nouveau mot de passe, qui fonctionne ensuite.
     await otherPage.goto(resetLink);
+    await otherPage.getByRole("button", { name: "Continuer et choisir mon mot de passe" }).click();
     await expect(otherPage).toHaveURL(/\/compte\/mot-de-passe/);
     await otherPage.getByLabel("Nouveau mot de passe").fill("NouveauMotDePasse2026");
     await otherPage.getByLabel("Confirmez le mot de passe").fill("NouveauMotDePasse2026");

@@ -87,7 +87,10 @@ test.describe("administrateur", () => {
     // La personne invitée ouvre le lien (autre navigateur) et choisit son mot de passe, sans aucun e-mail.
     const invitee = await browser.newContext();
     const inviteePage = await invitee.newPage();
+    // Aperçu automatique du lien (WhatsApp, messagerie) : une simple ouverture ne consomme pas le lien.
+    expect((await invitee.request.get(link)).ok()).toBe(true);
     await inviteePage.goto(link);
+    await inviteePage.getByRole("button", { name: "Continuer et choisir mon mot de passe" }).click();
     await expect(inviteePage).toHaveURL(/\/compte\/mot-de-passe/);
     await inviteePage.getByLabel("Nouveau mot de passe").fill("AgentParcours2026");
     await inviteePage.getByLabel("Confirmez le mot de passe").fill("AgentParcours2026");
@@ -99,7 +102,9 @@ test.describe("administrateur", () => {
     const replay = await browser.newContext();
     const replayPage = await replay.newPage();
     await replayPage.goto(link);
+    await replayPage.getByRole("button", { name: "Continuer et choisir mon mot de passe" }).click();
     await expect(replayPage).toHaveURL(/\/connexion\?erreur=lien/);
+    await expect(replayPage.getByText("Ce lien n’est plus valide.")).toBeVisible();
     await replay.close();
 
     // Changement de rôle journalisé (avant / après)
