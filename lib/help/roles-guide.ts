@@ -9,7 +9,7 @@ import type { DossierStage } from "@/lib/supabase/database.types";
  */
 
 /** Date de la dernière mise à jour du contenu rédigé (affichée et imprimée). */
-export const GUIDE_UPDATED_AT = "2026-10-26";
+export const GUIDE_UPDATED_AT = "2026-11-12";
 
 export const GUIDE_ROLES = ["admin", "management", "accounting", "ops", "client"] as const satisfies readonly AppRole[];
 
@@ -339,7 +339,7 @@ export const MODULES: GuideModule[] = [
     name: "Utilisateurs et rôles",
     rights: { consult: grant("users"), create: grant("usersWrite"), update: grant("usersWrite") },
     notes: [
-      "Modifier = changer le rôle, désactiver ou réactiver un compte, renvoyer une invitation.",
+      "Modifier = changer le rôle, désactiver ou réactiver un compte, renvoyer une invitation, réinitialiser le mot de passe ou la double authentification d’un utilisateur interne actif.",
       "Un compte ne se supprime pas : il se désactive. Il reste toujours au moins un administrateur actif (garanti par la base).",
     ],
   },
@@ -403,7 +403,7 @@ export const PROFILES: RoleProfile[] = [
     mission:
       "Responsable du système : comptes et rôles, paramètres contractuels, contrôles et validations sensibles. Accès complet aux opérations et aux finances.",
     responsibilities: [
-      "Créer les comptes de l’équipe, attribuer et changer les rôles, désactiver les comptes.",
+      "Créer les comptes de l’équipe, attribuer et changer les rôles, désactiver les comptes, réinitialiser un mot de passe ou une double authentification.",
       "Tenir à jour et valider les paramètres contractuels, les transporteurs et les jours fériés.",
       "Créer les comptes officiels de paiement (activés par une autre personne).",
       "Valider les exceptions : dérogation à la limite d’âge du véhicule, remboursements du trop-perçu.",
@@ -619,6 +619,7 @@ export const GOOD_PRACTICES: string[] = [
   "Avoir au moins deux administrateurs : indispensable pour les doubles validations (anonymisation) et pour ne jamais perdre l’accès.",
   "Un compte par personne, jamais partagé ; la double authentification est configurée à la première connexion pour les rôles qui l’exigent.",
   "Désactiver sans attendre le compte d’une personne qui quitte l’entreprise ou change de fonction (un compte se désactive, il ne se supprime pas).",
+  "Mot de passe oublié ou compromis : « Réinitialiser le mot de passe » bloque aussitôt l’ancien et ferme les sessions ; la personne choisit le nouveau depuis le lien reçu (l’administrateur ne le connaît jamais). Téléphone perdu ou changé : « Réinitialiser la double authentification ».",
   "Changer le rôle d’un compte plutôt que créer un second compte ; chaque changement est journalisé (avant / après).",
   "Faire régulièrement la revue des accès (Rapports → Revue des accès) : rôles, double authentification, dernière connexion.",
   "Ne jamais communiquer de coordonnées de paiement par message : les comptes officiels se gèrent dans l’application, à deux validations.",

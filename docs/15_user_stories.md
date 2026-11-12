@@ -141,3 +141,10 @@ Critères d’acceptation :
 - Matrice des droits par module, rapports par rôle, validations croisées, processus métier étape par étape, bonnes pratiques.
 - Réservée à l’administrateur et à la direction (accès refusé testé pour les autres rôles) ; accessible depuis l’Aide et l’écran Utilisateurs ; imprimable ; utilisable à 400 px.
 - Les droits affichés proviennent des droits appliqués par l’application ; un droit non documenté fait échouer les tests.
+
+**US-6.7 Réinitialisation des accès par l’administrateur** (décision P6-6) — En tant qu’administrateur, je réinitialise le mot de passe ou la double authentification d’un utilisateur interne actif, pour rétablir son accès (oubli, compte compromis, téléphone perdu) sans jamais connaître son mot de passe.
+Critères d’acceptation :
+- Mot de passe : après confirmation (case obligatoire), l’ancien mot de passe ne fonctionne plus et les sessions ouvertes sont fermées ; un lien à usage unique (e-mail ou lien à copier) permet à la personne de choisir le nouveau.
+- Double authentification : option séparée, visible seulement si elle est configurée ; effacée et sessions fermées, reconfigurée à la prochaine connexion ; mot de passe inchangé.
+- Réservé à l’administrateur avec double authentification validée, contrôlé en base ; impossible sur son propre compte, un compte désactivé ou un client (accès refusé testé pour l’agent, la direction et l’administrateur sans 2FA).
+- Chaque réinitialisation est journalisée (auteur, compte visé, sessions fermées).
