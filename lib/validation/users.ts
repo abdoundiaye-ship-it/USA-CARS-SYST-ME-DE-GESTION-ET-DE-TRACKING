@@ -30,3 +30,19 @@ export const setActiveSchema = z.object({
 export const resendInviteSchema = z.object({ userId: userIdSchema });
 
 export const accessLinkSchema = z.object({ userId: userIdSchema });
+
+/** Case « je confirme » obligatoire : l’action ferme les sessions du compte et ne s’annule pas. */
+const confirmationSchema = z.literal("on", "Cochez la case pour confirmer la réinitialisation.");
+
+/** Réinitialisation du mot de passe par l’administrateur : ancien mot de passe bloqué, lien envoyé ou à copier. */
+export const resetPasswordSchema = z.object({
+  userId: userIdSchema,
+  delivery: z.enum(["lien", "email"], "Choisissez le mode d’envoi du lien."),
+  confirmation: confirmationSchema,
+});
+
+/** Réinitialisation de la double authentification (téléphone perdu ou changé). */
+export const resetMfaSchema = z.object({
+  userId: userIdSchema,
+  confirmation: confirmationSchema,
+});

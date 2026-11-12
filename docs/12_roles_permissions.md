@@ -48,6 +48,8 @@ Rapports (droits vérifiés par la base) : dossiers actifs et délais achat → 
 
 Suppressions : aucune dans l’historique (on annule, on désactive, on crée une nouvelle version). Exceptions : une ligne de coût interne ou un jour férié saisis par erreur, et l’anonymisation d’un dossier à l’échéance de conservation (G2-c/G2-d).
 
+Réinitialisation des accès (décision P6-6) : seul l’administrateur, avec double authentification validée, réinitialise le mot de passe ou la double authentification d’un utilisateur interne actif (jamais son propre compte ni un client) ; contrôle en base par `admin_revoke_user_sessions`, qui ferme les sessions et journalise.
+
 Validations à deux personnes : comptes officiels (créateur ≠ approbateur, admin ou direction) ; anonymisation (demandeur ≠ approbateur, deux administrateurs).
 
 Tests obligatoires (phase 1 puis à chaque nouvelle table) :
