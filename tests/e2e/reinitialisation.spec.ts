@@ -66,8 +66,9 @@ test.describe("administrateur", () => {
 
     // Le lien, transmis par WhatsApp, a déjà été ouvert par l'aperçu automatique : il reste utilisable.
     expect((await other.request.get(resetLink)).ok()).toBe(true);
-    // Il permet de choisir le nouveau mot de passe, qui fonctionne ensuite.
-    await otherPage.goto(resetLink);
+    // Il permet de choisir le nouveau mot de passe, qui fonctionne ensuite. Un paramètre `next` erroné (modèle
+    // d'e-mail du tableau de bord Supabase, ex. « /compte » → 404 constaté en production) est ignoré.
+    await otherPage.goto(resetLink.replace(/next=[^&]*/, "next=%2Fcompte"));
     await otherPage.getByRole("button", { name: "Continuer et choisir mon mot de passe" }).click();
     await expect(otherPage).toHaveURL(/\/compte\/mot-de-passe/);
     await otherPage.getByLabel("Nouveau mot de passe").fill("NouveauMotDePasse2026");
