@@ -8,6 +8,8 @@ export const ACTION_LABELS: Record<string, string> = {
   resend_invite: "Invitation renvoyée",
   access_link: "Lien d’accès généré",
   mfa_enroll: "Double authentification activée",
+  password_reset: "Mot de passe réinitialisé par l’administrateur",
+  mfa_reset: "Double authentification réinitialisée par l’administrateur",
   bootstrap_admin: "Création du compte administrateur initial",
 };
 
@@ -28,6 +30,7 @@ export const FIELD_LABELS: Record<string, string> = {
   source: "Source",
   reason: "Motif",
   effective_from: "Date d’effet",
+  sessions_closed: "Sessions fermées",
 };
 
 /** Champs techniques non affichés dans le détail. */

@@ -7,7 +7,15 @@ import { isInternalRole, ROLE_LABELS, SCREEN_ROLES } from "@/lib/auth/roles";
 import { formatDateTime } from "@/lib/format";
 import { listAuthUsersSummary, type AuthUserSummary } from "@/lib/server/users";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AccessLinkForm, ActiveToggle, InviteUserForm, ResendInviteForm, RoleForm } from "./user-forms";
+import {
+  AccessLinkForm,
+  ActiveToggle,
+  InviteUserForm,
+  ResendInviteForm,
+  ResetMfaForm,
+  ResetPasswordForm,
+  RoleForm,
+} from "./user-forms";
 
 export const metadata: Metadata = { title: "Utilisateurs" };
 
@@ -105,6 +113,12 @@ export default async function UtilisateursPage() {
                           />
                           {p.active && <AccessLinkForm userId={p.id} />}
                           {neverSignedIn && p.active && <ResendInviteForm userId={p.id} />}
+                          {p.active && isInternalRole(p.role) && (
+                            <>
+                              <ResetPasswordForm userId={p.id} name={p.full_name} />
+                              <ResetMfaForm userId={p.id} name={p.full_name} hasMfa={auth?.hasMfa ?? false} />
+                            </>
+                          )}
                         </div>
                       )}
                     </Td>

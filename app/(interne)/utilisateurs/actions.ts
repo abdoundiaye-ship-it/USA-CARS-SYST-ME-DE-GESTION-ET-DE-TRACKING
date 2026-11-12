@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { getInternalAccess } from "@/lib/auth/access";
 import { SCREEN_ROLES } from "@/lib/auth/roles";
@@ -12,6 +13,8 @@ import {
   changeRoleSchema,
   inviteUserSchema,
   resendInviteSchema,
+  resetMfaSchema,
+  resetPasswordSchema,
   setActiveSchema,
 } from "@/lib/validation/users";
 
@@ -198,4 +201,97 @@ export async function resendInvite(_previous: FormState, formData: FormData): Pr
     p_object_id: parsed.data.userId,
   });
   return success(`Invitation renvoyée à ${profile.email}.`);
+}
+
+/**
+ * Contrôle d’accès en base, fermeture de toutes les sessions du compte et ligne d’audit (fonction
+ * admin_revoke_user_sessions). Renvoie un message d’échec, ou null si tout s’est bien passé.
+ */
+async function revokeSessions(userId: string, action: "password_reset" | "mfa_reset"): Promise<string | null> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("admin_revoke_user_sessions", { p_user_id: userId, p_action: action });
+  if (!error) return null;
+  if (error.code === "42501") return ADMIN_ONLY;
+  if (error.code === "22023") return error.message;
+  return "La réinitialisation n’a pas pu être effectuée. Réessayez.";
+}
+
+/**
+ * Réinitialisation du mot de passe par l’administrateur (décision du 12/11/2026) : sessions fermées, ancien mot de
+ * passe remplacé par une valeur aléatoire que personne ne connaît, puis lien pour choisir le nouveau (e-mail ou copie).
+ */
+export async function resetUserPassword(_previous: FormState, formData: FormData): Promise<FormState> {
+  const access = await getInternalAccess(SCREEN_ROLES.usersWrite);
+  if (!access) return failure(ADMIN_ONLY);
+
+  const parsed = resetPasswordSchema.safeParse(formObject(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const { userId, delivery } = parsed.data;
+  if (userId === access.userId) return failure("Utilisez « Mot de passe oublié » pour votre propre compte.");
+
+  const supabase = await createSupabaseServerClient();
+  const { data: profile } = await supabase.from("profiles").select("email").eq("id", userId).maybeSingle();
+  if (!profile) return failure("Utilisateur introuvable.");
+
+  const revokeError = await revokeSessions(userId, "password_reset");
+  if (revokeError) return failure(revokeError);
+
+  // Chiffres et majuscule ajoutés : la valeur aléatoire respecte les exigences de mot de passe de Supabase Auth.
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(userId, {
+    password: `${randomBytes(32).toString("base64url")}Aa1`,
+  });
+  if (error) {
+    return failure("Les sessions ont été fermées, mais l’ancien mot de passe n’a pas pu être bloqué. Réessayez.");
+  }
+  revalidatePath("/utilisateurs");
+
+  if (delivery === "email") {
+    const { error: mailError } = await supabase.auth.resetPasswordForEmail(profile.email, {
+      redirectTo: invitationRedirect(),
+    });
+    if (mailError) {
+      return failure(
+        "Ancien mot de passe bloqué, mais l’e-mail n’a pas pu être envoyé : utilisez « Lien à copier » pour réessayer.",
+      );
+    }
+    return success(
+      `Mot de passe réinitialisé. Un e-mail a été envoyé à ${profile.email} pour choisir le nouveau mot de passe.`,
+    );
+  }
+
+  const link = await createAccessLink(profile.email);
+  if (!link) return failure("Ancien mot de passe bloqué, mais le lien n’a pas pu être généré. Réessayez.");
+  return success(`Mot de passe réinitialisé : l’ancien ne fonctionne plus. ${LINK_NOTICE}`, { lien: link });
+}
+
+/** Réinitialisation de la double authentification (téléphone perdu ou changé) : à reconfigurer à la connexion. */
+export async function resetUserMfa(_previous: FormState, formData: FormData): Promise<FormState> {
+  const access = await getInternalAccess(SCREEN_ROLES.usersWrite);
+  if (!access) return failure(ADMIN_ONLY);
+
+  const parsed = resetMfaSchema.safeParse(formObject(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const { userId } = parsed.data;
+  if (userId === access.userId)
+    return failure("Vous ne pouvez pas réinitialiser votre propre double authentification.");
+
+  const revokeError = await revokeSessions(userId, "mfa_reset");
+  if (revokeError) return failure(revokeError);
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.auth.admin.mfa.listFactors({ userId });
+  if (error)
+    return failure("Les sessions ont été fermées, mais la double authentification n’a pas pu être lue. Réessayez.");
+  for (const factor of data.factors) {
+    const { error: deleteError } = await admin.auth.admin.mfa.deleteFactor({ id: factor.id, userId });
+    if (deleteError) {
+      return failure(
+        "Les sessions ont été fermées, mais la double authentification n’a pas pu être effacée. Réessayez.",
+      );
+    }
+  }
+
+  revalidatePath("/utilisateurs");
+  return success("Double authentification réinitialisée : elle sera reconfigurée à la prochaine connexion.");
 }
